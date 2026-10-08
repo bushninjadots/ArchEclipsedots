@@ -49,6 +49,8 @@ hl.bind(mainMod .. " + Return", hl.dsp.exec_cmd(terminal))
 hl.bind(mainMod .. " + CTRL + Return", hl.dsp.exec_cmd("[float] " .. terminal))
 --- open btop in workspace 5
 hl.bind(mainMod .. " + P", hl.dsp.exec_cmd("[workspace 5] " .. terminal .. " btop"))
+--- open file manager
+hl.bind(mainMod .. " + E", hl.dsp.exec_cmd("nautilus"))
 
 -- Status Bar and Panels
 --- restart status bar
@@ -63,8 +65,8 @@ hl.bind(mainMod .. " + m", hl.dsp.exec_cmd(qsIpc .. "togglePanel media-panel " .
 hl.bind(mainMod .. " + r", hl.dsp.exec_cmd(qsIpc .. "toggleRightPanel " .. monitor))
 --- toggle left panel (SUPER+L)
 hl.bind(mainMod .. " + l", hl.dsp.exec_cmd(qsIpc .. "toggleLeftPanel " .. monitor))
---- toggle wallpaper picker (qs-wallpaperpicker)
-hl.bind(mainMod .. " + w", hl.dsp.exec_cmd(home .. "/.config/qs-wallpaperpicker/bin/qs-wallpaperpicker toggle"))
+--- toggle wallpaper picker (the style chosen in Settings -> Wallpaper Picker)
+hl.bind(mainMod .. " + w", hl.dsp.exec_cmd(home .. "/.config/wallpaper-styles/bin/wallpaper-picker toggle"))
 --- toggle user panel
 hl.bind(mainMod .. " + Escape", hl.dsp.exec_cmd(qsIpc .. "togglePanel user-panel " .. monitor))
 --- open clipboard manager

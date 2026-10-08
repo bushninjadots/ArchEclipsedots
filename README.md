@@ -69,7 +69,7 @@ archeclipse   # update anytime (zsh fn → runs maintenance/update.py)
 ## Essentials
 
 - **Avatar:** `$HOME/.face.icon`
-- **Wallpapers:** `SUPER + W` → [qs-wallpaperpicker](https://github.com/dhrruvsharma/qs-wallpaperpicker). Add yours to `$HOME/Pictures/wallpapers`
+- **Wallpapers:** `SUPER + W` → your chosen picker style: the [qs-wallpaperpicker](https://github.com/dhrruvsharma/qs-wallpaperpicker) card deck, or Slices / Wall / Hex / Mosaic / Hand / Sandy / Grid (Settings → Wallpaper Picker). Add yours to `$HOME/Pictures/wallpapers`
 - **Hyprland tweaks:** `$HOME/.config/hypr/config/custom`
 - **Laptop:** install `upower` for battery
 - **Keys:** [bind.lua](https://github.com/bushninjadots/ArchEclipsedots/blob/master/.config/hypr/config/bind.lua) or Left Panel in-app

@@ -30,6 +30,8 @@
 !.config/qs-wallpaperpicker/
 # Desktop widgets (vendored from Ryoku) and their editor
 !.config/ryoku-widgets/
+# Wallpaper picker styles (Slices, Hex, Hand, ...) and the picker dispatcher
+!.config/wallpaper-styles/
 !.config/matugen/
 
 # include icons (cursort theme)

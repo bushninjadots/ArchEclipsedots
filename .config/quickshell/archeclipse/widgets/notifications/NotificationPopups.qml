@@ -309,7 +309,7 @@ Item {
                                     id: iconImg
                                     visible: !parent.showPreview && status === Image.Ready && card.toast && (card.toast.iconFile !== "" || card.toast.iconName !== "")
                                     anchors.fill: parent
-                                    source: card.toast ? (card.toast.iconFile !== "" ? card.toast.iconFile : card.toast.iconName) : ""
+                                    source: card.toast ? (card.toast.iconFile !== "" ? (card.toast.iconFile.startsWith("/") ? "file://" + card.toast.iconFile : card.toast.iconFile) : card.toast.iconName) : ""
                                 }
                                 Text {
                                     visible: !iconImg.visible && !parent.showPreview

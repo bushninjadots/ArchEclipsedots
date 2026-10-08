@@ -10,6 +10,7 @@ ControlPanelButton 1.0 ControlPanelButton.qml
 DefaultBar 1.0 DefaultBar.qml
 HotZone 1.0 HotZone.qml
 KeyboardLayoutWidget 1.0 KeyboardLayoutWidget.qml
+MprisWidget 1.0 MprisWidget.qml
 NetworkWidget 1.0 NetworkWidget.qml
 ResourceMonitor 1.0 ResourceMonitor.qml
 Tray 1.0 Tray.qml

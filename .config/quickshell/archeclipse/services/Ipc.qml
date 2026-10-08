@@ -51,10 +51,10 @@ Item {
             return "overview open";
         }
 
-        // The wallpaper picker is qs-wallpaperpicker (its own Quickshell
-        // config, ~/.config/qs-wallpaperpicker); this just toggles it.
+        // Opens the wallpaper picker style chosen in Settings -> Wallpaper
+        // Picker (wallpaper-styles/bin/wallpaper-picker dispatches).
         function toggleWallpaper(): string {
-            Quickshell.execDetached([Quickshell.env("HOME") + "/.config/qs-wallpaperpicker/bin/qs-wallpaperpicker", "toggle"]);
+            Quickshell.execDetached([Quickshell.env("HOME") + "/.config/wallpaper-styles/bin/wallpaper-picker", "toggle"]);
             return "wallpaper picker toggled";
         }
 

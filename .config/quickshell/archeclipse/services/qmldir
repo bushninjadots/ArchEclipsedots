@@ -15,3 +15,4 @@ singleton ScreenRecorder 1.0 ScreenRecorder.qml
 singleton GlobalTheme 1.0 GlobalTheme.qml
 singleton Lyrics 1.0 Lyrics.qml
 singleton PpdState 1.0 PpdState.qml
+singleton AudioBars 1.0 AudioBars.qml

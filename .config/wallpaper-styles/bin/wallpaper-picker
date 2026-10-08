@@ -1,0 +1,44 @@
+#!/usr/bin/env bash
+# wallpaper-picker: opens the wallpaper picker style chosen in ArchEclipse
+# (left sidebar -> Settings -> Wallpaper Picker). SUPER+W runs `toggle`.
+#
+#   wallpaper-picker toggle          open/close the chosen picker
+#   wallpaper-picker get             print the chosen style
+#   wallpaper-picker set STYLE       choose: deck | slices | wall | hex | mosaic | hand | sandy | grid
+#
+# "deck" is qs-wallpaperpicker's swatch-card deck; the others are the
+# wallpaper-styles layouts. Every style applies wallpapers through
+# qs-wallpaperpicker, so drawing, transitions and matugen stay the same.
+set -euo pipefail
+cfg="${XDG_CONFIG_HOME:-$HOME/.config}"
+dir="$cfg/wallpaper-styles"
+choice="$dir/picker-style"
+deck="$cfg/qs-wallpaperpicker/bin/qs-wallpaperpicker"
+styles="$dir/bin/wallpaper-styles"
+valid="deck slices wall hex mosaic hand sandy grid"
+
+get() { local s; s=$(cat "$choice" 2>/dev/null || true); [[ " $valid " == *" $s "* ]] && echo "$s" || echo deck; }
+
+case ${1-toggle} in
+    get) get ;;
+    set)
+        s=${2-}
+        [[ " $valid " == *" $s "* ]] || { echo "wallpaper-picker: unknown style '$s' ($valid)" >&2; exit 1; }
+        printf '%s\n' "$s" > "$choice"
+        if [[ $s != deck ]]; then
+            # The picker watches config.json, so an open one switches live.
+            python3 -I - "$dir/config.json" "$s" <<'PY'
+import json, sys
+p, s = sys.argv[1], sys.argv[2]
+try: d = json.load(open(p))
+except (OSError, ValueError): d = {}
+ws = d.setdefault("components", {}).setdefault("wallpaperSelector", {})
+ws["enabled"] = True
+ws["displayMode"] = s
+json.dump(d, open(p, "w"), indent=2); open(p, "a").write("\n")
+PY
+        fi ;;
+    toggle)
+        if [[ $(get) == deck ]]; then exec "$deck" toggle; else exec "$styles" toggle; fi ;;
+    *) sed -n '2,11p' "$0" | sed 's/^# \{0,1\}//' >&2; exit 1 ;;
+esac

@@ -65,6 +65,8 @@ tracked base files for local-only needs).
   fans the scheme out to the picker, the ArchEclipse shell
   (`~/.cache/quickshell/colors.json`) and kitty. `theme/scripts/system-theme.sh
   switch` re-runs matugen in the new light/dark mode via `matugen-theme.sh`.
+- SUPER+W runs `~/.config/wallpaper-styles/bin/wallpaper-picker toggle` (the
+  picker style chosen in the shell's Settings tab).
 - Desktop widgets: `~/.config/ryoku-widgets` (own Quickshell instance, started
   from `config/exec.lua`; the editor window floats via `windowrule.lua`).
 - Wallpaper downloads (`maintenance/components/wallpapers.py`) manage ONLY the

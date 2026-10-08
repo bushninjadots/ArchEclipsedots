@@ -17,7 +17,12 @@ Singleton {
     property bool barFullWidth: false
     property real revealInPressure: 250
     property real revealOutPressure: 1000
+    property bool mprisVisualizer: false
     property bool barOrientation: true        // true = top
+
+    // Navbar MPRIS widget style (persisted): false = compact player
+    // (transport + marquee + EQ), true = visualizer-only (vinyl + cava
+    // waveform). Toggled by right-clicking the player pill.
 
     property string dateFormat: "%H:%M"
     readonly property var dateFormats: ["%H:%M", "%I:%M %p"]
@@ -316,6 +321,7 @@ Singleton {
             "bar.revealInPressure": "revealInPressure",
             "bar.revealOutPressure": "revealOutPressure",
             "bar.orientation": "barOrientation",
+            "mpris.visualizer": "mprisVisualizer",
             "bar.blur": "barBlur",
             "bar.blurSize": "barBlurSize",
             "bar.blurPasses": "barBlurPasses",
@@ -419,6 +425,11 @@ Singleton {
                     },
                     blurPasses: {
                         value: root.barBlurPasses
+                    }
+                },
+                mpris: {
+                    visualizer: {
+                        value: root.mprisVisualizer
                     }
                 },
                 dateFormat: root.dateFormat,
@@ -608,6 +619,7 @@ Singleton {
                 root.revealInPressure = s.bar?.revealInPressure?.value ?? s.bar?.revealPressure?.value ?? 250;
                 root.revealOutPressure = s.bar?.revealOutPressure?.value ?? s.bar?.revealPressure?.value ?? 1000;
                 root.barOrientation = s.bar?.orientation?.value ?? true;
+                root.mprisVisualizer = s.mpris?.visualizer?.value ?? false;
 
                 root.dateFormat = s.dateFormat ?? "%H:%M";
                 root.cryptoFavorite = s.crypto?.favorite ?? {

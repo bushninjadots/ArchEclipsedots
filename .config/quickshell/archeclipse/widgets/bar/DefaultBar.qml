@@ -2,7 +2,6 @@ import QtQuick
 import QtQuick.Controls
 import QtQuick.Layouts
 import Quickshell
-import Quickshell.Widgets
 import Quickshell.Services.Mpris
 import qs.theme
 import qs.services
@@ -20,7 +19,8 @@ Column {
     id: root
     spacing: 4
 
-    // ---- media player state (ex-Information firstPlayable logic) ----
+    // media player state (ex-Information firstPlayable logic) — visibility
+    // gate only now: title/EQ/transport live in MprisWidget.qml
     readonly property var firstPlayable: {
         Mpris.players.values;   // reactive dep
         for (const p of Mpris.players.values) {
@@ -31,74 +31,6 @@ Column {
                 return p;
         }
         return null;
-    }
-    readonly property bool isPlaying: {
-        const p = root.firstPlayable;
-        if (!p)
-            return false;
-        if (p.isPlaying !== undefined)
-            return p.isPlaying;
-        return p.playbackState === MprisPlaybackState.Playing;
-    }
-    readonly property string playerTitleText: {
-        const p = root.firstPlayable;
-        if (!p)
-            return "";
-        return p.trackTitle ?? "";
-    }
-
-    // Resolve the player's app icon via its MPRIS DesktopEntry, with identity
-    // fallbacks, then through Quickshell.iconPath() into an image:// URL —
-    // IconImage.source is a plain Image URL alias, so bare theme names
-    // never load. Missing icons yield "" and the pill falls back to its
-    // music-note glyph.
-    readonly property string playerIconSource: {
-        const p = root.firstPlayable;
-        if (!p)
-            return "";
-        const de = String(p.desktopEntry ?? "").trim();
-        const id = String(p.identity ?? "").trim();
-        let raw = "";
-        try {
-            let entry = null;
-            if (de !== "")
-                entry = DesktopEntries.byId(de) ?? DesktopEntries.heuristicLookup(de);
-            if (!entry && id !== "")
-                entry = DesktopEntries.heuristicLookup(id);
-            if (entry && entry.icon)
-                raw = entry.icon;
-        } catch (e) {}
-        // Lowercase identity usually matches (e.g. "Spotify" -> "spotify");
-        // dbus suffix as last resort.
-        if (raw === "" && id !== "")
-            raw = id.toLowerCase();
-        if (raw === "") {
-            const bus = String(p.dbusName ?? "").trim();
-            if (bus !== "") {
-                const tail = bus.split(".").pop();
-                if (tail)
-                    raw = tail.toLowerCase();
-            }
-        }
-        if (raw === "")
-            return "";
-        if (raw.startsWith("image://") || raw.startsWith("file://") || raw.startsWith("qrc:/") || raw.startsWith("/"))
-            return raw;
-        try {
-            return Quickshell.iconPath(raw, true);
-        } catch (e) {
-            return "";
-        }
-    }
-    readonly property string playerTooltip: {
-        const p = root.firstPlayable;
-        if (!p)
-            return "";
-        const id = (p.identity ?? "").trim();
-        const artist = (p.trackArtist ?? "").trim();
-        const title = (p.trackTitle ?? "").trim();
-        const track = artist !== "" ? artist + " — " + title : title;
-        return (id !== "" ? id : "Player") + (track !== "" ? "\n" + track : "");
     }
 
     // Fixed-width dynamic speed: always 4 chars (3-char numeric + 1-char
@@ -254,16 +186,25 @@ Column {
                 anchors.right: parent.right
                 anchors.verticalCenter: parent.verticalCenter
 
-                // media pill (app icon + track title; hover/click pulses the
-                // full player island) — first on the right
+                // media pill (ryoku-style MPRIS widget: transport buttons,
+                // marquee title, animated EQ - ported standalone into
+                // MprisWidget.qml) - first on the right
                 Rectangle {
                     id: playerPill
                     visible: root.firstPlayable !== null
-                    width: visible ? contentRow.width + 16 : 0
+                    width: visible ? mprisWidget.implicitWidth + 16 : 0
                     height: Theme.barContentHeight
                     radius: Theme.radius
-                    color: playerHover.hovered ? Theme.surfaceHover : "transparent"
+                    color: "transparent"
                     anchors.verticalCenter: parent.verticalCenter
+
+                    // Smooth width morph (visualizer toggle, track changes) on
+                    // the shell's shared spatial motion token.
+                    Behavior on width {
+                        Anim {
+                            type: Anim.DefaultSpatial
+                        }
+                    }
 
                     Behavior on color {
                         ColorAnimation {
@@ -271,100 +212,51 @@ Column {
                         }
                     }
 
-                    Row {
-                        id: contentRow
+                    // Visualizer mode is user-toggled (right click on the
+                    // pill, persisted), not hover-driven.
+                    MprisWidget {
+                        id: mprisWidget
                         anchors.centerIn: parent
-                        spacing: 6
-
-                        // app icon (fallback: music-note glyph for the empty state)
-                        Item {
-                            width: 14
-                            height: 14
-                            anchors.verticalCenter: parent.verticalCenter
-
-                            IconImage {
-                                id: playerIcon
-                                anchors.fill: parent
-                                source: root.playerIconSource
-                                visible: status === Image.Ready && root.playerIconSource !== ""
-                                asynchronous: true
-                            }
-                            Text {
-                                visible: !playerIcon.visible
-                                anchors.centerIn: parent
-                                text: "󰎈"
-                                color: Theme.muted
-                                font.family: Theme.fontFamily
-                                font.pixelSize: 12
-                            }
-                        }
-
-                        // play/pause state glyph
-                        Text {
-                            anchors.verticalCenter: parent.verticalCenter
-                            text: root.isPlaying ? "" : ""
-                            color: root.isPlaying ? Theme.accent : Theme.muted
-                            font.family: Theme.fontFamily
-                            font.pixelSize: Theme.fontSize - 2
-                        }
-
-                        Text {
-                            id: playerTitle
-                            anchors.verticalCenter: parent.verticalCenter
-                            text: root.playerTitleText
-                            elide: Text.ElideRight
-                            width: Math.min(implicitWidth, 180)
-                            color: Theme.fg
-                            font.family: Theme.fontFamily
-                            font.pixelSize: Theme.fontSize
-                        }
+                        fullMode: Settings.mprisVisualizer
                     }
 
-                    AppTooltip {
-                        visible: playerHover.hovered && root.playerTooltip !== ""
-                        text: root.playerTooltip
-                        delay: 500
-                    }
-
-                    // Hover dwell (Settings.revealInPressure, 0 = instant) so
-                    // brushing the cursor across the bar doesn't pulse the
-                    // island by accident.
-                    Timer {
-                        id: playerDwellTimer
-                        interval: Settings.revealInPressure
-                        repeat: false
-                        onTriggered: {
-                            if (playerHover.hovered && root.firstPlayable)
-                                BarState.activate("player", 2500);
-                        }
-                    }
-
-                    HoverHandler {
-                        id: playerHover
-                        onHoveredChanged: {
-                            if (playerHover.hovered && root.firstPlayable) {
-                                if (Settings.revealInPressure <= 0)
-                                    BarState.activate("player", 2500);
-                                else
-                                    playerDwellTimer.restart();
-                            } else {
-                                playerDwellTimer.stop();
-                            }
-                        }
-                    }
+                    // No hover behavior by design: hovering changes nothing
+                    // visually and opens nothing. The MprisWidget's inner
+                    // MouseAreas take the transport glyphs' left clicks; this
+                    // wrapper catches left click (open/close the now-playing
+                    // island), right click (toggle visualizer mode),
+                    // middle-click (toggle play/pause) and the wheel (skip).
                     MouseArea {
                         anchors.fill: parent
-                        acceptedButtons: Qt.LeftButton | Qt.MiddleButton
+                        acceptedButtons: Qt.LeftButton | Qt.RightButton | Qt.MiddleButton
                         hoverEnabled: true
                         cursorShape: Qt.PointingHandCursor
                         onClicked: mouse => {
                             if (!root.firstPlayable)
                                 return;
+                            if (mouse.button === Qt.RightButton) {
+                                Settings.mprisVisualizer = !Settings.mprisVisualizer;
+                                Settings.persist();
+                                return;
+                            }
                             if (mouse.button === Qt.MiddleButton) {
                                 root.firstPlayable.togglePlaying();
                                 return;
                             }
-                            BarState.activate("player", 2500);
+                            if (BarState.state === "player")
+                                BarState.deactivate("player");
+                            else
+                                BarState.activate("player");
+                        }
+                        onWheel: wheel => {
+                            const p = root.firstPlayable;
+                            if (!p || wheel.angleDelta.y === 0)
+                                return;
+                            if (wheel.angleDelta.y > 0 && p.canGoNext)
+                                p.next();
+                            else if (wheel.angleDelta.y < 0 && p.canGoPrevious)
+                                p.previous();
+                            wheel.accepted = true;
                         }
                     }
                 }

@@ -177,9 +177,9 @@ Item {
     function toggleParallax() {
         StageCfg.StageBackend.setEffect(menu.stageEffect === "parallax" ? "depth" : "parallax");
     }
-    // The wallpaper picker is qs-wallpaperpicker (SUPER+W).
+    // The wallpaper picker style chosen in ArchEclipse Settings (SUPER+W).
     function changeWallpaper() {
-        Quickshell.execDetached([Quickshell.env("HOME") + "/.config/qs-wallpaperpicker/bin/qs-wallpaperpicker", "toggle"]);
+        Quickshell.execDetached([Quickshell.env("HOME") + "/.config/wallpaper-styles/bin/wallpaper-picker", "toggle"]);
         menu.close();
     }
 

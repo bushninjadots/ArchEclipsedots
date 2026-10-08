@@ -1,0 +1,122 @@
+#!/usr/bin/env python3
+"""Index the wallpaper folder for the wallpaper-styles picker.
+
+For every image and video under the folder: a 640x360 thumbnail and the
+colour bucket the picker filters and sorts by (a port of the original daemon's
+extract_hue_sat: 12 hue buckets + a grey bucket, the dominant bucket's
+coverage, and a "richness" spread). Unchanged files (same mtime/size) are kept
+from the last run. Writes ~/.cache/wallpaper-styles/index.json and prints
+{"progress": n, "total": m} lines while it works.
+
+    wallpaper-index WALLPAPER_DIR
+"""
+import concurrent.futures as cf, hashlib, json, math, os, subprocess, sys
+
+IMAGES = (".jpg", ".jpeg", ".png", ".webp", ".gif", ".bmp", ".avif", ".jxl")
+VIDEOS = (".mp4", ".webm", ".mkv", ".mov", ".m4v")
+CACHE = os.path.join(os.environ.get("XDG_CACHE_HOME") or os.path.expanduser("~/.cache"), "wallpaper-styles")
+THUMBS = os.path.join(CACHE, "thumbs")
+INDEX = os.path.join(CACHE, "index.json")
+
+def bucket_idx(h):
+    if h < 25 or h >= 355: return 0
+    if h >= 320: return 11
+    if h >= 295: return 10
+    return int((h - 25) // 30 + 1)
+
+def hue_sat(rgb):
+    counts = [0] * 13; meaningful = 0
+    for i in range(0, len(rgb) - 2, 3):
+        r, g, b = rgb[i] / 255, rgb[i + 1] / 255, rgb[i + 2] / 255
+        mx, mn = max(r, g, b), min(r, g, b); d = mx - mn; l = (mx + mn) / 2
+        if l < 0.06 or l > 0.94: continue
+        s = d / (1 - abs(2 * l - 1)) if d >= 1e-6 else 0
+        if s < 0.18:
+            counts[12] += 1; meaningful += 1; continue
+        if abs(mx - r) < 1e-6: h = 60 * (((g - b) / d) % 6)
+        elif abs(mx - g) < 1e-6: h = 60 * ((b - r) / d) + 120
+        else: h = 60 * ((r - g) / d) + 240
+        if h < 0: h += 360
+        counts[bucket_idx(int(round(h)) % 360)] += 1; meaningful += 1
+    if meaningful == 0: return 99, 0, 0
+    best = max(range(12), key=lambda i: counts[i]); chroma = sum(counts[:12])
+    rich = 0
+    if chroma:
+        sq = sum((c / chroma) ** 2 for c in counts[:12] if c)
+        if sq > 0: rich = int(min(max(round(100 / sq), 0), 1500))
+    if chroma * 100 < meaningful * 5: return 99, 0, rich
+    cov = min(100, max(10, int(round(counts[best] / meaningful * 100))))
+    rep = 10 if best == 0 else 307 if best == 10 else 337 if best == 11 else 25 + (best - 1) * 30 + 15
+    return (99 if cov < 10 else bucket_idx(rep)), cov, rich
+
+def run(cmd):
+    return subprocess.run(cmd, capture_output=True, timeout=120)
+
+def work(job):
+    name, path, kind, st = job
+    key = hashlib.md5(path.encode()).hexdigest()[:20]
+    thumb = os.path.join(THUMBS, key + ".jpg")
+    src = path + "[0]"
+    if kind == "video":
+        frame = thumb + ".frame.jpg"
+        for at in ("1", "0"):
+            if run(["ffmpeg", "-nostdin", "-loglevel", "error", "-y", "-ss", at, "-i", path,
+                    "-frames:v", "1", frame]).returncode == 0 and os.path.exists(frame): break
+        src = frame
+    r = run(["magick", src, "-auto-orient", "-thumbnail", "640x360^", "-gravity", "center",
+             "-extent", "640x360", "-quality", "85", thumb])
+    if kind == "video" and os.path.exists(src): os.remove(src)
+    if r.returncode != 0 or not os.path.exists(thumb):
+        return name, None
+    # 160x90 is plenty for the dominant colour and 16x cheaper than the thumb.
+    px = run(["magick", thumb, "-resize", "160x90!", "-depth", "8", "RGB:-"]).stdout
+    hue, sat, rich = hue_sat(px)
+    w = h = 0
+    if kind != "video":
+        info = run(["magick", "identify", "-format", "%w %h", path + "[0]"]).stdout.decode().split()
+        if len(info) == 2: w, h = int(info[0]), int(info[1])
+    return name, dict(type=kind, path=path, thumb=thumb, mtime=int(st.st_mtime), size=st.st_size,
+                      hue=hue, sat=sat, richness=rich, w=w, h=h)
+
+def main():
+    folder = os.path.realpath(os.path.expanduser(sys.argv[1] if len(sys.argv) > 1 else "~/Pictures/wallpapers"))
+    os.makedirs(THUMBS, exist_ok=True)
+    try: old = json.load(open(INDEX)).get("items", {})
+    except (OSError, ValueError): old = {}
+    files = []
+    for dp, dns, fns in os.walk(folder):
+        dns[:] = [d for d in dns if not d.startswith(".")]
+        for f in fns:
+            low = f.lower()
+            kind = "static" if low.endswith(IMAGES) else "video" if low.endswith(VIDEOS) else None
+            if kind:
+                p = os.path.join(dp, f)
+                files.append((os.path.relpath(p, folder), p, kind))
+    items, jobs = {}, []
+    for name, p, kind in files:
+        try: st = os.stat(p)
+        except OSError: continue
+        o = old.get(name)
+        if o and o.get("mtime") == int(st.st_mtime) and o.get("size") == st.st_size and os.path.exists(o.get("thumb", "")):
+            items[name] = o
+        else:
+            jobs.append((name, p, kind, st))
+    total = len(jobs); done = 0
+    def save():
+        tmp = INDEX + ".tmp"
+        json.dump({"folder": folder, "items": items}, open(tmp, "w"))
+        os.replace(tmp, INDEX)
+    print(json.dumps({"progress": 0, "total": total}), flush=True)
+    # Two workers at idle priority (set by the caller's nice): enough to finish
+    # a big first scan in minutes without pinning every core.
+    with cf.ThreadPoolExecutor(max_workers=2) as ex:
+        for name, rec in ex.map(work, jobs):
+            done += 1
+            if rec: items[name] = rec
+            if done % 25 == 0 or done == total:
+                save(); print(json.dumps({"progress": done, "total": total}), flush=True)
+    save()
+    print(json.dumps({"progress": total, "total": total, "done": True}), flush=True)
+
+if __name__ == "__main__":
+    main()

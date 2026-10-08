@@ -1,5 +1,6 @@
 pragma ComponentBehavior: Bound
 import QtQuick
+import Quickshell
 import Quickshell.Io
 import qs.colors
 import qs.components
@@ -27,6 +28,33 @@ Rectangle {
     property int wallpaperCount: 0
 
     signal closeRequested
+
+    // ArchEclipse: which picker SUPER+W opens (this card deck, or one of the
+    // wallpaper-styles layouts), shared with Settings -> Wallpaper Picker in
+    // the left sidebar through bin/wallpaper-picker.
+    readonly property string pickerBin: Quickshell.env("HOME") + "/.config/wallpaper-styles/bin/wallpaper-picker"
+    readonly property var pickerStyles: [
+        { key: "deck", label: "Deck" }, { key: "slices", label: "Slices" },
+        { key: "wall", label: "Wall" }, { key: "hex", label: "Hex" },
+        { key: "mosaic", label: "Mosaic" }, { key: "hand", label: "Hand" },
+        { key: "sandy", label: "Sandy" }, { key: "grid", label: "Grid" }
+    ]
+    property string pickerStyle: "deck"
+    Process {
+        running: true
+        command: [card.pickerBin, "get"]
+        stdout: StdioCollector { onStreamFinished: card.pickerStyle = text.trim() || "deck" }
+    }
+    function choosePickerStyle(key) {
+        card.pickerStyle = key;
+        if (key === "deck") {
+            Quickshell.execDetached([card.pickerBin, "set", key]);
+            return;
+        }
+        // Save the style, close this deck and open the chosen layout.
+        Quickshell.execDetached(["sh", "-c", "\"$1\" set \"$2\" && \"$1\" toggle", "sh", card.pickerBin, key]);
+        Quickshell.execDetached([Quickshell.env("HOME") + "/.config/qs-wallpaperpicker/bin/qs-wallpaperpicker", "toggle"]);
+    }
 
     // "", "checking", "missing", "relative", "failed" or "saved"
     property string folderStatus: ""
@@ -266,6 +294,50 @@ Rectangle {
         Item {
             width: 1
             height: 4 * card.u
+        }
+
+        Label {
+            text: "PICKER STYLE"
+        }
+
+        Flow {
+            width: parent.width
+            spacing: 6 * card.u
+
+            Repeater {
+                model: card.pickerStyles
+
+                ClickableRect {
+                    id: styleChip
+                    required property var modelData
+                    readonly property bool chosen: card.pickerStyle === styleChip.modelData.key
+                    width: styleText.implicitWidth + 22 * card.u
+                    height: 28 * card.u
+                    radius: DesktopTheme.rad(14) * card.u
+                    color: styleChip.chosen ? card.accent
+                        : styleChip.hovered ? Colors.withAlpha(card.ink, 0.12) : Colors.withAlpha(card.ink, 0.06)
+                    cursorShape: Qt.PointingHandCursor
+                    onClicked: card.choosePickerStyle(styleChip.modelData.key)
+
+                    StyledText {
+                        id: styleText
+                        anchors.centerIn: parent
+                        text: styleChip.modelData.label
+                        font.pixelSize: 12 * card.u
+                        font.weight: Font.DemiBold
+                        color: styleChip.chosen ? card.accentInk : card.ink
+                    }
+                }
+            }
+        }
+
+        Note {
+            text: "Which picker SUPER+W opens. Every style sets the wallpaper and its colours the same way."
+        }
+
+        Item {
+            width: 1
+            height: 8 * card.u
         }
 
         Label {

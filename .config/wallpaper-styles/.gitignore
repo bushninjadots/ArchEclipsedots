@@ -1,0 +1,7 @@
+__pycache__/
+*.pyc
+# Your picker settings and style choice (created from config.default.json)
+config.json
+engine.json
+matugen.json
+picker-style

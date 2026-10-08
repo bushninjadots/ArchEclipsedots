@@ -23,10 +23,32 @@ Item {
     // each time this tab becomes visible and sections key their opacity
     // off their index.
     property int revealCount: 0
-    property int sectionCount: 9
+    property int sectionCount: 10
 
     // Desktop widgets on/off, read from `ryoku-widgets status` each time the
     // tab opens (the marker file can change outside this panel).
+    // Wallpaper picker style (wallpaper-styles/bin/wallpaper-picker), shared
+    // with the pickers' own settings; re-read each time the tab opens.
+    readonly property string wallpaperPickerBin: Quickshell.env("HOME") + "/.config/wallpaper-styles/bin/wallpaper-picker"
+    readonly property var wallpaperStyles: [
+        { key: "deck",   label: "Deck (cards)" },
+        { key: "slices", label: "Slices" },
+        { key: "wall",   label: "Wall" },
+        { key: "hex",    label: "Hex" },
+        { key: "mosaic", label: "Mosaic" },
+        { key: "hand",   label: "Hand" },
+        { key: "sandy",  label: "Sandy" },
+        { key: "grid",   label: "Grid" }
+    ]
+    property string wallpaperStyle: "deck"
+    Process {
+        id: wallpaperStyleProc
+        running: true
+        command: [root.wallpaperPickerBin, "get"]
+        stdout: StdioCollector {
+            onStreamFinished: root.wallpaperStyle = text.trim() || "deck"
+        }
+    }
     readonly property string desktopWidgetsBin: Quickshell.env("HOME") + "/.config/ryoku-widgets/bin/ryoku-widgets"
     property bool desktopWidgetsOn: true
     Process {
@@ -56,6 +78,7 @@ Item {
         if (visible) {
             root.playReveal();
             desktopWidgetsStatus.running = true;
+            wallpaperStyleProc.running = true;
         }
     }
 
@@ -525,11 +548,70 @@ Item {
                     }
                 }
 
+                // ============ WALLPAPER PICKER ============
+                // Which picker SUPER+W opens: qs-wallpaperpicker's card deck or
+                // one of the wallpaper-styles layouts. Every style applies
+                // wallpapers the same way (drawing + matugen colours).
+                Rectangle {
+                    width: parent.width
+                    implicitHeight: wpSec.implicitHeight + 20
+                    opacity: root.revealCount > 4 ? 1 : 0
+                    Behavior on opacity {
+                        NumberAnimation {
+                            duration: 250
+                            easing.type: Easing.OutCubic
+                        }
+                    }
+                    radius: Theme.radius
+                    color: Theme.surface
+                    border.color: Theme.border
+                    border.width: 1
+
+                    Column {
+                        id: wpSec
+                        anchors.fill: parent
+                        anchors.margins: 10
+                        spacing: 8
+                        Label {
+                            text: "Wallpaper Picker"
+                            font.pixelSize: Theme.fontSize + 2
+                            font.bold: true
+                            color: Theme.accent
+                        }
+                        RowLayout {
+                            width: parent.width
+                            spacing: 8
+                            Label {
+                                font.pixelSize: Theme.fontSize
+                                text: "Style"
+                                color: Theme.fg
+                                Layout.fillWidth: true
+                            }
+                            AppComboBox {
+                                model: root.wallpaperStyles.map(s => s.label)
+                                currentIndex: Math.max(0, root.wallpaperStyles.findIndex(s => s.key === root.wallpaperStyle))
+                                onActivated: index => {
+                                    root.wallpaperStyle = root.wallpaperStyles[index].key;
+                                    Quickshell.execDetached([root.wallpaperPickerBin, "set", root.wallpaperStyle]);
+                                }
+                                Layout.preferredWidth: 160
+                            }
+                        }
+                        AppButton {
+                            width: parent.width
+                            implicitHeight: 30
+                            icon: "\u{f03e}"
+                            text: "Open wallpaper picker"
+                            onClicked: Quickshell.execDetached([root.wallpaperPickerBin, "toggle"])
+                        }
+                    }
+                }
+
                 // ============ INTERFACE ============
                 Rectangle {
                     width: parent.width
                     implicitHeight: ifaceSec.implicitHeight + 20
-                    opacity: root.revealCount > 4 ? 1 : 0
+                    opacity: root.revealCount > 5 ? 1 : 0
                     Behavior on opacity {
                         NumberAnimation {
                             duration: 250
@@ -635,7 +717,7 @@ Item {
                 Rectangle {
                     width: parent.width
                     implicitHeight: animSec.implicitHeight + 20
-                    opacity: root.revealCount > 5 ? 1 : 0
+                    opacity: root.revealCount > 6 ? 1 : 0
                     Behavior on opacity {
                         NumberAnimation {
                             duration: 250
@@ -740,7 +822,7 @@ Item {
                 Rectangle {
                     width: parent.width
                     implicitHeight: fmSec.implicitHeight + 20
-                    opacity: root.revealCount > 6 ? 1 : 0
+                    opacity: root.revealCount > 7 ? 1 : 0
                     Behavior on opacity {
                         NumberAnimation {
                             duration: 250
@@ -813,7 +895,7 @@ Item {
                 Rectangle {
                     width: parent.width
                     implicitHeight: hyprSec.implicitHeight + 20
-                    opacity: root.revealCount > 7 ? 1 : 0
+                    opacity: root.revealCount > 8 ? 1 : 0
                     Behavior on opacity {
                         NumberAnimation {
                             duration: 250
@@ -1357,7 +1439,7 @@ Item {
                 Rectangle {
                     width: parent.width
                     implicitHeight: lockSec.implicitHeight + 20
-                    opacity: root.revealCount > 8 ? 1 : 0
+                    opacity: root.revealCount > 9 ? 1 : 0
                     Behavior on opacity {
                         NumberAnimation {
                             duration: 250

@@ -105,6 +105,7 @@ Move window to special:   SUPER + CTRL + S
 | Floating terminal     | `SUPER` + `CTRL` + `Return` | Floating terminal window      |
 | App launcher          | `SUPER`                     | Application search/launcher   |
 | btop (system monitor) | `SUPER` + `P`               | System monitor in workspace 5 |
+| File manager          | `SUPER` + `E`               | Nautilus file manager         |
 
 ## Media Controls
 

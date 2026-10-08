@@ -1,0 +1,23 @@
+#!/usr/bin/env bash
+# wallpaper-styles: the alternative wallpaper picker styles (Slices, Wall,
+# Hex, Mosaic, Hand, Sandy, Grid layouts) as their own Quickshell instance.
+# Applying a wallpaper goes through qs-wallpaperpicker, which draws it and
+# recolours the desktop with matugen.
+#
+#   wallpaper-styles            start (stays resident, hidden)
+#   wallpaper-styles toggle     open/close the picker (starts it if needed)
+#   wallpaper-styles stop       quit
+#   wallpaper-styles log        the log
+set -euo pipefail
+dir="${XDG_CONFIG_HOME:-$HOME/.config}/wallpaper-styles"
+running() { qs -p "$dir" ipc show >/dev/null 2>&1; }
+
+case ${1-start} in
+    start)  running || setsid -f qs -p "$dir" --no-duplicate >/dev/null 2>&1 </dev/null ;;
+    toggle)
+        if running; then exec qs -p "$dir" ipc call wallpaper-styles toggle; fi
+        WALLPAPER_STYLES_START_VISIBLE=1 setsid -f qs -p "$dir" --no-duplicate >/dev/null 2>&1 </dev/null ;;
+    stop)   exec qs -p "$dir" kill ;;
+    log)    exec qs -p "$dir" log ;;
+    *) sed -n '2,10p' "$0" | sed 's/^# \{0,1\}//' >&2; exit 1 ;;
+esac

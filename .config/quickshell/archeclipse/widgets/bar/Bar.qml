@@ -445,7 +445,7 @@ PanelWindow {
                 }
                 Component {
                     id: playerPage
-                    PlayerIsland {}
+                    MprisIsland {}
                 }
                 Component {
                     id: weatherPage

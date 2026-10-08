@@ -1,0 +1,18 @@
+{
+  "general": {
+    "closeOnSelection": true,
+    "notifyOnWallpaperChange": false
+  },
+  "features": {
+    "matugen": false,
+    "steam": false,
+    "wallhaven": true,
+    "videoPreview": true
+  },
+  "components": {
+    "wallpaperSelector": {
+      "enabled": true,
+      "displayMode": "slices"
+    }
+  }
+}
