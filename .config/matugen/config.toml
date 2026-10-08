@@ -19,10 +19,10 @@ input_path = "~/.config/matugen/templates/kitty-colors.conf"
 output_path = "~/.config/kitty/colors-matugen.conf"
 post_hook = "pkill -USR1 -x kitty || true"
 
-# Ryoku desktop widgets (~/.config/ryoku-widgets): the Material roles in
-# camelCase plus terminal colours, the shape Ryoku's widgets read.
-[templates.ryoku-widgets]
-input_path = "~/.config/matugen/templates/ryoku-colors.json"
-output_path = "~/.cache/ryoku/colors.json"
+# Desktop widgets (~/.config/desktop-widgets): the Material roles in
+# camelCase plus terminal colours, the shape the widgets read.
+[templates.desktop-widgets]
+input_path = "~/.config/matugen/templates/desktop-widgets-colors.json"
+output_path = "~/.cache/desktop-widgets/colors.json"
 # The wallpaper's lightness map: the widgets pick light/dark text from it.
-post_hook = "~/.config/ryoku-widgets/bin/wallpaper-tone"
+post_hook = "~/.config/desktop-widgets/bin/wallpaper-tone"

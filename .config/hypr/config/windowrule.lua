@@ -66,7 +66,7 @@ hl.window_rule({
     workspace = "9 silent",
 })
 
--- Desktop widget editor (ryoku-widgets): float it centred instead of tiling.
+-- Desktop widget editor (desktop-widgets): float it centred instead of tiling.
 hl.window_rule({
     match = { class = "org.quickshell", title = "Desktop Widgets" },
     float = true,

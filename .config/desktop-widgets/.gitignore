@@ -1,0 +1,4 @@
+__pycache__/
+*.pyc
+# Your widget settings (layout, visualizer, notes state) live here, untracked
+settings/

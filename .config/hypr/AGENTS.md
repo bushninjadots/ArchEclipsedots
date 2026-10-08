@@ -67,7 +67,7 @@ tracked base files for local-only needs).
   switch` re-runs matugen in the new light/dark mode via `matugen-theme.sh`.
 - SUPER+W runs `~/.config/wallpaper-styles/bin/wallpaper-picker toggle` (the
   picker style chosen in the shell's Settings tab).
-- Desktop widgets: `~/.config/ryoku-widgets` (own Quickshell instance, started
+- Desktop widgets: `~/.config/desktop-widgets` (own Quickshell instance, started
   from `config/exec.lua`; the editor window floats via `windowrule.lua`).
 - Wallpaper downloads (`maintenance/components/wallpapers.py`) manage ONLY the
   four `~/.config/wallpapers/defaults/<category>` dirs. Unknown top-level files

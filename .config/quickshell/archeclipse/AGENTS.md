@@ -28,9 +28,9 @@ draws them. SUPER+W, `Ipc.toggleWallpaper` and `togglePanel wallpaper-switcher`
 run `~/.config/wallpaper-styles/bin/wallpaper-picker toggle`, which opens the
 style chosen in SettingsWidget's "Wallpaper Picker" section: qs-wallpaperpicker's
 deck or a `~/.config/wallpaper-styles` layout (both apply via qs-wallpaperpicker). Desktop widgets are likewise separate:
-`~/.config/ryoku-widgets` (vendored Ryoku widgets + editor, see its README);
+`~/.config/desktop-widgets` (vendored Ryoku widgets + editor, see its README);
 SettingsWidget's "Desktop Widgets" section only shells out to its
-`bin/ryoku-widgets enable|disable|status|editor`.
+`bin/desktop-widgets enable|disable|status|editor`.
 
 ### 1.2 Bar state machine — `services/BarState.qml` (singleton)
 

@@ -25,7 +25,7 @@ Item {
     property int revealCount: 0
     property int sectionCount: 10
 
-    // Desktop widgets on/off, read from `ryoku-widgets status` each time the
+    // Desktop widgets on/off, read from `desktop-widgets status` each time the
     // tab opens (the marker file can change outside this panel).
     // Wallpaper picker style (wallpaper-styles/bin/wallpaper-picker), shared
     // with the pickers' own settings; re-read each time the tab opens.
@@ -49,7 +49,7 @@ Item {
             onStreamFinished: root.wallpaperStyle = text.trim() || "deck"
         }
     }
-    readonly property string desktopWidgetsBin: Quickshell.env("HOME") + "/.config/ryoku-widgets/bin/ryoku-widgets"
+    readonly property string desktopWidgetsBin: Quickshell.env("HOME") + "/.config/desktop-widgets/bin/desktop-widgets"
     property bool desktopWidgetsOn: true
     Process {
         id: desktopWidgetsStatus
@@ -485,7 +485,7 @@ Item {
                 }
 
                 // ============ DESKTOP WIDGETS ============
-                // Ryoku's desktop widgets (~/.config/ryoku-widgets, their own
+                // The desktop widgets (~/.config/desktop-widgets, their own
                 // Quickshell instance): this switches them on/off and opens
                 // their editor, where each widget is added and styled.
                 Rectangle {

@@ -29,7 +29,7 @@
 # Include the wallpaper picker (qs-wallpaperpicker) and its matugen theming
 !.config/qs-wallpaperpicker/
 # Desktop widgets (vendored from Ryoku) and their editor
-!.config/ryoku-widgets/
+!.config/desktop-widgets/
 # Wallpaper picker styles (Slices, Hex, Hand, ...) and the picker dispatcher
 !.config/wallpaper-styles/
 !.config/matugen/
