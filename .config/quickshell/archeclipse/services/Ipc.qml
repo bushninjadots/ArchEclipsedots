@@ -51,6 +51,17 @@ Item {
             return "overview open";
         }
 
+        // The now-playing island (MprisIsland: player, spectrum, equalizer).
+        // SUPER+M (`togglePanel media-panel`) lands here too.
+        function togglePlayer(): string {
+            if (BarState.state === "player") {
+                BarState.deactivate("player");
+                return "player closed";
+            }
+            BarState.activate("player", 0);
+            return "player open";
+        }
+
         // Opens the wallpaper picker style chosen in Settings -> Wallpaper
         // Picker (wallpaper-styles/bin/wallpaper-picker dispatches).
         function toggleWallpaper(): string {
@@ -298,6 +309,8 @@ Item {
             // qs-wallpaperpicker.
             if (name === "wallpaper-switcher")
                 return toggleWallpaper();
+            if (name === "media-panel" || name === "player")
+                return togglePlayer();
             // Side panels are bar islands now — keep the SUPER+L/R
             // (`togglePanel left-panel <mon>`) bindings working.
             if (name === "left-panel" || name === "leftPanel")

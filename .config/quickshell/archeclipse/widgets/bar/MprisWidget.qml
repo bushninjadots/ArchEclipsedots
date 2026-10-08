@@ -295,7 +295,7 @@ Item {
         // ---- prev ----
         Text {
             anchors.verticalCenter: parent.verticalCenter
-            text: "󰼮"
+            text: "󰒮"
             font.family: Theme.fontFamily
             font.pixelSize: 13
             color: (root.player && root.player.canGoPrevious)
@@ -326,7 +326,7 @@ Item {
         // ---- next ----
         Text {
             anchors.verticalCenter: parent.verticalCenter
-            text: "󰼬"
+            text: "󰒭"
             font.family: Theme.fontFamily
             font.pixelSize: 13
             color: (root.player && root.player.canGoNext)
