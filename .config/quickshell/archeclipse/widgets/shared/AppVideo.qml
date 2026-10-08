@@ -5,7 +5,7 @@ import qs.theme
 
 // AppVideo — shared looping video player (qs.widgets.shared parity with
 // AppImage, including its top-right badge overlay). Used directly by the
-// wallpaper switcher tiles and the waifu widget, around one lifecycle:
+// wallpaper switcher tiles, around one lifecycle:
 //
 // - `active` gates the decoder: the source is bound only while active, so
 //   hidden/off-viewport instances hold no decoder. A hidden player fed an

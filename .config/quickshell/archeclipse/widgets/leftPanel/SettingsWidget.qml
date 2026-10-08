@@ -23,7 +23,7 @@ Item {
     // each time this tab becomes visible and sections key their opacity
     // off their index.
     property int revealCount: 0
-    property int sectionCount: 10
+    property int sectionCount: 9
     Timer {
         id: revealTimer
         interval: 60
@@ -737,103 +737,11 @@ Item {
                     }
                 }
 
-                // ============ USER AGENTS ============
-                Rectangle {
-                    width: parent.width
-                    implicitHeight: uaSec.implicitHeight + 20
-                    opacity: root.revealCount > 5 ? 1 : 0
-                    Behavior on opacity {
-                        NumberAnimation {
-                            duration: 250
-                            easing.type: Easing.OutCubic
-                        }
-                    }
-                    radius: Theme.radius
-                    color: Theme.surface
-                    border.color: Theme.border
-                    border.width: 1
-
-                    Column {
-                        id: uaSec
-                        anchors.fill: parent
-                        anchors.margins: 10
-                        spacing: 8
-                        Label {
-                            text: "User Agents"
-                            font.pixelSize: Theme.fontSize + 2
-                            font.bold: true
-                            color: Theme.accent
-                        }
-                        Column {
-                            width: parent.width
-                            spacing: 4
-                            Repeater {
-                                model: [
-                                    { key: "booru", label: "Booru" },
-                                    { key: "mangaDex", label: "MangaDex" },
-                                    { key: "mangaLib", label: "MangaLib" },
-                                    { key: "waifu", label: "Waifu" },
-                                    { key: "fastfetch", label: "Fastfetch" }
-                                ]
-                                delegate: Rectangle {
-                                    width: parent.width
-                                    height: 34
-                                    color: Theme.bg
-                                    radius: 4
-
-                                    property bool reveal: false
-
-                                    RowLayout {
-                                        anchors.fill: parent
-                                        anchors.margins: 6
-                                        spacing: 6
-                                        Label {
-                                            font.pixelSize: Theme.fontSize
-                                            text: modelData.label
-                                            color: Theme.fg
-                                            Layout.preferredWidth: 90
-                                            elide: Text.ElideRight
-                                        }
-                                        AppTextField {
-                                            id: uaField
-                                            text: Settings.userAgent(modelData.key)
-                                            placeholderText: "User-Agent"
-                                            echoMode: parent.parent.reveal ? TextField.Normal : TextField.Password
-                                            fillColor: "transparent"
-                                            Layout.fillWidth: true
-                                            onAccepted: {
-                                                const u = JSON.parse(JSON.stringify(Settings.userAgents || {}));
-                                                u[modelData.key] = uaField.text;
-                                                Settings.userAgents = u;
-                                                Settings.schedulePersist();
-                                            }
-                                        }
-                                        AppButton {
-                                            text: parent.parent.reveal ? "hide" : "show"
-                                            Layout.preferredWidth: 44
-                                            Layout.preferredHeight: 24
-                                            visible: uaField.text !== ""
-                                            onClicked: parent.parent.reveal = !parent.parent.reveal
-                                        }
-                                        AppButton {
-                                            text: "copy"
-                                            Layout.preferredWidth: 44
-                                            Layout.preferredHeight: 24
-                                            visible: uaField.text !== ""
-                                            onClicked: root.copyText(uaField.text)
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-
                 // ============ API KEYS ============
                 Rectangle {
                     width: parent.width
                     implicitHeight: apiSec.implicitHeight + 20
-                    opacity: root.revealCount > 6 ? 1 : 0
+                    opacity: root.revealCount > 5 ? 1 : 0
                     Behavior on opacity {
                         NumberAnimation {
                             duration: 250
@@ -862,38 +770,6 @@ Item {
                             Repeater {
                                 id: apiKeyRepeater
                                 model: [
-                                    {
-                                        path: "openrouter.user",
-                                        label: "OpenRouter User"
-                                    },
-                                    {
-                                        path: "openrouter.key",
-                                        label: "OpenRouter API Key"
-                                    },
-                                    {
-                                        path: "danbooru.user",
-                                        label: "Danbooru User"
-                                    },
-                                    {
-                                        path: "danbooru.key",
-                                        label: "Danbooru Key"
-                                    },
-                                    {
-                                        path: "gelbooru.user",
-                                        label: "Gelbooru User"
-                                    },
-                                    {
-                                        path: "gelbooru.key",
-                                        label: "Gelbooru Key"
-                                    },
-                                    {
-                                        path: "safebooru.user",
-                                        label: "Safebooru User"
-                                    },
-                                    {
-                                        path: "safebooru.key",
-                                        label: "Safebooru Key"
-                                    },
                                     {
                                         path: "wallhaven.key",
                                         label: "Wallhaven Key (optional, unlocks NSFW)"
@@ -999,7 +875,7 @@ Item {
                 Rectangle {
                     width: parent.width
                     implicitHeight: fmSec.implicitHeight + 20
-                    opacity: root.revealCount > 7 ? 1 : 0
+                    opacity: root.revealCount > 6 ? 1 : 0
                     Behavior on opacity {
                         NumberAnimation {
                             duration: 250
@@ -1072,7 +948,7 @@ Item {
                 Rectangle {
                     width: parent.width
                     implicitHeight: hyprSec.implicitHeight + 20
-                    opacity: root.revealCount > 8 ? 1 : 0
+                    opacity: root.revealCount > 7 ? 1 : 0
                     Behavior on opacity {
                         NumberAnimation {
                             duration: 250
@@ -1616,7 +1492,7 @@ Item {
                 Rectangle {
                     width: parent.width
                     implicitHeight: lockSec.implicitHeight + 20
-                    opacity: root.revealCount > 9 ? 1 : 0
+                    opacity: root.revealCount > 8 ? 1 : 0
                     Behavior on opacity {
                         NumberAnimation {
                             duration: 250

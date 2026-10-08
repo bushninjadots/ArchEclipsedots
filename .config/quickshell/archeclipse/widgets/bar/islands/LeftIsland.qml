@@ -17,9 +17,7 @@ import qs.widgets.leftPanel
 //
 // Open: SUPER+L bind, left HotZone hover, launcher quick-app, IPC.
 // Close: bind toggle, Esc, close button, or 1s after the cursor leaves
-// (Settings.leftPanelLock pins it open). The booru detail popup is a
-// separate surface: while it is hovered/open the island stays alive via
-// the same popupHovered/hostPanel handoff the panel used.
+// (Settings.leftPanelLock pins it open).
 Item {
     id: root
     width: Settings.leftPanelWidth
@@ -33,8 +31,7 @@ Item {
 
     // Island owner passes the bar's monitor; body falls back to focused.
     property string monitorName: ""
-    // Monitor screen object (ShellScreen) passed by the bar owner — handed
-    // to the booru viewer for its full-screen float panel.
+    // Monitor screen object (ShellScreen) passed by the bar owner.
     property var screen: null
 
     // Full monitor height, passed by the bar owner. Side islands stretch
@@ -52,7 +49,7 @@ Item {
     // Tab-name order for the selector-rail index mapping (the rail's
     // own model below carries the verbatim name+icon items; names keep
     // the QS "Widget" suffix for IPC showWidget/widgetState compat).
-    readonly property var tabOrder: ["UserProfile", "BooruViewer", "ChatBot", "MangaViewer", "SettingsWidget", "CustomScripts", "KeyBinds", "Donations"]
+    readonly property var tabOrder: ["UserProfile", "ChatBot", "SettingsWidget", "CustomScripts", "KeyBinds", "Donations"]
     function tabIndex(name) {
         return Math.max(0, root.tabOrder.indexOf(name));
     }
@@ -61,7 +58,6 @@ Item {
         Registry.register(root.registryKey(), root);
         Registry.register("left-island", root);
         // Prime the initially-selected tab so its Loader activates below.
-        // (The booru hostPanel back-reference is wired in its onLoaded.)
         var v = Object.assign({}, root._visited);
         v[root.selectedWidget] = true;
         root._visited = v;
@@ -114,18 +110,14 @@ Item {
         case 0:
             return userProfileLoader.item;
         case 1:
-            return booruLoader.item;
-        case 2:
             return chatBotLoader.item;
-        case 3:
-            return mangaLoader.item;
-        case 4:
+        case 2:
             return settingsLoader.item;
-        case 5:
+        case 3:
             return scriptsLoader.item;
-        case 6:
+        case 4:
             return keybindsLoader.item;
-        case 7:
+        case 5:
             return donationsLoader.item;
         default:
             return null;
@@ -135,31 +127,6 @@ Item {
     // Map a tab name (matching the launcher's quick-app selectors) to a widget.
     function selectTab(name) {
         root.selectedWidget = name;
-    }
-
-    // Direct access to the booru viewer instance (null until primed).
-    readonly property var booruView: booruLoader.item
-    // Post waiting for the booru Loader: openDialog lands here when a
-    // caller (e.g. waifu) floats a dialog before first instantiation.
-    property var _pendingDialogImage: null
-
-    // Open a post in the floating detail window without opening the
-    // island. Primes the Booru tab; if the viewer isn't instantiated
-    // yet this tick (Loader activates on the next binding pass), the
-    // post parks in _pendingDialogImage and booruLoader.onLoaded below
-    // opens it. Returns false only when there is nothing to open.
-    function openBooruDialog(img) {
-        if (!img)
-            return false;
-        root.primeTab("BooruViewer");
-        const v = root.booruView;
-        if (v && typeof v.openDialog === "function" && typeof v.detachDialog === "function") {
-            v.openDialog(img, null);
-            v.detachDialog();
-        } else {
-            root._pendingDialogImage = img;
-        }
-        return true;
     }
 
     // Build a tab's Loader without switching to it or opening the island
@@ -246,9 +213,8 @@ Item {
                     anchors.left: parent.left
                     anchors.right: parent.right
                     anchors.margins: 8
-                    // Tab order + icons: UserProfile, BooruViewer,
-                    // ChatBot, MangaViewer, Settings, CustomScripts,
-                    // KeyBinds, Donations. Names keep the QS "Widget"
+                    // Tab order + icons: UserProfile, ChatBot,
+                    // Settings, CustomScripts, KeyBinds, Donations. Names keep the QS "Widget"
                     // suffix (IPC showWidget/widgetState compat).
                     model: [
                         {
@@ -256,16 +222,8 @@ Item {
                             icon: ""
                         },
                         {
-                            name: "BooruViewer",
-                            icon: ""
-                        },
-                        {
                             name: "ChatBot",
                             icon: ""
-                        },
-                        {
-                            name: "MangaViewer",
-                            icon: ""
                         },
                         {
                             name: "SettingsWidget",
@@ -307,9 +265,9 @@ Item {
 
                 // Widget stack — each tab is a Loader that activates on first
                 // select and stays alive, so tab
-                // switches preserve scroll/page/chat/booru state. Only the
+                // switches preserve scroll/page/chat state. Only the
                 // selected tab instantiates: opening the island builds one
-                // widget instead of all eight. Only the current one is
+                // widget instead of all six. Only the current one is
                 // visible; loaded hidden tabs exist in memory but don't
                 // paint. Order matches the tab rail above.
                 // Fade-in on switch (opacity-in 0.6s).
@@ -328,20 +286,16 @@ Item {
                         switch (root.selectedWidget) {
                         case "UserProfile":
                             return 0;
-                        case "BooruViewer":
-                            return 1;
                         case "ChatBot":
-                            return 2;
-                        case "MangaViewer":
-                            return 3;
+                            return 1;
                         case "SettingsWidget":
-                            return 4;
+                            return 2;
                         case "CustomScripts":
-                            return 5;
+                            return 3;
                         case "KeyBinds":
-                            return 6;
+                            return 4;
                         case "Donations":
-                            return 7;
+                            return 5;
                         default:
                             return 0;
                         }
@@ -354,43 +308,9 @@ Item {
                         Layout.fillHeight: true
                     }
                     Loader {
-                        id: booruLoader
-                        active: root.tabPrimed("BooruViewer")
-                        sourceComponent: booruComp
-                        Layout.fillWidth: true
-                        Layout.fillHeight: true
-                        onLoaded: {
-                            // Back-reference so the booru viewer can route
-                            // its popup-unhover hide requests here (the
-                            // popup is a separate window surface). The
-                            // viewer binds hostScreen reactively off
-                            // hostPanel.screen — no one-shot assign here
-                            // (nested onLoaded can run before the bar sets
-                            // the island's screen).
-                            if (item) {
-                                item.hostPanel = root;
-                                // Flush a dialog parked by openBooruDialog
-                                // while this Loader was instantiating.
-                                if (root._pendingDialogImage) {
-                                    const p = root._pendingDialogImage;
-                                    root._pendingDialogImage = null;
-                                    item.openDialog(p, null);
-                                    item.detachDialog();
-                                }
-                            }
-                        }
-                    }
-                    Loader {
                         id: chatBotLoader
                         active: root.tabPrimed("ChatBot")
                         sourceComponent: chatBotComp
-                        Layout.fillWidth: true
-                        Layout.fillHeight: true
-                    }
-                    Loader {
-                        id: mangaLoader
-                        active: root.tabPrimed("MangaViewer")
-                        sourceComponent: mangaComp
                         Layout.fillWidth: true
                         Layout.fillHeight: true
                     }
@@ -428,16 +348,8 @@ Item {
                     UserProfileWidget {}
                 }
                 Component {
-                    id: booruComp
-                    BooruViewer {}
-                }
-                Component {
                     id: chatBotComp
                     ChatBotWidget {}
-                }
-                Component {
-                    id: mangaComp
-                    MangaViewerWidget {}
                 }
                 Component {
                     id: settingsComp

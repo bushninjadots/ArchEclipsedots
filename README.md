@@ -49,8 +49,8 @@ archeclipse   # update anytime (zsh fn → runs maintenance/update.py)
 | ---- | --- |
 | **Bar** | Modular widgets: workspaces, bandwidth, weather, player, tray, crypto |
 | **Launcher** | App search + clipboard + emoji + calc + URLs + custom cmds. No Rofi. |
-| **Right panel** | Player, notifications, calendar, crypto, anime viewer |
-| **Left panel** | Chatbot, booru browser, manga reader (WIP), keybinds, settings |
+| **Right panel** | Player, notifications, calendar, crypto |
+| **Left panel** | Claude chatbot, keybinds, settings |
 | **Theming** | Wallpaper → full system colors. Light/dark toggle. Hot-reload. No manual edits. |
 
 **Stack:** QML/QtQuick (Quickshell) · Python 3 + Bash · C (perf utils) · Hyprland/Wayland
@@ -111,8 +111,8 @@ graph TB
         AppLauncher["LauncherPanel.qml<br/>quickshell launcher +<br/>clipboard + emoji + notes"]
 
         subgraph Panels["Side panels"]
-            LeftPanel["leftPanel/<br/>Settings, ChatBot,<br/>BooruViewer, MangaViewer,<br/>KeyBinds, UserProfile"]
-            RightPanel["rightPanel/<br/>Calendar, Notifications,<br/>SystemResources, Crypto, Waifu"]
+            LeftPanel["leftPanel/<br/>Settings, ChatBot,<br/>KeyBinds, UserProfile"]
+            RightPanel["rightPanel/<br/>Calendar, Notifications,<br/>SystemResources, Crypto"]
         end
 
         subgraph Core["Core layers"]
@@ -124,14 +124,14 @@ graph TB
 
         subgraph NativeScripts["Native/companion scripts"]
             CLoops["*.c loops<br/>system-resources, bandwidth,<br/>keystroke visualizer"]
-            PyScripts["*.py<br/>chatbot, booru, manga,<br/>crypto, auth-callback"]
+            PyScripts["*.py<br/>chatbot, crypto,<br/>auth-callback"]
             ShScripts["*.sh<br/>get-wallpapers, translate,<br/>get-keybinds, image-color"]
         end
     end
 
     subgraph Backend["External services"]
         Supabase[("Supabase<br/>auth + RLS + settings sync")]
-        APIs[("Booru / manga / crypto /<br/>weather / chatbot APIs")]
+        APIs[("Crypto / weather APIs,<br/>Claude via Claude Code")]
     end
 
     Installer --> Pacman
@@ -196,8 +196,8 @@ Fuzzy search · clipboard history · emoji · calc · URL forward · custom cmds
 
 ### Panels detail
 
-- **Right:** media, notifications, calendar, script runner, crypto, Danbooru/Gelbooru viewer.
-- **Left:** chatbot (multi-API), booru browser, MangaDex reader (WIP), live keybinds, Hyprland/Quickshell settings.
+- **Right:** media, notifications, calendar, script runner, crypto.
+- **Left:** Claude chatbot (Opus/Sonnet/Haiku through your Claude Code login), live keybinds, Hyprland/Quickshell settings.
 
 ### Deployer
 
@@ -225,19 +225,15 @@ Bugs / ideas → [open an issue](https://github.com/AymanLyesri/ArchEclipse/issu
 
 ### Right Panel
 
-| Waifu · Player · Calendar · Notifications | Calendar · Player · Waifu · Resources |
+| Player · Calendar · Notifications | Calendar · Player · Resources |
 | --- | --- |
 | ![Right Panel Layout 1](.github/assets/right-panel-layout-1.png) | ![Right Panel Layout 2](.github/assets/right-panel-layout-2.png) |
 
 ### Left Panel
 
-| Chatbot | Booru |
-| ------- | ----- |
-| ![Chatbot](.github/assets/left-panel-chatbot.png) | ![Booru](.github/assets/left-panel-booru-1.png) |
-
-| Settings | Keybinds |
-| -------- | -------- |
-| ![Settings](.github/assets/left-panel-settings.png) | ![Keybinds](.github/assets/left-panel-keybinds.png) |
+| Chatbot | Settings | Keybinds |
+| ------- | -------- | -------- |
+| ![Chatbot](.github/assets/left-panel-chatbot.png) | ![Settings](.github/assets/left-panel-settings.png) | ![Keybinds](.github/assets/left-panel-keybinds.png) |
 
 ### Wallpaper · Workspaces · Lock
 

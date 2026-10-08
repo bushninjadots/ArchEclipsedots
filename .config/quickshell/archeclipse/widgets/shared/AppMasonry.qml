@@ -1,7 +1,6 @@
 // Shared masonry layout: distributes a flat model into N shortest columns
 // (aspect-ratio aware when available, round-robin otherwise) and stacks
-// each column vertically. Used by the Booru image grid and the donation
-// cards — one algorithm, one tuning point.
+// each column vertically. Used by the donation cards — one algorithm, one tuning point.
 //
 // Usage:
 //   AppMasonry {

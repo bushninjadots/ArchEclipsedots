@@ -19,7 +19,7 @@ import QtQuick
 Flickable {
     id: root
 
-    // Momentum tuning: callers can override (e.g. BooruGrid pins
+    // Momentum tuning: callers can override (e.g. pin
     // maximumFlickVelocity lower for a slower feel).
     clip: true
     flickDeceleration: 1500

@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Wallhaven.cc API provider (search + download).
 
-Mirrors scripts/booru.py conventions: structured errors go to stderr as
+Structured errors go to stderr as
 {"error": true, "code": ..., "message": ...} with a non-zero exit, result
 JSON goes to stdout with exit 0.
 

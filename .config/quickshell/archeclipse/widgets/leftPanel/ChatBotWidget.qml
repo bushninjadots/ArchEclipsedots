@@ -8,7 +8,7 @@ import qs.widgets.shared
 import qs.services
 
 // ChatBot widget — port of ChatBot.tsx
-// Features: multiple AI providers (OpenRouter), session create/delete,
+// Features: Claude (Opus/Sonnet/Haiku via the Claude Code login), session create/delete,
 // markdown rendering (headers/lists/quotes/code w/ copy), message timestamps
 // + response time + click-to-copy, image-gen toggle, info/setup guide,
 // progress indicator, auto-scroll, auto-focus, multi-line input
@@ -18,8 +18,9 @@ Item {
     // --- State ---
     property var messages: []
     property string activeSessionId: "default"
-    // The provider persists across launches via Settings.chatBotApi.
-    property string currentApiModel: Settings.chatBotApi
+    // The provider persists across launches via Settings.chatBotApi; a saved
+    // value from a removed provider falls back to the first Claude model.
+    property string currentApiModel: root.providers.some(p => p.value === Settings.chatBotApi) ? Settings.chatBotApi : root.providers[0].value
     property string progressStatus: "idle" // idle | loading | error | success
     property var sessions: []
     property int _sendTime: 0
@@ -31,41 +32,27 @@ Item {
     property string cacheDir: Quickshell.env("HOME") + "/.cache/quickshell/chatbot"
     property string pythonScript: Quickshell.env("HOME") + "/.config/quickshell/archeclipse/scripts/chatbot.py"
 
-    // Provider list (from api.constants.ts)
+    // Claude models (Claude Code model aliases — always the latest of each).
     property var providers: [
         {
-            name: "OpenRouter Free",
-            value: "openrouter/free",
-            icon: "ORF",
-            description: "OpenRouter's free router, auto-routes to a free model",
+            name: "Claude Opus",
+            value: "opus",
+            icon: "Opus",
+            description: "Anthropic's most capable Claude model for everyday use, best for hard questions",
             imageGenerationSupport: false
         },
         {
-            name: "Gpt 4o mini",
-            value: "openai/gpt-4o-mini",
-            icon: "G4o",
-            description: "OpenAI's gpt-4o-mini model, versatile and efficient",
+            name: "Claude Sonnet",
+            value: "sonnet",
+            icon: "Sonnet",
+            description: "Anthropic's balanced Claude model, fast and smart",
             imageGenerationSupport: false
         },
         {
-            name: "Qwen3.5 9B",
-            value: "qwen/qwen3.5-9b",
-            icon: "Q3.5",
-            description: "Qwen's 3.5 9B model, designed for a wide range of applications with strong performance",
-            imageGenerationSupport: false
-        },
-        {
-            name: "Meta Llama 3.2 1B Instruct",
-            value: "meta-llama/llama-3.2-1b-instruct",
-            icon: "L3.2",
-            description: "Meta's Llama 3.2 1B Instruct model, designed for instruction following",
-            imageGenerationSupport: false
-        },
-        {
-            name: "Mistral 8B",
-            value: "mistralai/ministral-8b-2512",
-            icon: "M8B",
-            description: "Mistral AI's Ministral 8B model, optimized for efficiency and performance",
+            name: "Claude Haiku",
+            value: "haiku",
+            icon: "Haiku",
+            description: "Anthropic's fastest Claude model, for quick answers",
             imageGenerationSupport: false
         }
     ]
@@ -75,10 +62,6 @@ Item {
     }
 
     // --- Helpers ---
-    function apiKey() {
-        return Settings.apiKey("openrouter", "key");
-    }
-
     // --- Session Management ---
     function getHistoryPath(sid) {
         return cacheDir + "/" + currentApiModel + "/sessions/" + (sid || activeSessionId) + "/history.json";
@@ -180,18 +163,9 @@ Item {
                 timestamp: Date.now()
             }
         ]);
-        const key = root.apiKey();
-        if (!key) {
-            Notifications.notify({
-                summary: "ChatBot Error",
-                body: "OpenRouter API key is not configured. Please set it in settings."
-            });
-            root.progressStatus = "error";
-            return;
-        }
         root.progressStatus = "loading";
         const p = _chatAPI.createObject(root);
-        p.command = ["python3", root.pythonScript, root.currentApiModel, text, key, root.activeSessionId];
+        p.command = ["python3", root.pythonScript, root.currentApiModel, text, root.activeSessionId];
         p.running = true;
     }
 
@@ -397,16 +371,12 @@ Item {
                     root.progressStatus = "error";
                     const err = _apiStderr.fullText || "Unknown error";
                     let msg = err;
-                    if (err.includes("HTTP 401"))
-                        msg = "Invalid API key. Check your OpenRouter API key in settings.";
-                    else if (err.includes("HTTP 402"))
-                        msg = "Insufficient credits. Add credits to your OpenRouter account.";
-                    else if (err.includes("HTTP 429"))
-                        msg = "Rate limit exceeded. Please wait before trying again.";
-                    else if (err.includes("Connection"))
-                        msg = "Network error. Check your internet connection.";
+                    if (/not logged in|\/login|authenticat/i.test(err))
+                        msg = "Claude Code isn't logged in. Run `claude` in a terminal and log in.";
+                    else if (/usage limit|rate limit/i.test(err))
+                        msg = "Claude usage limit reached. Wait for your plan's limit to reset.";
                     else if (err.includes("timed out"))
-                        msg = "Request timed out. The API took too long to respond.";
+                        msg = "Request timed out. Claude took too long to respond.";
                     else {
                         const m = err.match(/ERROR: (.+)/);
                         if (m)
@@ -450,46 +420,6 @@ Item {
                 color: Theme.fgDim
                 width: parent.width
                 wrapMode: Text.WordWrap
-            }
-        }
-
-        // [2] Setup guide (only when API key missing)
-        Column {
-            Layout.fillWidth: true
-            spacing: 4
-            visible: root.apiKey() === ""
-            Rectangle {
-                width: parent.width
-                height: setupGuide.implicitHeight + 8
-                color: Theme.surfaceActive
-                radius: 8
-                border.color: Theme.accent
-
-                Column {
-                    id: setupGuide
-                    anchors.left: parent.left
-                    anchors.right: parent.right
-                    anchors.margins: 6
-                    spacing: 4
-                    AppButton {
-                        text: "1. Visit openrouter and Sign-up for FREE  \u{f08e}"
-                        width: parent.width
-                        implicitHeight: 28
-                        onClicked: Quickshell.execDetached(["xdg-open", "https://openrouter.ai/"])
-                    }
-                    AppButton {
-                        text: "2. Generate a FREE API key  \u{f08e}"
-                        width: parent.width
-                        implicitHeight: 28
-                        onClicked: Quickshell.execDetached(["xdg-open", "https://openrouter.ai/settings/keys"])
-                    }
-                    AppButton {
-                        text: "3. Copy & Paste it in the settings"
-                        width: parent.width
-                        implicitHeight: 28
-                        onClicked: root.goToSettings("openrouter.key")
-                    }
-                }
             }
         }
 
@@ -546,7 +476,7 @@ Item {
                             spacing: 3
 
                             Label {
-                                text: modelData.role === "user" ? "\u{F007} You" : "\u{E73B} Assistant"
+                                text: modelData.role === "user" ? "\u{F007} You" : "\u{E73B} Claude"
                                 font.pixelSize: Theme.fontSize - 1
                                 font.bold: true
                                 color: Theme.accent
@@ -796,10 +726,5 @@ Item {
     }
     function copyMessage(t) {
         copyToClipboard(t);
-    }
-
-    function goToSettings(target) {
-        if (typeof Registry !== "undefined" && Registry.selectLeftTab)
-            Registry.selectLeftTab("SettingsWidget", target);
     }
 }

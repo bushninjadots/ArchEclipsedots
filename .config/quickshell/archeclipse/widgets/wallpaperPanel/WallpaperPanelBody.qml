@@ -867,7 +867,7 @@ Item {
                         stepSize: 10
                         value: Settings.wallpaperTileSize
                         onValueChanged: {
-                            // Same binding guard as the booru sliders: the
+                            // Binding guard: the
                             // settings write re-evaluates value to the same
                             // number, which must not write back in a loop.
                             const v = Math.round(value);

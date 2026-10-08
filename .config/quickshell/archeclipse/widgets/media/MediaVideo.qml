@@ -22,7 +22,7 @@ Item {
     MediaPlayer {
         id: player
         // Gate the source on visibility: VideoOutput.visible alone does NOT
-        // stop decoding — a hidden player fed an image (e.g. WaifuWidget's
+        // stop decoding — a hidden player fed an image (e.g. a
         // png with visible:false) loops ffmpeg errors thousands of times
         // per second, filling /run/user/1000 and killing IPC/panels.
         source: (root.visible && root.source !== "") ? "file://" + root.source : ""
@@ -38,7 +38,7 @@ Item {
         // Overscan: scaled video often carries a 1px dark fringe (odd
         // dimensions padded for YUV 4:2:0, edge-texel filtering) — render
         // 2px past the viewport and let the host clip it away. Hosts
-        // (dialogMedia, waifu mediaContainer) all clip, so nothing bleeds.
+        // all clip, so nothing bleeds.
         anchors.margins: -2
         fillMode: root.fill ? VideoOutput.Stretch : VideoOutput.PreserveAspectFit
         visible: root.source !== "" && player.hasVideo

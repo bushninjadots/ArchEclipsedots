@@ -1,15 +1,37 @@
 #!/usr/bin/env python3
+"""Sidebar chatbot backend: talks to Claude through the Claude Code CLI.
+
+Uses the user's existing Claude Code login (`claude -p`), so no API key is
+needed. Each chat session maps to one Claude Code session: the first message
+starts it with --session-id, later messages --resume it, so Claude keeps the
+full conversation context. history.json stays the display copy the widget
+reads.
+"""
 
 import os
 import sys
 import json
 import time
 import uuid
-import requests
+import shutil
+import subprocess
 from pathlib import Path
 
-API_URL = "https://openrouter.ai/api/v1/chat/completions"
 CACHE_DIR = Path.home() / ".cache" / "quickshell" / "chatbot"
+# Neutral working dir outside $HOME so Claude Code doesn't pick up any
+# CLAUDE.md / project memory from the user's dotfiles repo.
+WORK_DIR = Path(f"/tmp/quickshell-{os.environ.get('USER', 'user')}") / "claude-chat"
+TIMEOUT_S = 300
+
+SYSTEM_PROMPT = (
+    "You are Claude, an AI assistant made by Anthropic, answering in a small "
+    "chat panel in the sidebar of the user's Arch Linux + Hyprland desktop "
+    "(ArchEclipse Quickshell). Be concise and direct. The panel renders basic "
+    "markdown: headers, bullet and numbered lists, quotes, inline code, bold, "
+    "italics and fenced code blocks; avoid tables and images. You have no "
+    "tools in this panel, so you cannot read files or run commands; when the "
+    "user needs something done on their system, give them the exact commands."
+)
 
 
 def create_message(role: str, content: str, response_time: int = 0) -> dict:
@@ -23,16 +45,13 @@ def create_message(role: str, content: str, response_time: int = 0) -> dict:
     }
 
 
-def get_history_path(model: str, session_id: str = "default") -> Path:
-    """Get the path to the history file for a given model and session."""
-    # Split model into provider and model parts (e.g., "openai/gpt-4o-mini")
-    return CACHE_DIR / model / "sessions" / session_id / "history.json"
+def get_session_dir(model: str, session_id: str = "default") -> Path:
+    return CACHE_DIR / model / "sessions" / session_id
 
 
-def load_history(model: str, session_id: str = "default") -> list:
+def load_history(session_dir: Path) -> list:
     """Load conversation history from JSON file."""
-    history_path = get_history_path(model, session_id)
-
+    history_path = session_dir / "history.json"
     if history_path.exists():
         try:
             with open(history_path, "r") as f:
@@ -43,86 +62,94 @@ def load_history(model: str, session_id: str = "default") -> list:
     return []
 
 
-def save_history(model: str, history: list, session_id: str = "default"):
+def save_history(session_dir: Path, history: list):
     """Save conversation history to JSON file."""
-    history_path = get_history_path(model, session_id)
-
-    # Create directory structure if it doesn't exist
-    history_path.parent.mkdir(parents=True, exist_ok=True)
-
-    with open(history_path, "w") as f:
+    session_dir.mkdir(parents=True, exist_ok=True)
+    with open(session_dir / "history.json", "w") as f:
         json.dump(history, f, indent=2)
 
 
+def claude_session(session_dir: Path, history: list) -> tuple[str, bool]:
+    """Return (claude session id, resume?) for this chat session.
+
+    An empty history (new or cleared chat) always starts a fresh Claude
+    session so cleared context really is gone.
+    """
+    id_path = session_dir / "claude-session"
+    if history and id_path.exists():
+        sid = id_path.read_text().strip()
+        if sid:
+            return sid, True
+    sid = str(uuid.uuid4())
+    session_dir.mkdir(parents=True, exist_ok=True)
+    id_path.write_text(sid)
+    return sid, False
+
+
 def main():
-    if len(sys.argv) < 4:
+    if len(sys.argv) < 3:
         print("ERROR: Missing arguments", file=sys.stderr)
         print(
-            "Usage: python chatbot.py <provider/model> <message> <api_key> [session_id]",
+            "Usage: python chatbot.py <model> <message> [session_id]",
             file=sys.stderr,
         )
-        print(
-            'Example: python chatbot.py openai/gpt-4o-mini "Hello world" YOUR_API_KEY session1',
-            file=sys.stderr,
-        )
+        print('Example: python chatbot.py opus "Hello world" session1', file=sys.stderr)
         sys.exit(1)
 
     model = sys.argv[1]
     user_message = sys.argv[2]
-    api_key = sys.argv[3].strip()  # Strip whitespace/newlines from API key
-    session_id = sys.argv[4] if len(sys.argv) > 4 else "default"
+    session_id = sys.argv[3] if len(sys.argv) > 3 else "default"
 
-    # Load conversation history
-    history = load_history(model, session_id)
+    claude_bin = shutil.which("claude") or str(Path.home() / ".local" / "bin" / "claude")
+    if not Path(claude_bin).exists():
+        print("ERROR: Claude Code is not installed (claude not found)", file=sys.stderr)
+        sys.exit(1)
 
-    # Add new user message to history
-    user_msg = create_message("user", user_message)
-    history.append(user_msg)
+    session_dir = get_session_dir(model, session_id)
+    history = load_history(session_dir)
+    claude_sid, resume = claude_session(session_dir, history)
 
-    headers = {
-        "Authorization": f"Bearer {api_key}",
-        "Content-Type": "application/json",
-    }
+    cmd = [
+        claude_bin, "-p", user_message,
+        "--model", model,
+        "--output-format", "json",
+        "--system-prompt", SYSTEM_PROMPT,
+        # Plain chat: no tools, MCP servers, hooks/settings or skills.
+        "--tools", "",
+        "--strict-mcp-config",
+        "--setting-sources", "",
+        "--disable-slash-commands",
+        "--resume" if resume else "--session-id", claude_sid,
+    ]
 
-    # Extract only role and content for API payload
-    api_messages = [{"role": msg["role"], "content": msg["content"]} for msg in history]
-    payload = {"model": model, "messages": api_messages}
+    WORK_DIR.mkdir(parents=True, exist_ok=True)
+    start_time = time.time()
+    try:
+        proc = subprocess.run(
+            cmd, cwd=WORK_DIR, capture_output=True, text=True, timeout=TIMEOUT_S
+        )
+    except subprocess.TimeoutExpired:
+        print(f"ERROR: Request timed out after {TIMEOUT_S} seconds", file=sys.stderr)
+        sys.exit(1)
+    response_time = int((time.time() - start_time) * 1000)  # milliseconds
 
     try:
-        start_time = time.time()
-        response = requests.post(API_URL, headers=headers, json=payload, timeout=60)
-        response.raise_for_status()
-        response_time = int((time.time() - start_time) * 1000)  # milliseconds
-
-        data = response.json()
-        reply = data["choices"][0]["message"]["content"]
-
-        # Add assistant's response to history with response time
-        assistant_msg = create_message("assistant", reply, response_time)
-        history.append(assistant_msg)
-
-        # Save updated history
-        save_history(model, history, session_id)
-
-        print(reply)
-
-    except requests.exceptions.Timeout:
-        print("ERROR: Request timed out after 60 seconds", file=sys.stderr)
+        data = json.loads(proc.stdout)
+    except json.JSONDecodeError:
+        err = (proc.stderr or proc.stdout or "no output").strip()
+        print(f"ERROR: {err}", file=sys.stderr)
         sys.exit(1)
-    except requests.exceptions.HTTPError as e:
-        print(
-            f"ERROR: HTTP {e.response.status_code}: {e.response.text}", file=sys.stderr
-        )
+
+    reply = str(data.get("result") or "").strip()
+    if data.get("is_error") or proc.returncode != 0 or not reply:
+        print(f"ERROR: {reply or data.get('subtype') or 'Claude returned no reply'}", file=sys.stderr)
         sys.exit(1)
-    except requests.exceptions.ConnectionError:
-        print("ERROR: Failed to connect to API server", file=sys.stderr)
-        sys.exit(1)
-    except (KeyError, IndexError) as e:
-        print(f"ERROR: Unexpected API response format: {e}", file=sys.stderr)
-        sys.exit(1)
-    except Exception as e:
-        print(f"ERROR: {type(e).__name__}: {str(e)}", file=sys.stderr)
-        sys.exit(1)
+
+    history.append(create_message("user", user_message))
+    history.append(create_message("assistant", reply, response_time))
+    save_history(session_dir, history)
+
+    print(reply)
 
 
 if __name__ == "__main__":

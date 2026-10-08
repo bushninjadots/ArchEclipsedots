@@ -1,16 +1,15 @@
 // Shared progress indicator — single source of truth for every
-// loading/error/success state in the shell (ChatBot pill, Booru thin bar,
-// Waifu badge, Manga/UserProfile inline label, Wallpaper/KeyBinds/Booru
-// spinner, Player determinate bar).
+// loading/error/success state in the shell (ChatBot pill, UserProfile
+// inline label, Wallpaper/KeyBinds spinner, Player determinate bar).
 //
 // status: "idle" | "loading" | "error" | "success"
 // variant:
 //   "pill"    — ChatBot parity: full-width 22px rounded pill + centered text.
-//   "bar"     — Booru/Player parity: full-width 4px thin bar (determinate
+//   "bar"     — Player parity: full-width 4px thin bar (determinate
 //               fill when 0 <= value <= 1, solid status color otherwise).
-//   "badge"   — Waifu parity: small 64x20 status badge.
-//   "inline"  — Manga/UserProfile parity: borderless status label.
-//   "spinner" — Wallpaper/KeyBinds/BooruDialog parity: BusyIndicator while
+//   "badge"   — small 64x20 status badge.
+//   "inline"  — UserProfile parity: borderless status label.
+//   "spinner" — Wallpaper/KeyBinds parity: BusyIndicator while
 //               loading, ⚠ on error, ✓ on success.
 // value: < 0 = indeterminate (status color), 0..1 = determinate fill
 //        (pill + bar variants).
@@ -116,7 +115,7 @@ Item {
         }
     }
 
-    // ---- bar (Booru / Player) ----
+    // ---- bar (Player) ----
     Rectangle {
         anchors.left: parent.left
         anchors.right: parent.right
@@ -141,7 +140,7 @@ Item {
         }
     }
 
-    // ---- badge (Waifu) ----
+    // ---- badge ----
     Rectangle {
         anchors.fill: parent
         visible: root.variant === "badge" && root.active
@@ -158,7 +157,7 @@ Item {
         }
     }
 
-    // ---- inline (Manga / UserProfile) ----
+    // ---- inline (UserProfile) ----
     // Anchored left/right/verticalCenter (NOT fill): fill would force a
     // wrapped label into a 0-width root in auto-size parents and blow up
     // implicitHeight. Root height comes from implicitHeight below, or from
@@ -177,7 +176,7 @@ Item {
         verticalAlignment: Text.AlignVCenter
     }
 
-    // ---- spinner (Wallpaper / KeyBinds / BooruDialog) ----
+    // ---- spinner (Wallpaper / KeyBinds) ----
     BusyIndicator {
         anchors.centerIn: parent
         visible: root.variant === "spinner" && root.active && root.status === "loading"

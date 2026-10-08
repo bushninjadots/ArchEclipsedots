@@ -562,7 +562,7 @@ PanelWindow {
         // ---- left side pill (independent of the main pill) ----
         // Owns the left island in a forever-alive cached Loader: created
         // lazily on first open, then visibility-toggled so tab/scroll/
-        // chat/booru state survives closes.
+        // chat state survives closes.
         Item {
             id: leftPill
             // Docked to the left screen edge, outermost; the main pill yields.

@@ -37,9 +37,9 @@ catch flat/empty pictures; they do not prove semantic correctness.
 ## Shots
 
 Supported (captured live through the shell's own island state):
-`app-launcher`, `right-panel-layout-1` (Waifu, Player, Calendar, Notification History),
-`right-panel-layout-2` (Calendar, Player, Waifu, System Resources),
-`left-panel-chatbot`, `left-panel-booru-1`, `left-panel-settings`,
+`app-launcher`, `right-panel-layout-1` (Player, Calendar, Notification History),
+`right-panel-layout-2` (Calendar, Player, System Resources),
+`left-panel-chatbot`, `left-panel-settings`,
 `left-panel-keybinds`, `wallpaper-switcher`, `workspace-overview`.
 
 Manual-only (listed with a reason, never faked): `overview` (desktop hero),
@@ -71,8 +71,7 @@ Manual-only (listed with a reason, never faked): `overview` (desktop hero),
 2. `capture begin <monitor>` snapshots state (and pauses rival BarState
    activations while the lease is active).
 3. `capture select <shot>` opens the island/launcher and primes content
-   (launcher runs the `apps` query; BooruViewer readiness requires
-   `progressStatus` not loading/error).
+   (launcher runs the `apps` query).
 4. Poll `capture status` until the pill reports the desired state, the
    geometry (pill rect in surface coordinates) is stable for `--settle`
    seconds, and no images are still loading. Wallpaper capture also waits for

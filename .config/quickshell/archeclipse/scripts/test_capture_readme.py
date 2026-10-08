@@ -58,7 +58,7 @@ class CaptureTests(unittest.TestCase):
     def test_required_shots_and_two_right_panels(self):
         items = {s["id"]: s for s in m.MANIFEST}
         for name in ("app-launcher", "left-panel-settings", "left-panel-keybinds", "left-panel-chatbot",
-                     "left-panel-booru-1", "wallpaper-switcher", "workspace-overview", "right-panel-layout-1", "right-panel-layout-2"):
+                     "wallpaper-switcher", "workspace-overview", "right-panel-layout-1", "right-panel-layout-2"):
             self.assertTrue(items[name]["supported"], name)
         self.assertEqual([s["id"] for s in m.MANIFEST if s["state"] == "right"],
                          ["right-panel-layout-1", "right-panel-layout-2"])
@@ -67,8 +67,8 @@ class CaptureTests(unittest.TestCase):
     def test_capture_layouts_are_nonpersistent(self):
         qml = (m.CONFIG / "services/CaptureIpc.qml").read_text()
         island = (m.CONFIG / "widgets/bar/islands/RightIsland.qml").read_text()
-        self.assertIn('["Waifu", "Media", "Calendar", "NotificationHistory"]', qml)
-        self.assertIn('["Calendar", "Media", "Waifu", "SystemResources"]', qml)
+        self.assertIn('["Media", "Calendar", "NotificationHistory"]', qml)
+        self.assertIn('["Calendar", "Media", "SystemResources"]', qml)
         self.assertIn("capture.rightWidgets", island)
         self.assertNotIn("Settings.rightPanelWidgets =", qml)
 

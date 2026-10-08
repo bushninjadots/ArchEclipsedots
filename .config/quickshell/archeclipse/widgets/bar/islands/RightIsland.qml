@@ -286,7 +286,7 @@ Column {
 
                         delegate: Item {
                             required property var modelData
-                            readonly property bool isBare: modelData.name === "Media" || modelData.name === "Waifu"
+                            readonly property bool isBare: modelData.name === "Media"
                             // Fill the padded area, not the full Column width:
                             // width: parent.width here overshoots the viewport
                             // by leftPadding+rightPadding and clip cuts the
@@ -305,23 +305,9 @@ Column {
                             // with internal scroll).
                             // Heights must stay in sync with each widget's content.
                             // Each widget owns its inner padding (8px per side);
-                            // Media/Waifu have no outer card and size to content.
+                            // Media has no outer card and sizes to content.
                             height: {
                                 switch (modelData.name) {
-                                case "Waifu":
-                                    {
-                                        const wd = Settings.waifu;
-                                        if (!wd || !wd.id)
-                                            return 200;
-                                        // Same base as WaifuWidget.mediaHeight
-                                        // (no outside container: full width).
-                                        const w = width;
-                                        const a = (wd.width > 0 && wd.height > 0) ? wd.width / wd.height : 1.0;
-                                        const h = Math.min(Math.max(w / a, 120), 520);
-                                        // Overlay layout: actions float on top of
-                                        // the image, so the card is just the media.
-                                        return h;
-                                    }
                                 case "Media":
                                     {
                                         // Dynamic like NotificationHistory /
@@ -366,7 +352,7 @@ Column {
                                     return 300;
                                 }
                             }
-                            // Flat card. Media/Waifu render as-is
+                            // Flat card. Media renders as-is
                             // with no outer card container.
                             Rectangle {
                                 id: cardBg
@@ -381,12 +367,10 @@ Column {
                                 id: widgetLoader
                                 // No inset here: each widget sets its own inner
                                 // padding so content never paints over the card
-                                // border. Media/Waifu fill the delegate with no card.
+                                // border. Media fills the delegate with no card.
                                 anchors.fill: parent
                                 sourceComponent: {
                                     switch (modelData.name) {
-                                    case "Waifu":
-                                        return waifuWidget;
                                     case "Media":
                                         return mediaWidget;
                                     case "NotificationHistory":
@@ -434,12 +418,6 @@ Column {
         Component {
             id: systemResourcesWidget
             SystemResourcesWidget {
-                Layout.fillWidth: true
-            }
-        }
-        Component {
-            id: waifuWidget
-            WaifuWidget {
                 Layout.fillWidth: true
             }
         }

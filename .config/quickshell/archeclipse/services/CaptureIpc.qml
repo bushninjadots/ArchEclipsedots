@@ -91,15 +91,15 @@ Item {
         function select(name: string): string {
             if (!root.active) return root.reply({ok: false, error: "No capture lease"});
             const tabs = {"left-panel-settings": "SettingsWidget", "left-panel-keybinds": "KeyBinds",
-                "left-panel-chatbot": "ChatBot", "left-panel-booru-1": "BooruViewer"};
+                "left-panel-chatbot": "ChatBot"};
             const states = {"app-launcher": "search", "wallpaper-switcher": "wallpaper",
                 "workspace-overview": "overview", "right-panel-layout-1": "right", "right-panel-layout-2": "right"};
             if (!tabs[name] && !states[name]) return root.reply({ok: false, error: "Unsupported capture"});
             root.desiredState = "";
             for (const state of Object.keys(BarState.activeStates || {})) BarState.deactivate(state);
             const layouts = {
-                "right-panel-layout-1": ["Waifu", "Media", "Calendar", "NotificationHistory"],
-                "right-panel-layout-2": ["Calendar", "Media", "Waifu", "SystemResources"]
+                "right-panel-layout-1": ["Media", "Calendar", "NotificationHistory"],
+                "right-panel-layout-2": ["Calendar", "Media", "SystemResources"]
             };
             const defs = Settings.defaultRightPanelWidgets();
             root.rightWidgets = layouts[name] ? layouts[name].map(n =>
@@ -135,10 +135,6 @@ Item {
                 if (ready && root.widget === "KeyBinds") {
                     const item = island.activeWidget;
                     ready = !item.loading && item.totalBinds > 0 && item.revealCount >= item.totalBinds;
-                }
-                if (ready && root.widget === "BooruViewer") {
-                    const item = island.activeWidget;
-                    ready = item.progressStatus !== "loading" && item.progressStatus !== "error";
                 }
             }
             if (root.desiredState === "wallpaper") ready = ready && images.wallpaperFound && images.errors === 0;

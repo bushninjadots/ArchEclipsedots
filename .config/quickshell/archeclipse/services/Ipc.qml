@@ -242,7 +242,7 @@ Item {
         }
 
         function showWidget(name: string, monitor: string): string {
-            const valid = ["UserProfile", "BooruViewer", "ChatBot", "MangaViewer", "SettingsWidget", "CustomScripts", "KeyBinds", "Donations"];
+            const valid = ["UserProfile", "ChatBot", "SettingsWidget", "CustomScripts", "KeyBinds", "Donations"];
             if (valid.indexOf(name) === -1) return "unknown widget: " + name;
             // Write through Settings so the island binding (and persistence)
             // stays intact — matches setSetting("leftPanel.widget").
@@ -322,13 +322,8 @@ Item {
             return "window not found: " + key;
         }
 
-        // Targeted widget-state probe for parity/QA. `query` is one of:
-        //   "selected", "page", "limit", "imagesCount", "imagesIds",
-        //   "bookmarkCount", "pinCount", "fetchStatus", "fetchedTags".
-        // "setPage" / "setLimit" / "gotoPage" mutate the live widget.
-        // "seedBookmarks" / "seedPins" inject test data.
-        // "loadBookmarks" / "loadPins" / "fetchApi" trigger the
-        // corresponding pagination or API fetch.
+        // Targeted widget-state probe for parity/QA. `query` is "selected"
+        // (the left island's active tab) or "_debug".
         // Returns a stringified value or a result code.
         function widgetState(query: string, monitor: string): string {
             try {
@@ -338,120 +333,12 @@ Item {
                 const item = w.activeWidget;
                 if (!item) return "no widget (selected=" + w.selectedWidget + ")";
                 // Debug echo so we can see exactly what the IPC layer delivered.
-                // Comment out the early return to keep parity probes.
                 if (query === "_debug") {
                     return `query=${JSON.stringify(query)} activeW=${item ? "yes" : "no"}`;
                 }
                 switch (query) {
                 case "selected": return w.selectedWidget;
-                case "page": return String(item.page);
-                case "limit": return String(item.limit);
-                case "imagesCount": return String((item.images || []).length);
-                case "imagesIds": return (item.images || []).map(x => x && x.id).filter(Boolean).join(",");
-                case "gridSrc": {
-                    const imgs = item.images || [];
-                    if (!imgs.length) return "no-images";
-                    const n = Object.keys(item.previewIds || {}).length;
-                    const cols = (item.masonryColumns || []).map(c => c.length).join("/");
-                    return `cached=${n} cols=[${cols}] src0=${item.gridSource(imgs[0])}`;
-                }
-                case "bookmarkCount": return String((Settings.booru.bookmarks || []).length);
-                case "pinCount": return String((Settings.booru.pins || []).length);
-                case "fetchStatus": return item.progressStatus || "?";
-                case "lastFetchCmd": return item.lastFetchCmd || "?";
-                case "lastFetchError": return item.lastFetchError || "?";
-                case "fetchedTags": return (item.fetchedTags || []).slice(0, 5).join(",");
-                case "tags": return (item.currentTags || []).join(",");
-                case "dialogSrc": {
-                    if (!item.dialogImage) return "no-dialog";
-                    const srcFn = (typeof item.dialogSource === "function") ? item.dialogSource(item.dialogImage) : "?";
-                    return `id=${item.dialogImage.id} src=${srcFn}`;
-                }
-                case "seedBookmarks": {
-                    Settings.booru.bookmarks = [1,2,3,4,5].map(i => ({
-                        id: String(i),
-                        file_url: `http://x/${i}.jpg`,
-                        preview_url: `http://x/${i}.jpg`,
-                        tags: [`tag${i}`]
-                    }));
-                    Settings.updateSetting("booru.bookmarks", Settings.booru.bookmarks);
-                    return "seeded=" + (Settings.booru.bookmarks || []).length;
-                }
-                case "seedPins": {
-                    Settings.booru.pins = ["a","b","c","d","e","f","g"].map(i => ({
-                        id: "p" + i,
-                        file_url: `http://y/${i}.jpg`,
-                        preview_url: `http://y/${i}.jpg`,
-                        tags: [`pt${i}`]
-                    }));
-                    Settings.updateSetting("booru.pins", Settings.booru.pins);
-                    return "seeded=" + (Settings.booru.pins || []).length;
-                }
-                case "loadBookmarks": {
-                    if (typeof item.loadBookmarks === "function") {
-                        item.loadBookmarks();
-                        const ids = (item.images || []).map(x => x && x.id).filter(Boolean);
-                        return `bm(page=${item.page},limit=${item.limit}) -> ${ids.length} ids: ` + ids.join(",");
-                    }
-                    return "no loadBookmarks";
-                }
-                case "loadPins": {
-                    if (typeof item.loadPins === "function") {
-                        item.loadPins();
-                        const ids = (item.images || []).map(x => x && x.id).filter(Boolean);
-                        return `pins(page=${item.page},limit=${item.limit}) -> ${ids.length} ids: ` + ids.join(",");
-                    }
-                    return "no loadPins";
-                }
-                case "fetchApi": {
-                    if (typeof item.fetchImages === "function") {
-                        item.fetchImages();
-                        return "fetchImages called, status=" + (item.progressStatus || "?");
-                    }
-                    return "no fetchImages";
-                }
-                default:
-                    if (query.startsWith("dialog:")) {
-                        // "dialog:<id>" -> open the dialog for that image
-                        // (exercises fetchOriginal + dialogSource live).
-                        const id = String(query.substring(7));
-                        const found = (item.images || []).find(x => x && String(x.id) === id);
-                        if (!found) return "no-image:" + id;
-                        item.dialogImage = found;
-                        const src = (typeof item.dialogSource === "function") ? item.dialogSource(found) : "?";
-                        return `dialog=${id} src=${src}`;
-                    }
-                    if (query.startsWith("setPage:")) {
-                        // "setPage:5" -> substring(8) = "5"
-                        item.page = Math.max(1, Number(query.substring(8)) || 1);
-                        return "page=" + item.page;
-                    }
-                    if (query.startsWith("setTags:")) {
-                        // "setTags:a,b" replicates the chip add/remove path:
-                        // widget tags + Settings + persist + refetch.
-                        const newTags = query.substring(8).split(",").map(s => s.trim()).filter(s => s !== "");
-                        item.currentTags = newTags;
-                        Settings.booru.tags = newTags;
-                        Settings.updateSetting("booru.tags", newTags);
-                        if (typeof item.fetchImages === "function") {
-                            item.fetchImages();
-                            return "tags=" + newTags.join(",") + " refetching";
-                        }
-                        return "tags=" + newTags.join(",") + " (no fetchImages)";
-                    }
-                    if (query.startsWith("setLimit:")) {
-                        // "setLimit:2" -> substring(9) = "2"
-                        // Widget-local `limit` is the source of truth (the
-                        // settings slider assigns it directly, so the
-                        // Settings binding is one-way). Write the widget
-                        // first, then persist — same as the slider handler.
-                        const n = Math.max(0, Number(query.substring(9)) || 0);
-                        item.limit = n;
-                        Settings.booru.limit = n;
-                        Settings.updateSetting("booru.limit", n);
-                        return "limit=" + item.limit;
-                    }
-                    return "unknown query";
+                default: return "unknown query";
                 }
             } catch (e) {
                 return "EX: " + e;

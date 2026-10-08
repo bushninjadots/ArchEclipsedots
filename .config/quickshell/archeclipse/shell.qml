@@ -14,14 +14,10 @@ ShellRoot {
     // FileView won't create missing parent dirs, so ensure every cache
     // dir it writes to exists at startup (else writes silently fail).
     property Process _cacheDirsProc: Process {
-        command: ["bash", "-c", "mkdir -p \"$HOME/.cache/quickshell/settings\" \"$HOME/.cache/quickshell/booru\" \"$HOME/.cache/cwal\" \"$HOME/.cache/quickshell/launcher\" \"$HOME/.cache/quickshell/script-timer\" \"$HOME/.cache/quickshell/crypto\" \"$HOME/.cache/quickshell/chatbot\" \"$HOME/.cache/quickshell/auth\" \"$HOME/.cache/quickshell/manga\" \"$HOME/.cache/quickshell/wallpaper-thumbs\" \"$HOME/.config/wallpapers/custom\" \"$HOME/.config/wallpapers/wallhaven\" \"$HOME/.config/wallpapers/defaults\" \"$HOME/.config/fastfetch/cache\""]
+        command: ["bash", "-c", "mkdir -p \"$HOME/.cache/quickshell/settings\" \"$HOME/.cache/cwal\" \"$HOME/.cache/quickshell/launcher\" \"$HOME/.cache/quickshell/script-timer\" \"$HOME/.cache/quickshell/crypto\" \"$HOME/.cache/quickshell/chatbot\" \"$HOME/.cache/quickshell/auth\" \"$HOME/.cache/quickshell/wallpaper-thumbs\" \"$HOME/.config/wallpapers/custom\" \"$HOME/.config/wallpapers/wallhaven\" \"$HOME/.config/wallpapers/defaults\" \"$HOME/.config/fastfetch/cache\""]
     }
     Component.onCompleted: {
         _cacheDirsProc.running = true
-        // Instantiate the lazy singleton at boot so it runs its initial sync
-        // (self-healing pins whose files are missing) and attaches its pins
-        // watcher — otherwise it only wakes on the first manual pin toggle.
-        FastfetchPins.start()
         // Probe power-profiles-daemon once at startup so ControlPanelBody
         // can bind PpdState.available instead of spawning `powerprofilesctl`
         // on every island open.

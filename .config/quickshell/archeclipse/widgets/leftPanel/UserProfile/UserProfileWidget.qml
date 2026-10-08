@@ -58,43 +58,6 @@ Item {
     // Magic-link button confirmation (flips the label on success)
     property string magicState: "Send Magic Link"
 
-    // Per-API bookmark counts from Settings.booru.bookmarks
-    // (each item stores api.value).
-    readonly property var booruApis: [
-        {
-            name: "Danbooru",
-            value: "danbooru"
-        },
-        {
-            name: "Gelbooru",
-            value: "gelbooru"
-        },
-        {
-            name: "Safebooru",
-            value: "safebooru"
-        },
-    ]
-    readonly property var booruFavoriteCounts: {
-        const counts = {
-            danbooru: 0,
-            gelbooru: 0,
-            safebooru: 0
-        };
-        const marks = Settings.booru ? Settings.booru.bookmarks : null;
-        if (marks)
-            for (const b of marks) {
-                const v = b && b.api ? b.api.value : null;
-                if (v && typeof counts[v] === "number")
-                    counts[v] += 1;
-            }
-        return counts;
-    }
-    // Fastfetch pin count.
-    readonly property int pinnedCount: {
-        const pins = Settings.booru ? Settings.booru.pins : null;
-        return pins ? pins.length : 0;
-    }
-
     property QtObject fileWatch: QtObject {
         id: _fw
     }
@@ -928,11 +891,6 @@ Item {
                     }
 
                     Profile.SyncCard {
-                        store: root
-                    }
-
-                    // Favorites + pins side by side.
-                    Profile.StatsRow {
                         store: root
                     }
 

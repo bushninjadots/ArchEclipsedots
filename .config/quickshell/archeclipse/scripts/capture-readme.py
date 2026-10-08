@@ -32,7 +32,6 @@ MANIFEST = [
     shot("right-panel-layout-1", "right"),
     shot("right-panel-layout-2", "right"),
     shot("left-panel-chatbot", "left", "ChatBot"),
-    shot("left-panel-booru-1", "left", "BooruViewer"),
     shot("left-panel-settings", "left", "SettingsWidget"),
     shot("left-panel-keybinds", "left", "KeyBinds"),
     shot("wallpaper-switcher", "wallpaper"),

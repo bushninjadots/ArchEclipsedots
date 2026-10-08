@@ -64,7 +64,7 @@ Singleton {
     function defaultWallpaperWallhaven() {
         return {
             q: "",
-            categories: "111",
+            categories: "101",
             purity: "100",
             sorting: "date_added",
             order: "desc",
@@ -85,11 +85,6 @@ Singleton {
     // Canonical widget definitions (names + code-owned icons + default enabled).
     function defaultRightPanelWidgets() {
         return [
-            {
-                name: "Waifu",
-                icon: "\uf004",
-                enabled: true
-            },
             {
                 name: "Media",
                 icon: "\uf04b",
@@ -153,59 +148,13 @@ Singleton {
             timeframe: ""
         })
 
-    property var booru: ({
-            api: ({
-                    name: "Danbooru",
-                    value: "danbooru",
-                    url: "https://danbooru.donmai.us/",
-                    idSearchUrl: "https://danbooru.donmai.us/posts/"
-                }),
-            tags: ["-rating:explicit"],
-            limit: 100,
-            page: 1,
-            columns: 3,
-            bookmarks: [],
-            pins: [],
-            selectedTab: "Danbooru"
-        })
-    // Initialized with shipped defaults (not {}) so early fetchers (Booru
-    // onCompleted) have credentials even before the settings file load
-    // merges saved values over them. Single source: defaultApiKeys() below
-    // (this used to paste the same literal twice).
-    // Per-service User-Agent strings. Kept centralized so every widget/backend
-    // uses the same editable values while still allowing services to have
-    // different requirements.
+    // Initialized with shipped defaults (not {}) so early fetchers have
+    // credentials even before the settings file load merges saved values
+    // over them. Single source: defaultApiKeys() below.
     property var apiKeys: root.defaultApiKeys()
-    property var userAgents: root.defaultUserAgents()
-
-    function defaultUserAgents() {
-        return {
-            booru: "QuickshellBooru/1.0 (ArchLinux; Hyprland)",
-            mangaDex: "ArchEclipse-MangaCLI/1.0",
-            mangaLib: "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-            waifu: "QuickshellBooru/1.0 (ArchLinux; Hyprland)",
-            fastfetch: "QuickshellBooru/1.0 (ArchLinux; Hyprland)"
-        };
-    }
-
-    function mergeUserAgents(saved) {
-        const d = root.defaultUserAgents();
-        if (!saved || typeof saved !== "object")
-            return d;
-        for (const key of Object.keys(d)) {
-            const v = saved[key];
-            if (v !== undefined && v !== null && String(v).trim() !== "")
-                d[key] = String(v);
-        }
-        return d;
-    }
-
-    function userAgent(name) {
-        return String((root.userAgents || {})[name] || root.defaultUserAgents()[name] || "");
-    }
 
     // POSIX single-quote shell-escaping. Needed anywhere a user-editable
-    // string (userAgent() output, in particular) gets spliced into a
+    // string gets spliced into a
     // `bash -c "..."` command for curl/etc: double-quoting (e.g. via
     // JSON.stringify) still lets $(...) / `...` expand inside bash double
     // quotes, so only single-quote wrapping actually neutralizes shell
@@ -216,42 +165,9 @@ Singleton {
     }
 
     // Default API credentials (shipped fallback). Used when the settings
-    // file has none saved — the defaults stay in memory; QS must do the
-    // same or booru.py hard-rejects danbooru/gelbooru with MISSING_CREDENTIALS.
+    // file has none saved — the defaults stay in memory.
     function defaultApiKeys() {
         return {
-            openrouter: {
-                user: {
-                    value: ""
-                },
-                key: {
-                    value: ""
-                }
-            },
-            danbooru: {
-                user: {
-                    value: "publicapi"
-                },
-                key: {
-                    value: "Pr5ddYN7P889AnM6nq2nhgw1"
-                }
-            },
-            gelbooru: {
-                user: {
-                    value: "1667355"
-                },
-                key: {
-                    value: "1ccd9dd7c457c2317e79bd33f47a1138ef9545b9ba7471197f477534efd1dd05"
-                }
-            },
-            safebooru: {
-                user: {
-                    value: "publicapi"
-                },
-                key: {
-                    value: "Pr5ddYN7P889AnM6nq2nhgw1"
-                }
-            },
             // Wallhaven needs only a key (no user); empty = guest mode
             // (SFW-only). A key unlocks sketchy/NSFW purity + user filters.
             wallhaven: {
@@ -426,11 +342,8 @@ Singleton {
         }
     ]
 
-    // Waifu widget setting group
-    property var waifu: null
-
-    // ChatBot provider (default: first provider).
-    property string chatBotApi: "openai/gpt-4o-mini"
+    // ChatBot model (Claude Code alias; default: first provider).
+    property string chatBotApi: "opus"
 
     // Blur settings (size / passes / enabled)
     property bool barBlur: true
@@ -531,8 +444,7 @@ Singleton {
             "dynamicThemeColors": "dynamicThemeColors",
             "dynamicThemeVariants": "dynamicThemeVariants",
             "fileManager": "fileManager",
-            "chatBot.api": "chatBotApi",
-            "waifuWidget.current": "waifu"
+            "chatBot.api": "chatBotApi"
         };
         if (aliases[path] !== undefined) {
             // Widget icons are code-owned: never store incoming icons, merge
@@ -559,7 +471,7 @@ Singleton {
         obj[key] = value;
         // Reassign a FRESH clone so the top-level var change signal fires.
         // (Assigning the same object reference back is a no-op: nested
-        // bindings like `Settings.booru.limit` never re-evaluate.)
+        // bindings like `Settings.wallpaperWallhaven.page` never re-evaluate.)
         if (parts.length > 1) {
             root[parts[0]] = Object.assign({}, obj);
         }
@@ -729,24 +641,10 @@ Singleton {
                     value: root.dynamicThemeVariants
                 },
                 fileManager: root.fileManager,
-                "waifuWidget": {
-                    current: root.waifu
-                },
                 "chatBot": {
                     api: root.chatBotApi
                 },
-                "booru": {
-                    api: root.booru.api,
-                    tags: root.booru.tags,
-                    limit: root.booru.limit,
-                    page: root.booru.page,
-                    columns: root.booru.columns,
-                    bookmarks: root.booru.bookmarks,
-                    pins: root.booru.pins,
-                    selectedTab: root.booru.selectedTab ?? root.booru.api?.name ?? "Danbooru"
-                },
-                "apiKeys": root.apiKeys,
-                "userAgents": root.userAgents
+                "apiKeys": root.apiKeys
             };
             _lastText = JSON.stringify(s, null, 2);
             _file.setText(_lastText);
@@ -796,7 +694,7 @@ Singleton {
     }
     // Gate: FileView loads async, so any persist() before the first load
     // would write in-memory defaults over the user's saved file (seen:
-    // booru.limit 20 clobbered back to 100 on restart). Nothing persists
+    // saved values clobbered back to defaults on restart). Nothing persists
     // until the on-disk values have been adopted.
     property bool ready: false
 
@@ -910,39 +808,12 @@ Singleton {
                 const _gm = s.gameMode?.enabled;
                 root.gameModeEnabled = (typeof _gm === "object" && _gm !== null) ? (_gm.value ?? false) : (_gm ?? false);
 
-                // Rating tag leads, defaulting to -rating:explicit. Done here
-                // (not viewer boot) so the file's tags are normalized the
-                // moment they are adopted — viewer boot may run before or
-                // after this either way.
-                let _tags = (s.booru?.tags ?? ["-rating:explicit"]).slice();
-                const _rt = _tags.find(t => t.match(/[-]rating:explicit|rating:explicit/));
-                _tags = _tags.filter(t => !t.match(/[-]rating:explicit|rating:explicit/));
-                _tags.unshift(_rt ?? "-rating:explicit");
-                root.booru = {
-                    api: s.booru?.api ?? {
-                        name: "Danbooru",
-                        value: "danbooru",
-                        url: "https://danbooru.donmai.us/",
-                        idSearchUrl: "https://danbooru.donmai.us/posts/"
-                    },
-                    tags: _tags,
-                    limit: s.booru?.limit ?? 100,
-                    page: s.booru?.page ?? 1,
-                    columns: s.booru?.columns ?? 3,
-                    bookmarks: s.booru?.bookmarks ?? [],
-                    pins: s.booru?.pins ?? [],
-                    selectedTab: s.booru?.selectedTab ?? s.booru?.api?.name ?? "Danbooru"
-                };
                 root.apiKeys = root.mergeApiKeys(s.apiKeys);
-                root.userAgents = root.mergeUserAgents(s.userAgents);
-
-                // Waifu widget
-                root.waifu = s.waifuWidget?.current ?? null;
 
                 // ChatBot provider (restored on launch; stored as the model
                 // value string here).
                 const cbApi = s.chatBot?.api;
-                root.chatBotApi = (cbApi && typeof cbApi === "object" ? cbApi.value : cbApi) ?? "openai/gpt-4o-mini";
+                root.chatBotApi = (cbApi && typeof cbApi === "object" ? cbApi.value : cbApi) ?? "opus";
 
                 // Blur settings
                 root.barBlur = s.bar?.blur?.value ?? true;
@@ -1176,12 +1047,6 @@ Singleton {
             root.schedulePersist();
         }
         function onGameModeEnabledChanged() {
-            root.schedulePersist();
-        }
-        function onWaifuChanged() {
-            root.schedulePersist();
-        }
-        function onBooruChanged() {
             root.schedulePersist();
         }
         function onChatBotApiChanged() {

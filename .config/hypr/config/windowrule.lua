@@ -62,12 +62,6 @@ hl.window_rule({
 })
 
 hl.window_rule({
-    match = { title = "booru-image" },
-    float = true,
-    move = "cursor -50% -50%",
-})
-
-hl.window_rule({
     match = { class = "^(grass)" },
     workspace = "9 silent",
 })

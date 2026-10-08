@@ -20,9 +20,8 @@
 | `LockScreen` | `widgets/lock/LockScreen.qml` | Single scope; compositor creates one `WlSessionLockSurface` per screen (no `Variants`) |
 
 Startup also `mkdir -p`s every cache dir `FileView` writes to (writes to missing dirs fail silently):
-`~/.cache/quickshell/{settings,booru,launcher,script-timer,crypto,chatbot,auth,manga,wallpaper-thumbs}`,
-`~/.cache/cwal`, `~/.config/wallpapers/{custom,wallhaven,defaults}`, `~/.config/fastfetch/cache`
-— and primes `FastfetchPins` so its pins-watcher attaches at boot.
+`~/.cache/quickshell/{settings,launcher,script-timer,crypto,chatbot,auth,wallpaper-thumbs}`,
+`~/.cache/cwal`, `~/.config/wallpapers/{custom,wallhaven,defaults}`, `~/.config/fastfetch/cache`.
 
 ### 1.2 Bar state machine — `services/BarState.qml` (singleton)
 
@@ -56,7 +55,7 @@ Rules that bite:
   so exactly one unfold plays.
 - Closing a side pill never fires `BarState.onStateChanged` (resolved state
   doesn't move) — close-guards must listen to `onLeftOpenChanged`
-  (see `BooruViewer` dialog) instead of `onStateChanged`.
+  instead of `onStateChanged`.
 - `default` is the permanent base and cannot be deactivated. `expanded`/`compact` are
   legacy aliases for `default`.
 - Omit `holdMs` (or `0`) = persistent until explicitly deactivated. `holdMs > 0` = auto-deactivate timer.
@@ -110,13 +109,12 @@ directly (no exclusivity anywhere — the window is always a full-width overlay)
 
 ### 1.4 Left island lazy tabs — `widgets/bar/islands/LeftIsland.qml`
 
-`StackLayout` of 8 `Loader`s in `tabOrder` (`UserProfile, BooruViewer, ChatBot,
-MangaViewer, SettingsWidget, CustomScripts, KeyBinds, Donations`). Each activates on first select
+`StackLayout` of 6 `Loader`s in `tabOrder` (`UserProfile, ChatBot,
+SettingsWidget, CustomScripts, KeyBinds, Donations`). Each activates on first select
 (`tabPrimed`) and **stays alive** to preserve scroll/page/chat state. `activeWidget`
-exposes the live tab; `hostPanel` back-reference lets popups (e.g. booru dialog) veto
-auto-hide via `popupHovered`. Island height is explicit (`bodyHeight`, full monitor
+exposes the live tab; a tab widget can veto auto-hide via `popupHovered`. Island height is explicit (`bodyHeight`, full monitor
 height); each widget scrolls internally. Tab bodies live in `widgets/leftPanel/`
-(`BooruViewer/` is a subdir; `GeneralTab.qml` is a Settings sub-tab, not an island tab).
+(`GeneralTab.qml` is a Settings sub-tab, not an island tab).
 
 ### 1.5 Services — `services/` (module `qs.services`, see `services/qmldir`)
 
@@ -131,14 +129,14 @@ All stateful logic is a QML singleton (`pragma Singleton`), UI files stay dumb
 | `Launcher` | Query pipeline (`cb/note/apps/emoji/translate/units/arithmetic/URL/>palette/fuzzy`), `results`, `selectedIndex`, `quickAppOrder` + history files under `~/.cache/quickshell/launcher/` |
 | `ScreenRecorder` | `wf-recorder` via `~/.config/hypr/scripts/screenrecord.sh`; `isRecording` is **polled** (`pgrep`, 1s) + 1.2s settle — lags reality ~2s, never use it for rapid toggle decisions |
 | `Notifications` | Daemon mirror: ephemeral `popupToasts` vs retained `history`; `Recorder` toasts get red-dot treatment |
-| `Settings` | Persisted config (`theme/Settings.qml`, ~1270 lines): bar/panel geometry, hotzones, `revealPressure`, widgets, booru, apiKeys, waifu, hyprland mirror; `updateSetting/persist/schedulePersist/reload` |
+| `Settings` | Persisted config (`theme/Settings.qml`, ~1270 lines): bar/panel geometry, hotzones, `revealPressure`, widgets, apiKeys, hyprland mirror; `updateSetting/persist/schedulePersist/reload` |
 | `Weather, Brightness, KeyboardLayout, SysInfo, VolumeWatcher` | Device/API polling singletons (`Weather` owns `fmt/fmtRaw/formatTime/formatDate` for `WeatherCard`; `SysInfo.bandwidth` is the single `bandwidth-loop` owner bound by `Bandwidth`) |
-| `FastfetchPins, AutoWorkspaceSwitching, GlobalTheme, UserProfileState` | Boot/prefs singletons: pins self-heal + watcher, workspace auto-switch, global theme bridge, profile cache |
-| `BooruActions, Supabase, WorkspaceIcons` | Domain helpers: booru download/fav actions, Supabase client config, workspace glyph map |
+| `AutoWorkspaceSwitching, GlobalTheme, UserProfileState` | Boot/prefs singletons: workspace auto-switch, global theme bridge, profile cache |
+| `Supabase, WorkspaceIcons` | Domain helpers: Supabase client config, workspace glyph map |
 
 There is no `utils/` module (deleted 2026-09-13 — `JsonUtils, MonitorUtils,
 SettingsUtils, TimeUtils, WindowManager` are gone; logic was inlined).
-`scripts/` holds `booru.py`, `chatbot.py`, `crypto.py`, `manga.py`, `translate.sh`,
+`scripts/` holds `chatbot.py` (Claude via headless `claude -p`, using the Claude Code login; no API key), `crypto.py`, `translate.sh`,
 `get-keybinds.sh`, `get-wallpapers.sh`, `wallhaven.py`, `gen-video-thumbs.sh`,
 `cava/`, `auth-server-callback.py`, plus C loops (`bandwidth-loop.c`,
 `system-resources-loop.c`). Hyprland-side scripts live
@@ -182,7 +180,7 @@ Motion system (Caelestia-expressive port, pure QML, 2026-09-21 — no C++ plugin
 Widget dirs: `bar/` (pill + `Bandwidth/Battery/Brightness/Clock/Network/ResourceMonitor/Tray/Volume/Workspaces`
 + `islands/`), `controlPanel/ControlPanelBody.qml`, `launcher/` (`LauncherPanel`, `AppEntry`),
 `lock/` (`LockScreen/LockSurface/LockContext`, WlSessionLock+PAM), `media/` (`MediaWidget/MediaWindow/MediaVideo/WaveVisualizer`
-— `PlayerWidget.qml` deleted), `notifications/NotificationPopups.qml`, `rightPanel/` (Calendar/Crypto/CryptoItem/FormShell/JsonListStore/NotificationHistory/NotificationItem/ScriptTimer/SystemResources/TaskItem/Waifu — `StackItem.qml` deleted),
+— `PlayerWidget.qml` deleted), `notifications/NotificationPopups.qml`, `rightPanel/` (Calendar/Crypto/CryptoItem/FormShell/JsonListStore/NotificationHistory/NotificationItem/ScriptTimer/SystemResources/TaskItem — `StackItem.qml` deleted),
 `wallpaperPanel/WallpaperPanelBody.qml` (per-workspace picker + SDDM bg + video thumbs via `gen-video-thumbs.sh`),
 `weather/` (`WeatherCard.qml` single UI, `WeatherWidget.qml` thin wrapper, `WeatherButton.qml`).
 
