@@ -12,7 +12,6 @@ import sys
 from pathlib import Path
 from typing import Any
 
-COUNTER_URL = "https://personal-counter-two.vercel.app/api/increment?workspace=archeclipse&counter=install"
 
 def run_cmd(
     args: list[str],
@@ -106,11 +105,6 @@ def parse_branch(argv: list[str]) -> str:
 def main() -> None:
     conf_dir = Path.home() / "ArchEclipse"
 
-    try:
-        run_cmd(["curl", "-s", "-o", "/dev/null", COUNTER_URL], check=False)
-    except Exception:
-        pass
-
     print("Requesting sudo password...")
     run_cmd(["sudo", "-v"])  # prompt once
     print("Sudo access granted.\n")
@@ -131,7 +125,7 @@ def main() -> None:
             "--single-branch",
             "--branch",
             branch,
-            "https://github.com/AymanLyesri/ArchEclipse.git",
+            "https://github.com/bushninjadots/ArchEclipsedots.git",
             str(conf_dir),
         ]
     )

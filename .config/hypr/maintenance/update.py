@@ -11,8 +11,10 @@ import tempfile
 from pathlib import Path
 from typing import Any
 
-COUNTER_URL = "https://personal-counter-two.vercel.app/api/increment?workspace=archeclipse&counter=update"
-REPO_URL = "https://github.com/AymanLyesri/ArchEclipse.git"
+# Your fork: updates come from here, so your own pushed changes are kept.
+# The original project is the `upstream` remote; merge it in yourself with
+# `git fetch upstream && git merge upstream/master` when you want its changes.
+REPO_URL = "https://github.com/bushninjadots/ArchEclipsedots.git"
 
 
 def run_cmd(
@@ -87,6 +89,30 @@ def is_repo_intact(repo_dir: Path, repo_url: str) -> bool:
     return True
 
 
+def local_work_at_risk(repo_dir: Path, branch: str) -> str:
+    """Why resetting to origin/<branch> would lose your work, or "" if it wouldn't.
+
+    The update resets the repo to the fork's copy, so it first refuses when
+    there are uncommitted changes to tracked files or commits that aren't on
+    the fork yet. Commit and push them, then run the update again.
+    """
+    dirty = run_cmd(
+        ["git", "-C", str(repo_dir), "status", "--porcelain", "--untracked-files=no"],
+        check=False,
+        capture_output=True,
+    ).stdout.strip()
+    if dirty:
+        return "uncommitted changes:\n" + dirty
+    unpushed = run_cmd(
+        ["git", "-C", str(repo_dir), "log", "--oneline", f"origin/{branch}..HEAD"],
+        check=False,
+        capture_output=True,
+    ).stdout.strip()
+    if unpushed:
+        return f"commits not pushed to origin/{branch}:\n" + unpushed
+    return ""
+
+
 def update_repo(repo_dir: Path, branch: str) -> None:
     if is_repo_intact(repo_dir, REPO_URL):
         print("Repository history intact, syncing with remote...")
@@ -100,7 +126,13 @@ def update_repo(repo_dir: Path, branch: str) -> None:
                 f"{branch}:refs/remotes/origin/{branch}",
             ]
         )
-        print("Forcing reset of local modifications...")
+        at_risk = local_work_at_risk(repo_dir, branch)
+        if at_risk:
+            print("")
+            print("Update stopped so nothing is lost. You have " + at_risk)
+            print("")
+            print("Commit and push them to your fork (git push), then update again.")
+            raise SystemExit(1)
         run_cmd(["git", "-C", str(repo_dir), "reset", "--hard"])
         run_cmd(
             [
@@ -117,9 +149,16 @@ def update_repo(repo_dir: Path, branch: str) -> None:
         print(f"Repository successfully updated from origin/{branch}.")
         return
 
-    print(
-        "Local git history is missing/corrupt. Falling back to fresh clone deployment."
-    )
+    if (repo_dir / ".git").exists():
+        # A repo that points somewhere else (or is damaged) is never wiped:
+        # the fallback below deletes .git and copies a fresh clone over $HOME.
+        print(
+            f"{repo_dir} is a git repo, but its origin isn't {REPO_URL} or it is damaged."
+        )
+        print("Update stopped so nothing is overwritten. Check `git remote -v`.")
+        raise SystemExit(1)
+
+    print("No local git repo found. Falling back to fresh clone deployment.")
     temp_dir = Path(tempfile.mkdtemp())
 
     try:
@@ -219,7 +258,6 @@ def main() -> None:
         raise SystemExit(0)
 
     run_cmd(["sudo", "-v"])
-    run_cmd(["curl", "-s", "-o", "/dev/null", COUNTER_URL], check=False)
 
     branch = sys.argv[1] if len(sys.argv) > 1 else "master"
     repo_dir = Path.home()

@@ -1,6 +1,8 @@
 # ~/.config/starship.toml
 
 add_newline = false
+scan_timeout = 200
+command_timeout = 1000
 
 format = """
 $character\

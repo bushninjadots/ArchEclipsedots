@@ -34,7 +34,6 @@ MANIFEST = [
     shot("left-panel-chatbot", "left", "ChatBot"),
     shot("left-panel-settings", "left", "SettingsWidget"),
     shot("left-panel-keybinds", "left", "KeyBinds"),
-    shot("wallpaper-switcher", "wallpaper"),
     shot("workspace-overview", "overview"),
     shot("dark-theme", reason="Whole-desktop theme showcase: manual; no global theme changes."),
     shot("light-theme", reason="Whole-desktop theme showcase: manual; no global theme changes."),

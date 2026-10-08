@@ -63,8 +63,8 @@ hl.bind(mainMod .. " + m", hl.dsp.exec_cmd(qsIpc .. "togglePanel media-panel " .
 hl.bind(mainMod .. " + r", hl.dsp.exec_cmd(qsIpc .. "toggleRightPanel " .. monitor))
 --- toggle left panel (SUPER+L)
 hl.bind(mainMod .. " + l", hl.dsp.exec_cmd(qsIpc .. "toggleLeftPanel " .. monitor))
---- toggle wallpaper switcher
-hl.bind(mainMod .. " + w", hl.dsp.exec_cmd(qsIpc .. "togglePanel wallpaper-switcher " .. monitor))
+--- toggle wallpaper picker (qs-wallpaperpicker)
+hl.bind(mainMod .. " + w", hl.dsp.exec_cmd(home .. "/.config/qs-wallpaperpicker/bin/qs-wallpaperpicker toggle"))
 --- toggle user panel
 hl.bind(mainMod .. " + Escape", hl.dsp.exec_cmd(qsIpc .. "togglePanel user-panel " .. monitor))
 --- open clipboard manager

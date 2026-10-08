@@ -123,7 +123,6 @@ def print_update_completion_message() -> None:
     print(f"{BOLD}{GREEN}{'=' * 63}{NC}")
     print(f"{BOLD}{GREEN}System updated successfully.{NC}")
     print(f"{BOLD}{GREEN}{'=' * 63}{NC}")
-    prompt_for_donation()
 
 
 def run_step(
@@ -168,10 +167,3 @@ def run_section_step(
         print_success(description)
     except Exception as exc:  # noqa: BLE001
         error_exit(f"Failed: {description} ({exc})")
-
-
-def prompt_for_donation() -> None:
-    print("")
-    print("Support the project if it helped your setup.")
-    print("Thank you for being part of the ArchEclipse community.")
-    print("")

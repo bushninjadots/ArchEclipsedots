@@ -14,7 +14,7 @@ ShellRoot {
     // FileView won't create missing parent dirs, so ensure every cache
     // dir it writes to exists at startup (else writes silently fail).
     property Process _cacheDirsProc: Process {
-        command: ["bash", "-c", "mkdir -p \"$HOME/.cache/quickshell/settings\" \"$HOME/.cache/cwal\" \"$HOME/.cache/quickshell/launcher\" \"$HOME/.cache/quickshell/script-timer\" \"$HOME/.cache/quickshell/crypto\" \"$HOME/.cache/quickshell/chatbot\" \"$HOME/.cache/quickshell/auth\" \"$HOME/.cache/quickshell/wallpaper-thumbs\" \"$HOME/.config/wallpapers/custom\" \"$HOME/.config/wallpapers/wallhaven\" \"$HOME/.config/wallpapers/defaults\" \"$HOME/.config/fastfetch/cache\""]
+        command: ["bash", "-c", "mkdir -p \"$HOME/.cache/quickshell/settings\" \"$HOME/.cache/quickshell/launcher\" \"$HOME/.cache/quickshell/script-timer\" \"$HOME/.cache/quickshell/crypto\" \"$HOME/.cache/quickshell/chatbot\" \"$HOME/.config/fastfetch/cache\""]
     }
     Component.onCompleted: {
         _cacheDirsProc.running = true
@@ -22,10 +22,6 @@ ShellRoot {
         // can bind PpdState.available instead of spawning `powerprofilesctl`
         // on every island open.
         PpdState.start()
-        // Prime the wallpaper store once at boot (category map + video
-        // thumbs + aspect cache) so the first SUPER+W open binds warm
-        // data instead of spawning get-wallpapers.sh on open.
-        WallpaperService.start()
     }
 
     Ipc {
@@ -57,9 +53,8 @@ ShellRoot {
 
     }
 
-    // Wallpaper switcher lives in the main bar pill as WallpaperIsland
-    // (BarState "wallpaper", body in widgets/wallpaperPanel).
-    // SUPER+W routes to the island via Ipc.togglePanel.
+    // Wallpapers are drawn and picked by qs-wallpaperpicker, a separate
+    // Quickshell config (~/.config/qs-wallpaperpicker); SUPER+W toggles it.
 
     // Secure lockscreen (replaces the UserPanel overlay): single scope,
     // the compositor instantiates one WlSessionLockSurface per screen.

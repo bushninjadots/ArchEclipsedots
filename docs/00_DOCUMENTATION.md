@@ -33,9 +33,9 @@ Hyprland is a modern, dynamic tiling window manager for Wayland. Unlike traditio
 
 0. **Install Arch Linux**: Check the [official Arch Linux wiki](https://wiki.archlinux.org/title/Installation_guide)
 1. **Install Hyprland**: Check the [official Hyprland wiki](https://wiki.hypr.land/Getting-Started/Installation/)
-2. **Install Arch Eclipse**: Run the installation script from the [official repository](https://github.com/AymanLyesri/ArchEclipse)
+2. **Install Arch Eclipse**: Run the installation script from [this fork](https://github.com/bushninjadots/ArchEclipsedots)
    ```bash
-   python3 <(curl -fsSL https://raw.githubusercontent.com/AymanLyesri/ArchEclipse/refs/heads/master/.config/hypr/maintenance/install.py)
+   python3 <(curl -fsSL https://raw.githubusercontent.com/bushninjadots/ArchEclipsedots/refs/heads/master/.config/hypr/maintenance/install.py)
    ```
 3. **Start Hyprland**: After installation and system reboot, make sure you have selected the Hyprland (uwsm-managed) session from your login manager.
 4. **Use the default hotkeys**: See [Keybindings Reference](#keybindings-reference)

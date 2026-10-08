@@ -58,7 +58,7 @@ class CaptureTests(unittest.TestCase):
     def test_required_shots_and_two_right_panels(self):
         items = {s["id"]: s for s in m.MANIFEST}
         for name in ("app-launcher", "left-panel-settings", "left-panel-keybinds", "left-panel-chatbot",
-                     "wallpaper-switcher", "workspace-overview", "right-panel-layout-1", "right-panel-layout-2"):
+                     "workspace-overview", "right-panel-layout-1", "right-panel-layout-2"):
             self.assertTrue(items[name]["supported"], name)
         self.assertEqual([s["id"] for s in m.MANIFEST if s["state"] == "right"],
                          ["right-panel-layout-1", "right-panel-layout-2"])
@@ -71,20 +71,6 @@ class CaptureTests(unittest.TestCase):
         self.assertIn('["Calendar", "Media", "SystemResources"]', qml)
         self.assertIn("capture.rightWidgets", island)
         self.assertNotIn("Settings.rightPanelWidgets =", qml)
-
-    def test_wallpaper_waits_for_hidden_loading_tiles(self):
-        import subprocess
-        qml = (m.CONFIG / "services/CaptureIpc.qml").read_text()
-        fn = qml[qml.index("    function inspectImages("):qml.index("    IpcHandler {")]
-        js = "const root = {}; " + fn + "; root.inspectImages = inspectImages;"
-        js += """
-        const result = {loading: 0, errors: 0, wallpaperFound: false};
-        inspectImages({visible:true, opacity:1, captureReady:false, children:[
-          {visible:true, opacity:0, thumbSettled:false, children:[]}
-        ]}, result);
-        if (result.loading < 2 || !result.wallpaperFound) process.exit(1);
-        """
-        self.assertEqual(subprocess.run(["node", "-e", js], capture_output=True).returncode, 0)
 
     def test_pill_crop_uses_surface_origin_and_logical_coords(self):
         layer = {"x": -1280, "y": 20, "w": 1280, "h": 800}

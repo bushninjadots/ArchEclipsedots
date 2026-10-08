@@ -23,7 +23,7 @@ Item {
     // each time this tab becomes visible and sections key their opacity
     // off their index.
     property int revealCount: 0
-    property int sectionCount: 9
+    property int sectionCount: 8
     Timer {
         id: revealTimer
         interval: 60
@@ -42,52 +42,7 @@ Item {
     onVisibleChanged: {
         if (visible) {
             root.playReveal();
-            root.handlePendingTarget();
         }
-    }
-
-    // Cross-widget deep link (see Registry.selectLeftTab's `target` arg):
-    // scrolls the matching row into view and briefly flashes it. Currently
-    // only wired to apiKeyRepeater rows (matched by their "provider.field"
-    // path) — extend the search below if other sections gain targets.
-    function handlePendingTarget() {
-        if (Registry.pendingTarget === "")
-            return;
-        const key = Registry.pendingTarget;
-        Registry.pendingTarget = "";
-        // Rows aren't laid out yet on the very first frame a hidden tab
-        // becomes visible; defer one tick so mapToItem/contentHeight are
-        // accurate.
-        Qt.callLater(() => root.scrollToAndHighlight(key));
-    }
-    Connections {
-        target: Registry
-        function onPendingTargetChanged() {
-            if (root.visible)
-                root.handlePendingTarget();
-        }
-    }
-
-    function scrollToAndHighlight(key) {
-        for (let i = 0; i < apiKeyRepeater.count; i++) {
-            const item = apiKeyRepeater.itemAt(i);
-            if (!item || item.objectName !== key)
-                continue;
-            const y = item.mapToItem(settingsCol, 0, 0).y;
-            const maxY = Math.max(0, settingsCol.height - settingsScroll.height);
-            scrollAnim.to = Math.min(Math.max(y - 24, 0), maxY);
-            scrollAnim.restart();
-            if (item.flash)
-                item.flash();
-            return;
-        }
-    }
-    NumberAnimation {
-        id: scrollAnim
-        target: settingsScroll
-        property: "contentY"
-        duration: 350
-        easing.type: Easing.OutCubic
     }
 
     ColumnLayout {
@@ -437,40 +392,6 @@ Item {
                                 spacing: 8
                                 Label {
                                     font.pixelSize: Theme.fontSize
-                                    text: "Dynamic Theme Colors"
-                                    color: Theme.fg
-                                    Layout.fillWidth: true
-                                }
-                                AppCheckBox {
-                                    checked: Settings.dynamicThemeColors
-                                    onToggled: {
-                                        Settings.dynamicThemeColors = checked;
-                                        root.setThemeFlagInConf("autocolor", checked);
-                                    }
-                                }
-                            }
-                            RowLayout {
-                                width: parent.width
-                                spacing: 8
-                                Label {
-                                    font.pixelSize: Theme.fontSize
-                                    text: "Dynamic Theme Variants"
-                                    color: Theme.fg
-                                    Layout.fillWidth: true
-                                }
-                                AppCheckBox {
-                                    checked: Settings.dynamicThemeVariants
-                                    onToggled: {
-                                        Settings.dynamicThemeVariants = checked;
-                                        root.setThemeFlagInConf("autovariant", checked);
-                                    }
-                                }
-                            }
-                            RowLayout {
-                                width: parent.width
-                                spacing: 8
-                                Label {
-                                    font.pixelSize: Theme.fontSize
                                     text: "Blur"
                                     color: Theme.fg
                                     Layout.fillWidth: true
@@ -737,145 +658,11 @@ Item {
                     }
                 }
 
-                // ============ API KEYS ============
-                Rectangle {
-                    width: parent.width
-                    implicitHeight: apiSec.implicitHeight + 20
-                    opacity: root.revealCount > 5 ? 1 : 0
-                    Behavior on opacity {
-                        NumberAnimation {
-                            duration: 250
-                            easing.type: Easing.OutCubic
-                        }
-                    }
-                    radius: Theme.radius
-                    color: Theme.surface
-                    border.color: Theme.border
-                    border.width: 1
-
-                    Column {
-                        id: apiSec
-                        anchors.fill: parent
-                        anchors.margins: 10
-                        spacing: 8
-                        Label {
-                            text: "API Keys"
-                            font.pixelSize: Theme.fontSize + 2
-                            font.bold: true
-                            color: Theme.accent
-                        }
-                        Column {
-                            width: parent.width
-                            spacing: 4
-                            Repeater {
-                                id: apiKeyRepeater
-                                model: [
-                                    {
-                                        path: "wallhaven.key",
-                                        label: "Wallhaven Key (optional, unlocks NSFW)"
-                                    }
-                                ]
-                                delegate: Rectangle {
-                                    id: keyRow
-                                    // NOTE: Repeater has no width — size off the
-                                    // section Column instead.
-                                    width: parent.width
-                                    height: 34
-                                    color: Theme.bg
-                                    radius: 4
-                                    objectName: modelData.path
-
-                                    property bool reveal: false
-
-                                    border.color: Theme.accent
-                                    border.width: 0
-                                    function flash() {
-                                        flashAnim.restart();
-                                    }
-                                    SequentialAnimation {
-                                        id: flashAnim
-                                        loops: 2
-                                        NumberAnimation {
-                                            target: keyRow
-                                            property: "border.width"
-                                            from: 0
-                                            to: 2
-                                            duration: 200
-                                            easing.type: Easing.OutCubic
-                                        }
-                                        NumberAnimation {
-                                            target: keyRow
-                                            property: "border.width"
-                                            from: 2
-                                            to: 0
-                                            duration: 500
-                                            easing.type: Easing.InCubic
-                                        }
-                                    }
-
-                                    RowLayout {
-                                        anchors.fill: parent
-                                        anchors.margins: 6
-                                        spacing: 6
-                                        Label {
-                                            font.pixelSize: Theme.fontSize
-                                            id: apiKeyLabel
-                                            text: modelData.label
-                                            color: Theme.fg
-                                            Layout.fillWidth: true
-                                            elide: Text.ElideRight
-                                        }
-
-                                        HoverHandler {
-                                            id: apiKeyHoverHandler
-                                            cursorShape: Qt.ArrowCursor
-                                        }
-
-                                        AppTooltip {
-                                            visible: apiKeyHoverHandler.hovered && apiKeyLabel.truncated
-                                            text: apiKeyLabel.text
-                                        }
-                                        AppTextField {
-                                            id: keyField
-                                            text: root.getNested(Settings.apiKeys, modelData.path)
-                                            placeholderText: "Enter " + modelData.label
-                                            echoMode: parent.parent.reveal ? TextField.Normal : TextField.Password
-                                            fillColor: "transparent"
-                                            Layout.preferredWidth: 160
-                                            onAccepted: {
-                                                root.setNestedValue("apiKeys", modelData.path, keyField.text, true);
-                                                // Notify masked value on save (secret)
-                                                Notifications.notify({
-                                                    summary: modelData.label,
-                                                    body: "Changed to ••••••••"
-                                                });
-                                            }
-                                        }
-                                        AppButton {
-                                            text: parent.parent.reveal ? "hide" : "show"
-                                            Layout.preferredWidth: 44
-                                            Layout.preferredHeight: 24
-                                            visible: keyField.text !== ""
-                                            onClicked: parent.parent.reveal = !parent.parent.reveal
-                                        }
-                                        AppButton {
-                                            text: "copy"
-                                            Layout.preferredWidth: 44
-                                            Layout.preferredHeight: 24
-                                            onClicked: root.copyText(keyField.text)
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-
                 // ============ FILE MANAGER ============
                 Rectangle {
                     width: parent.width
                     implicitHeight: fmSec.implicitHeight + 20
-                    opacity: root.revealCount > 6 ? 1 : 0
+                    opacity: root.revealCount > 5 ? 1 : 0
                     Behavior on opacity {
                         NumberAnimation {
                             duration: 250
@@ -948,7 +735,7 @@ Item {
                 Rectangle {
                     width: parent.width
                     implicitHeight: hyprSec.implicitHeight + 20
-                    opacity: root.revealCount > 7 ? 1 : 0
+                    opacity: root.revealCount > 6 ? 1 : 0
                     Behavior on opacity {
                         NumberAnimation {
                             duration: 250
@@ -1492,7 +1279,7 @@ Item {
                 Rectangle {
                     width: parent.width
                     implicitHeight: lockSec.implicitHeight + 20
-                    opacity: root.revealCount > 8 ? 1 : 0
+                    opacity: root.revealCount > 7 ? 1 : 0
                     Behavior on opacity {
                         NumberAnimation {
                             duration: 250
@@ -1675,70 +1462,6 @@ Item {
         return "hl.config(" + expr + ")";
     }
 
-    // Get nested value from an object by dotted path. Unwraps
-    // credential objects ({value: ...}) to plain strings for display.
-    function getNested(obj, path) {
-        if (!path || !obj)
-            return "";
-        const keys = path.split(".");
-        let o = obj;
-        for (const k of keys) {
-            if (o == null)
-                return "";
-            o = o[k];
-        }
-        if (o == null)
-            return "";
-        if (typeof o === "object")
-            return (o.value ?? "");
-        return o;
-    }
-
-    // Set nested value by dotted path. persistIfSetting == true for apiKeys group.
-    // Preserves credential objects (writes .value, keeps shape on disk).
-    function setNestedValue(propRoot, path, value, persist) {
-        // propRoot is a Settings property name; navigate from Settings
-        const keys = path.split(".");
-        let o = Settings[propRoot];
-        if (o == null)
-            o = {};
-        for (let i = 0; i < keys.length - 1; i++) {
-            if (o[keys[i]] == null)
-                o[keys[i]] = {};
-            o = o[keys[i]];
-        }
-        const leaf = keys[keys.length - 1];
-        if (o[leaf] != null && typeof o[leaf] === "object" && "value" in o[leaf])
-            o[leaf].value = value;
-        else
-            o[leaf] = value;
-        Settings[propRoot] = JSON.parse(JSON.stringify(Settings[propRoot]));
-        if (persist)
-            Settings.schedulePersist();
-    }
-
-    function copyText(t) {
-        Qt.callLater(function () {
-            Quickshell.execDetached(["wl-copy", t]);
-        });
-    }
-
-    // Write autocolor/autovariant flag into hypr theme conf
-    function setThemeFlagInConf(flag, enabled) {
-        const confPath = "$HOME/.config/hypr/" + root.themeConfName;
-        const val = enabled ? "true" : "false";
-        Qt.callLater(function () {
-            Quickshell.execDetached(["bash", "-c", `if [[ -f "${confPath}" ]]; then
-                  sed -i 's/^${flag}=.*/${flag}=${val}/' "${confPath}"
-                  grep -q '^${flag}=' "${confPath}" || printf '%s\\n' '${flag}=${val}' >> "${confPath}"
-                else
-                  printf '%s\\n' '${flag}=${val}' > "${confPath}"
-                fi`]);
-        });
-    }
-
-    property string themeConfName: "theme/theme.conf"
-
     function previewHotZones() {
         Qt.callLater(function () {
             Quickshell.execDetached(["hyprctl", "notify", "3", "3000", "rgb(ff9800)", "Hot zones highlighted"]);
@@ -1802,8 +1525,6 @@ Item {
         Settings.rightPanelHotZone = true;
         Settings.leftPanelHotZoneSize = 5;
         Settings.rightPanelHotZoneSize = 5;
-        Settings.dynamicThemeColors = true;
-        Settings.dynamicThemeVariants = true;
         Settings.barBlur = true;
         Settings.barBlurSize = 4;
         Settings.barBlurPasses = 4;

@@ -1,0 +1,20 @@
+# matugen: recolours the desktop from the wallpaper. qs-wallpaperpicker runs
+# `matugen image <wallpaper>` every time you set a wallpaper.
+
+[config]
+
+# The wallpaper picker's own colours.
+[templates.qs-wallpaperpicker]
+input_path = "~/.config/qs-wallpaperpicker/extras/matugen/quickshell.json.hbs"
+output_path = "~/.config/qs-wallpaperpicker/colors/Colors.json"
+
+# ArchEclipse bar, panels and lock screen (theme/Theme.qml watches this file).
+[templates.archeclipse]
+input_path = "~/.config/qs-wallpaperpicker/extras/matugen/quickshell.json.hbs"
+output_path = "~/.cache/quickshell/colors.json"
+
+# kitty: kitty.conf includes this; SIGUSR1 makes open windows reload it.
+[templates.kitty]
+input_path = "~/.config/matugen/templates/kitty-colors.conf"
+output_path = "~/.config/kitty/colors-matugen.conf"
+post_hook = "pkill -USR1 -x kitty || true"

@@ -49,7 +49,7 @@ Item {
     // Tab-name order for the selector-rail index mapping (the rail's
     // own model below carries the verbatim name+icon items; names keep
     // the QS "Widget" suffix for IPC showWidget/widgetState compat).
-    readonly property var tabOrder: ["UserProfile", "ChatBot", "SettingsWidget", "CustomScripts", "KeyBinds", "Donations"]
+    readonly property var tabOrder: ["About", "ChatBot", "SettingsWidget", "CustomScripts", "KeyBinds"]
     function tabIndex(name) {
         return Math.max(0, root.tabOrder.indexOf(name));
     }
@@ -108,7 +108,7 @@ Item {
     readonly property var activeWidget: {
         switch (widgetStack.currentIndex) {
         case 0:
-            return userProfileLoader.item;
+            return aboutLoader.item;
         case 1:
             return chatBotLoader.item;
         case 2:
@@ -117,8 +117,6 @@ Item {
             return scriptsLoader.item;
         case 4:
             return keybindsLoader.item;
-        case 5:
-            return donationsLoader.item;
         default:
             return null;
         }
@@ -207,19 +205,19 @@ Item {
                 clip: true
 
                 // Widget selector rail (shared component: tab order,
-                // icons, Donations highlight and tooltips preserved).
+                // icons and tooltips preserved).
                 IslandSideRail {
                     anchors.top: parent.top
                     anchors.left: parent.left
                     anchors.right: parent.right
                     anchors.margins: 8
-                    // Tab order + icons: UserProfile, ChatBot,
-                    // Settings, CustomScripts, KeyBinds, Donations. Names keep the QS "Widget"
+                    // Tab order + icons: About, ChatBot,
+                    // Settings, CustomScripts, KeyBinds. Names keep the QS "Widget"
                     // suffix (IPC showWidget/widgetState compat).
                     model: [
                         {
-                            name: "UserProfile",
-                            icon: ""
+                            name: "About",
+                            icon: "\u{f05a}"
                         },
                         {
                             name: "ChatBot",
@@ -236,10 +234,6 @@ Item {
                         {
                             name: "KeyBinds",
                             icon: ""
-                        },
-                        {
-                            name: "Donations",
-                            icon: ""
                         }
                     ]
                     currentIndex: root.tabIndex(root.selectedWidget)
@@ -267,7 +261,7 @@ Item {
                 // select and stays alive, so tab
                 // switches preserve scroll/page/chat state. Only the
                 // selected tab instantiates: opening the island builds one
-                // widget instead of all six. Only the current one is
+                // widget instead of all five. Only the current one is
                 // visible; loaded hidden tabs exist in memory but don't
                 // paint. Order matches the tab rail above.
                 // Fade-in on switch (opacity-in 0.6s).
@@ -284,7 +278,7 @@ Item {
                     anchors.margins: 4
                     currentIndex: {
                         switch (root.selectedWidget) {
-                        case "UserProfile":
+                        case "About":
                             return 0;
                         case "ChatBot":
                             return 1;
@@ -294,16 +288,14 @@ Item {
                             return 3;
                         case "KeyBinds":
                             return 4;
-                        case "Donations":
-                            return 5;
                         default:
                             return 0;
                         }
                     }
                     Loader {
-                        id: userProfileLoader
-                        active: root.tabPrimed("UserProfile")
-                        sourceComponent: userProfileComp
+                        id: aboutLoader
+                        active: root.tabPrimed("About")
+                        sourceComponent: aboutComp
                         Layout.fillWidth: true
                         Layout.fillHeight: true
                     }
@@ -335,17 +327,11 @@ Item {
                         Layout.fillWidth: true
                         Layout.fillHeight: true
                     }
-                    Loader {
-                        id: donationsLoader
-                        active: root.tabPrimed("Donations")
-                        sourceComponent: donationsComp
-                        Layout.fillWidth: true
-                        Layout.fillHeight: true
-                    }
                 }
                 Component {
-                    id: userProfileComp
-                    UserProfileWidget {}
+                    id: aboutComp
+                    // Version check + Update (against your fork) and links.
+                    GeneralTab {}
                 }
                 Component {
                     id: chatBotComp
@@ -362,10 +348,6 @@ Item {
                 Component {
                     id: keybindsComp
                     KeyBindsWidget {}
-                }
-                Component {
-                    id: donationsComp
-                    DonationsWidget {}
                 }
             }
         }

@@ -27,15 +27,11 @@ Rectangle {
         hoverEnabled: true
         cursorShape: Qt.PointingHandCursor
         onClicked: {
-            // Toggle the control island in the bar pill. Wallpaper sits
-            // above control (priority), so yield it first — otherwise
-            // opening control while the wallpaper island is up looks dead.
+            // Toggle the control island in the bar pill.
             if (BarState.state === "control")
                 BarState.deactivate("control");
-            else {
-                BarState.deactivate("wallpaper");
+            else
                 BarState.activate("control", 0);
-            }
         }
     }
 }

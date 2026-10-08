@@ -30,9 +30,9 @@ Hyprland is a modern **tiling window manager** - it automatically organizes your
 
 0. **Install Arch Linux**: Check the [official Arch Linux wiki](https://wiki.archlinux.org/title/Installation_guide)
 1. **Install Hyprland**: Check the [official Hyprland wiki](https://wiki.hypr.land/Getting-Started/Installation/)
-2. **Install Arch Eclipse**: Run the official installation script from the [repository](https://github.com/AymanLyesri/ArchEclipse)
+2. **Install Arch Eclipse**: Run the installation script from [this fork](https://github.com/bushninjadots/ArchEclipsedots)
    ```bash
-   python3 <(curl -fsSL https://raw.githubusercontent.com/AymanLyesri/ArchEclipse/refs/heads/master/.config/hypr/maintenance/install.py)
+   python3 <(curl -fsSL https://raw.githubusercontent.com/bushninjadots/ArchEclipsedots/refs/heads/master/.config/hypr/maintenance/install.py)
    ```
 3. **Start Hyprland**: After installation and system reboot, make sure you have selected the Hyprland (uwsm-managed) session from your login manager.
 4. **Use the default hotkeys**: See [Most Important Keybindings](#most-important-keybindings)
@@ -331,7 +331,7 @@ Include:
 
 Enjoy your Hyprland journey!
 
-**For Arch Eclipse specific issues:** [GitHub Issues](https://github.com/AymanLyesri/ArchEclipse/issues)
+**For issues with this fork:** [GitHub Issues](https://github.com/bushninjadots/ArchEclipsedots/issues)
 
 **For Hyprland general questions:** [Hyprland Community](https://forum.hypr.land/)
 

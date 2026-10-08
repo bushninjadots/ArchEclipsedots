@@ -8,14 +8,16 @@
 
 **Hyprland desktop that just works — daily-driven, fully themed, one-command install.**
 
+Personal fork of [AymanLyesri/ArchEclipse](https://github.com/AymanLyesri/ArchEclipse).
+
 [![Discord](https://img.shields.io/badge/Discord-Join%20Server-5865F2?logo=discord&logoColor=white)](https://discord.gg/fMGt4vH6s5)
 [![Arch Linux](https://img.shields.io/badge/Arch_Linux-1793D1?style=flat-square&logo=arch-linux&logoColor=white)](https://archlinux.org/)
 [![Hyprland](https://img.shields.io/badge/Hyprland-blue?style=flat-square)](https://hyprland.org/)
 [![Quickshell](https://img.shields.io/badge/Quickshell-4A86CF?style=flat-square)](https://quickshell.org/)
 [![QtQuick](https://img.shields.io/badge/QtQuick_QML-41CD52?style=flat-square&logo=qt&logoColor=white)](https://doc.qt.io/qt-6/qtquick-index.html)
 [![Python](https://img.shields.io/badge/Python-3776AB?style=flat-square&logo=python&logoColor=white)](https://python.org/)
-[![Stars](https://img.shields.io/github/stars/AymanLyesri/archeclipse?style=social)](https://github.com/AymanLyesri/ArchEclipse/stargazers)
-[![Issues](https://img.shields.io/github/issues/AymanLyesri/ArchEclipse?style=flat-square)](https://github.com/AymanLyesri/ArchEclipse/issues)
+[![Stars](https://img.shields.io/github/stars/bushninjadots/ArchEclipsedots?style=social)](https://github.com/bushninjadots/ArchEclipsedots/stargazers)
+[![Issues](https://img.shields.io/github/issues/bushninjadots/ArchEclipsedots?style=flat-square)](https://github.com/bushninjadots/ArchEclipsedots/issues)
 
 </div>
 
@@ -25,7 +27,7 @@
 
 - **What:** Arch + Hyprland + custom Quickshell UI. Bar, launcher, panels, theming — all integrated.
 - **Install:** 1 command (below). Update with `archeclipse`.
-- **Try first:** `SUPER + W` = wallpapers. Full keys: [bind.lua](https://github.com/AymanLyesri/ArchEclipse/blob/master/.config/hypr/config/bind.lua).
+- **Try first:** `SUPER + W` = wallpapers. Full keys: [bind.lua](https://github.com/bushninjadots/ArchEclipsedots/blob/master/.config/hypr/config/bind.lua).
 
 ---
 
@@ -34,7 +36,7 @@
 **Need:** Arch / Arch-based + Hyprland + Python 3. Rest is auto-installed.
 
 ```bash
-python3 <(curl -fsSL https://raw.githubusercontent.com/AymanLyesri/ArchEclipse/refs/heads/master/.config/hypr/maintenance/install.py)
+python3 <(curl -fsSL https://raw.githubusercontent.com/bushninjadots/ArchEclipsedots/refs/heads/master/.config/hypr/maintenance/install.py)
 ```
 
 ```bash
@@ -51,7 +53,7 @@ archeclipse   # update anytime (zsh fn → runs maintenance/update.py)
 | **Launcher** | App search + clipboard + emoji + calc + URLs + custom cmds. No Rofi. |
 | **Right panel** | Player, notifications, calendar, crypto |
 | **Left panel** | Claude chatbot, keybinds, settings |
-| **Theming** | Wallpaper → full system colors. Light/dark toggle. Hot-reload. No manual edits. |
+| **Theming** | Wallpaper → full system colors via matugen. Light/dark toggle. Hot-reload. No manual edits. |
 
 **Stack:** QML/QtQuick (Quickshell) · Python 3 + Bash · C (perf utils) · Hyprland/Wayland
 
@@ -67,10 +69,10 @@ archeclipse   # update anytime (zsh fn → runs maintenance/update.py)
 ## Essentials
 
 - **Avatar:** `$HOME/.face.icon`
-- **Wallpapers:** `SUPER + W` → picker. Add yours to `$HOME/.config/wallpapers/custom`
+- **Wallpapers:** `SUPER + W` → [qs-wallpaperpicker](https://github.com/dhrruvsharma/qs-wallpaperpicker). Add yours to `$HOME/Pictures/wallpapers`
 - **Hyprland tweaks:** `$HOME/.config/hypr/config/custom`
 - **Laptop:** install `upower` for battery
-- **Keys:** [bind.lua](https://github.com/AymanLyesri/ArchEclipse/blob/master/.config/hypr/config/bind.lua) or Left Panel in-app
+- **Keys:** [bind.lua](https://github.com/bushninjadots/ArchEclipsedots/blob/master/.config/hypr/config/bind.lua) or Left Panel in-app
 
 ---
 
@@ -94,8 +96,8 @@ graph TB
     subgraph Hypr["Hyprland — window manager (Lua)"]
         HyprMain["hyprland.lua<br/>entry point"]
         HyprConfig["config/*.lua<br/>bind, animations, monitor,<br/>windowrule, gesture, input"]
-        HyprScripts["scripts / scripts-c<br/>screenshot, screenrecord,<br/>brightness, clipboard, wallpaper-loop"]
-        WallpaperDaemon["wallpaper-daemon<br/>hyprpaper / mpvpaper"]
+        HyprScripts["scripts / scripts-c<br/>screenshot, screenrecord,<br/>brightness, clipboard"]
+        WallpaperDaemon["qs-wallpaperpicker<br/>wallpaper + picker,<br/>matugen colours"]
         Evremap["evremap<br/>key remapping service"]
     end
 
@@ -104,20 +106,20 @@ graph TB
 
         subgraph BarSys["Bar system"]
             Bar["Bar.qml<br/>state machine:<br/>default/search/control/<br/>volume/brightness/recording"]
-            BarIslands["islands/<br/>SearchIsland, ControlIsland,<br/>PlayerIsland, WallpaperIsland,<br/>WeatherIsland, RightIsland"]
+            BarIslands["islands/<br/>SearchIsland, ControlIsland,<br/>PlayerIsland,<br/>WeatherIsland, RightIsland"]
             BarSub["bar widgets<br/>Battery, Volume, Bandwidth,<br/>Brightness, Player, Recording"]
         end
 
         AppLauncher["LauncherPanel.qml<br/>quickshell launcher +<br/>clipboard + emoji + notes"]
 
         subgraph Panels["Side panels"]
-            LeftPanel["leftPanel/<br/>Settings, ChatBot,<br/>KeyBinds, UserProfile"]
+            LeftPanel["leftPanel/<br/>About, Settings,<br/>ChatBot, KeyBinds"]
             RightPanel["rightPanel/<br/>Calendar, Notifications,<br/>SystemResources, Crypto"]
         end
 
         subgraph Core["Core layers"]
             Widgets["widgets/shared/<br/>reusable QML components"]
-            Services["services/<br/>BarState, Brightness,<br/>ScreenRecorder, Ipc,<br/>Supabase, Weather"]
+            Services["services/<br/>BarState, Brightness,<br/>ScreenRecorder, Ipc,<br/>Weather"]
             Utils["utils<br/>SettingsUtils, MonitorUtils,<br/>TimeUtils, WindowManager"]
             Theme["theme/<br/>Theme.qml + GlobalTheme<br/>typed config & styling"]
         end
@@ -125,12 +127,11 @@ graph TB
         subgraph NativeScripts["Native/companion scripts"]
             CLoops["*.c loops<br/>system-resources, bandwidth,<br/>keystroke visualizer"]
             PyScripts["*.py<br/>chatbot, crypto,<br/>auth-callback"]
-            ShScripts["*.sh<br/>get-wallpapers, translate,<br/>get-keybinds, image-color"]
+            ShScripts["*.sh<br/>translate, get-keybinds,<br/>image-color"]
         end
     end
 
     subgraph Backend["External services"]
-        Supabase[("Supabase<br/>auth + RLS + settings sync")]
         APIs[("Crypto / weather APIs,<br/>Claude via Claude Code")]
     end
 
@@ -160,7 +161,6 @@ graph TB
 
     Core --> NativeScripts
     Utils --> Services
-    Services -->|"auth, settings sync"| Supabase
     NativeScripts -->|"HTTP calls"| APIs
 
     Theme -.->|styles| Shell
@@ -175,18 +175,18 @@ graph TB
     class HyprMain,HyprConfig,HyprScripts,WallpaperDaemon,Evremap hypr
     class Shell,Bar,BarIslands,BarSub,AppLauncher,LeftPanel,RightPanel qs
     class Widgets,Services,Utils,Theme,CLoops,PyScripts,ShScripts core
-    class Supabase,APIs ext
+    class APIs ext
 ```
 
 ### Theming
 
-- Wallpaper → colors via [Cwal](https://github.com/nitinbhat972/cwal) (C PyWal, 10-50x faster).
+- Wallpaper → colors via [matugen](https://github.com/InioX/matugen) (Material You): shell, kitty and the picker follow the wallpaper.
 - Auto-applies to Quickshell, terminal, UI. Zero manual edits.
-- Per-workspace static / video wallpapers. Light/dark toggle. Hot-reload.
+- Static, animated and video wallpapers drawn by [qs-wallpaperpicker](https://github.com/dhrruvsharma/qs-wallpaperpicker), with local, favourites and Wallhaven sources. Light/dark toggle. Hot-reload.
 
 ### Widgets (Quickshell / QML)
 
-- Reactive QML via `shell.qml` + singletons (`BarState`, `GlobalTheme`, `Supabase`, `Weather`).
+- Reactive QML via `shell.qml` + singletons (`BarState`, `GlobalTheme`, `Weather`).
 - Bar slots swappable at runtime.
 - Note: migrated from Eww/AGS on 2026-09-12. Old `~/ArchEclipse-AGS` / `~/agsv1` folders are safe to delete.
 
@@ -213,7 +213,7 @@ Python installer = deps + dotfiles + packages. One command in, `archeclipse` kee
 - [ ] Gaming perf tuning _(in progress)_
 - [ ] Ongoing polish
 
-Bugs / ideas → [open an issue](https://github.com/AymanLyesri/ArchEclipse/issues).
+Bugs / ideas → [open an issue](https://github.com/bushninjadots/ArchEclipsedots/issues).
 
 ---
 
@@ -235,45 +235,7 @@ Bugs / ideas → [open an issue](https://github.com/AymanLyesri/ArchEclipse/issu
 | ------- | -------- | -------- |
 | ![Chatbot](.github/assets/left-panel-chatbot.png) | ![Settings](.github/assets/left-panel-settings.png) | ![Keybinds](.github/assets/left-panel-keybinds.png) |
 
-### Wallpaper · Workspaces · Lock
+### Workspaces · Lock
 
-![Wallpaper Switcher](.github/assets/wallpaper-switcher.png)
 ![Workspace Overview](.github/assets/workspace-overview.png)
 ![Lock Screen](.github/assets/lock-screen.png)
-
----
-
-## ❤️ Support
-
-Coffee = more dev. Thanks.
-
-<div align="center">
-
-<a href="https://ko-fi.com/aymanlyesri">
-  <img src="https://img.shields.io/badge/☕_Ko--fi-29ABE0?style=for-the-badge&logo=ko-fi&logoColor=white" />
-</a>
-<a href="https://www.buymeacoffee.com/aymanlyesri">
-  <img src="https://img.shields.io/badge/Buy_Me_A_Coffee-FFDD00?style=for-the-badge&logo=buymeacoffee&logoColor=000000" />
-</a>
-<a href="https://paypal.me/LyesriAyman">
-  <img src="https://img.shields.io/badge/PayPal-00457C?style=for-the-badge&logo=paypal&logoColor=white" />
-</a>
-
-<details>
-<summary>Crypto addresses</summary>
-
-**₿ Bitcoin**
-```txt
-1JisW9xeatCFadtgsenjbpCcFePZGPyXow
-```
-
-**Ξ Ethereum / BSC**
-```txt
-0x52d06d47bb9dc75eaf027f18cb197d5817989a96
-```
-
-</details>
-
-[![Star History Chart](https://star-history.dera.page/svg?repos=aymanlyesri/ArchEclipse&type=Date)](https://star-history.dera.page/#aymanlyesri/ArchEclipse&Date)
-
-</div>

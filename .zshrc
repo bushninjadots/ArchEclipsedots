@@ -1,4 +1,3 @@
-(cat ~/.cache/cwal/sequences &)
 
 eval "$(starship init zsh)"
 
@@ -72,9 +71,6 @@ function v() {
     /bin/neovide --fork $1 && exit
 }
 
-# Test Connection
-alias quickspeed="python3 <(curl -fsSL https://raw.githubusercontent.com/AymanLyesri/quickspeed/refs/heads/master/quickspeed.py)"
-
 # Aliases for neofetch
 alias n=$NEOFETCH
 
@@ -84,13 +80,10 @@ alias logout='hyprctl dispatch exit'
 # Set up fzf key bindings and fuzzy completion
 source <(fzf --zsh)
 
-# Configuration Update
+# Configuration Update: syncs ~ with your fork (bushninjadots/ArchEclipsedots).
+# Runs the local updater, which refuses to run over uncommitted or unpushed work.
 archeclipse() {
-    if [[ "$1" == "dev" ]]; then
-        python3 <(curl -fsSL https://raw.githubusercontent.com/AymanLyesri/hyprland-conf/refs/heads/dev/.config/hypr/maintenance/update.py) dev
-    else
-        python3 <(curl -fsSL https://raw.githubusercontent.com/AymanLyesri/hyprland-conf/refs/heads/master/.config/hypr/maintenance/update.py)
-    fi
+    python3 "$HOME/.config/hypr/maintenance/update.py" "$@"
 }
 
 alias plugins="$HOME/.config/hypr/maintenance/components/plugins.py"
@@ -117,4 +110,4 @@ alias wallpapers="$HOME/.config/hypr/maintenance/components/wallpapers.py"
 # ArchEclipse Discord bot token (OpenCode MCP, read-only scout)
 [ -f ~/.config/opencode/discord-token.env ] && source ~/.config/opencode/discord-token.env
 
-. "$HOME/.local/share/../bin/env"
+[ -f "$HOME/.local/bin/env" ] && . "$HOME/.local/bin/env"  # guarded: installers keep re-adding this

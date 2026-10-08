@@ -40,7 +40,7 @@ Supported (captured live through the shell's own island state):
 `app-launcher`, `right-panel-layout-1` (Player, Calendar, Notification History),
 `right-panel-layout-2` (Calendar, Player, System Resources),
 `left-panel-chatbot`, `left-panel-settings`,
-`left-panel-keybinds`, `wallpaper-switcher`, `workspace-overview`.
+`left-panel-keybinds`, `workspace-overview`.
 
 Manual-only (listed with a reason, never faked): `overview` (desktop hero),
 `dark-theme` / `light-theme` (whole-desktop theme switch), `lock-screen`
@@ -74,11 +74,7 @@ Manual-only (listed with a reason, never faked): `overview` (desktop hero),
    (launcher runs the `apps` query).
 4. Poll `capture status` until the pill reports the desired state, the
    geometry (pill rect in surface coordinates) is stable for `--settle`
-   seconds, and no images are still loading. Wallpaper capture also waits for
-   a nonempty list, fetch/thumbnail-generation completion, aspect updates, and
-   thumbnail decoding/fade-in (including tiles still at opacity zero).
-   Empty/error wallpaper content times out instead of installing a blank capture.
-   Use `--timeout 90` for slow first-load thumbnail generation.
+   seconds, and no images are still loading.
 5. Crop the pill rect from `hyprctl layers -j` and `grim -s 1 -g …`, then
    validate the PNG (CRCs, single IHDR, concatenated IDAT, IEND, expected
    dimensions) and re-verify the pill did not change during capture.

@@ -4,14 +4,6 @@ set -euo pipefail
 
 readonly HYPR_DIR="${HOME}/.config/hypr"
 readonly SCRIPTS_DIR="${HYPR_DIR}/theme/scripts"
-readonly THEME_CONF_FILE="${HYPR_DIR}/theme/theme.conf"
-readonly THEME_CONFIG_SCRIPT="${SCRIPTS_DIR}/theme-config.sh"
-
-source "${THEME_CONFIG_SCRIPT}"
-
-is_autovariant_enabled() {
-    [[ "$(get_theme_bool "autovariant" "true")" == "true" ]]
-}
 
 # Get current theme from system color scheme preference
 get_current_theme() {
@@ -32,13 +24,13 @@ get_current_theme() {
     fi
 }
 
-# Apply all theme components (cursor, wal, gtk, icon)
+# Apply all theme components (cursor, matugen colours, gtk, icon)
 apply_theme_components() {
     # Apply all theme components in parallel for faster execution
     {
         "${SCRIPTS_DIR}/cursor-theme.sh" &
         "${SCRIPTS_DIR}/gtk-theme.sh" &
-        "${SCRIPTS_DIR}/wal-theme.sh" &
+        "${SCRIPTS_DIR}/matugen-theme.sh" &
         "${SCRIPTS_DIR}/icon-theme.sh" &
         wait
     } 2>/dev/null
@@ -50,14 +42,6 @@ apply_theme_components() {
 switch_theme() {
     local target_theme="$1"
     local current_theme
-    
-    if is_autovariant_enabled; then
-        echo "Manual theme switching is disabled because autovariant is enabled in ${THEME_CONF_FILE}."
-        if command -v notify-send &>/dev/null; then
-            notify-send -u normal "Theme Switch Disabled" "Manual switching is disabled while auto variant is enabled"
-        fi
-        return 0
-    fi
     
     current_theme=$(get_current_theme)
     
@@ -85,7 +69,7 @@ switch_theme() {
     
     echo "Theme switched to: $target_theme"
     
-    # Apply all theme components (cursor, wal, gtk, icon)
+    # Apply all theme components (cursor, matugen colours, gtk, icon)
     apply_theme_components
     
     # Send notification if notify-send is available
@@ -112,7 +96,7 @@ main() {
             echo "  switch       - Toggle theme (dark <-> light)" >&2
             echo "  switch dark  - Switch to dark theme" >&2
             echo "  switch light - Switch to light theme" >&2
-            echo "  apply        - Apply current theme components (cursor, wal, gtk, icon)" >&2
+            echo "  apply        - Apply current theme components (cursor, matugen colours, gtk, icon)" >&2
             exit 1
         ;;
     esac

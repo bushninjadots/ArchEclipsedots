@@ -54,13 +54,6 @@ Item {
         if (!item) return;
         // Inspect only visible visual descendants, not inactive cached tabs.
         if (item.visible === false) return;
-        // Fading tiles are opacity 0 precisely while their thumbnails load.
-        if (item.captureReady !== undefined) {
-            result.wallpaperFound = true;
-            if (!item.captureReady) result.loading++;
-        }
-        if (item.thumbSettled !== undefined && (!item.thumbSettled || item.opacity < 0.99))
-            result.loading++;
         if (item.source !== undefined && item.status !== undefined) {
             if (item.status === 2) result.loading++;
             if (item.status === 3) result.errors++;
@@ -92,7 +85,7 @@ Item {
             if (!root.active) return root.reply({ok: false, error: "No capture lease"});
             const tabs = {"left-panel-settings": "SettingsWidget", "left-panel-keybinds": "KeyBinds",
                 "left-panel-chatbot": "ChatBot"};
-            const states = {"app-launcher": "search", "wallpaper-switcher": "wallpaper",
+            const states = {"app-launcher": "search",
                 "workspace-overview": "overview", "right-panel-layout-1": "right", "right-panel-layout-2": "right"};
             if (!tabs[name] && !states[name]) return root.reply({ok: false, error: "Unsupported capture"});
             root.desiredState = "";
@@ -126,7 +119,7 @@ Item {
                 ready = ready && BarState.rightOpen;
             else
                 ready = ready && info.displayed === root.desiredState && BarState.state === root.desiredState;
-            const images = {loading: 0, errors: 0, wallpaperFound: false};
+            const images = {loading: 0, errors: 0};
             root.inspectImages(bar.captureItem, images);
             ready = ready && images.loading === 0;
             if (root.widget) {
@@ -137,7 +130,6 @@ Item {
                     ready = !item.loading && item.totalBinds > 0 && item.revealCount >= item.totalBinds;
                 }
             }
-            if (root.desiredState === "wallpaper") ready = ready && images.wallpaperFound && images.errors === 0;
             if (root.desiredState === "search") ready = ready && Launcher.results.length > 0;
             return root.reply({ok: true, ready: ready, state: BarState.state,
                 visible: info.visible, rect: info.rect, images: images,

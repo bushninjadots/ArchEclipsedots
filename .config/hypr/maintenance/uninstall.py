@@ -15,7 +15,7 @@ from collections.abc import Callable
 from pathlib import Path, PurePosixPath
 
 
-REPO_URL = "https://github.com/AymanLyesri/ArchEclipse"
+REPO_URL = "https://github.com/bushninjadots/ArchEclipsedots"
 ZSH_CONFIG = ".zshrc"
 TEMP_BACKUP_PREFIX = "archeclipse-uninstall-"
 TEMP_BACKUP_ROOT = Path("/tmp")

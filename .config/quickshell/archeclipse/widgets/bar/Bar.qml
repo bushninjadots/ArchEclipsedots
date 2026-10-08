@@ -108,7 +108,7 @@ PanelWindow {
     readonly property bool roomCheckLive: BarState.hyprlandTick >= 0
 
     readonly property bool barVisible: {
-        if (BarState.state === "search" || BarState.state === "control" || BarState.state === "overview" || BarState.state === "wallpaper" || BarState.leftOpen || BarState.rightOpen)
+        if (BarState.state === "search" || BarState.state === "control" || BarState.state === "overview" || BarState.leftOpen || BarState.rightOpen)
             return true;
         const override = (BarState.barShown || {})[monitorName];
         if (override !== undefined)
@@ -161,7 +161,7 @@ PanelWindow {
             // then conceal the bar when unlocked and search isn't pinning it.
             if (!root.hovered && BarState.popupCount <= 0 && !Settings.barDefault)
                 BarState.deactivate("default");
-            if (BarState.state !== "search" && BarState.state !== "control" && BarState.state !== "overview" && BarState.state !== "wallpaper" && !BarState.leftOpen && !BarState.rightOpen && !Settings.barLock && !root.hovered && BarState.popupCount <= 0)
+            if (BarState.state !== "search" && BarState.state !== "control" && BarState.state !== "overview" && !BarState.leftOpen && !BarState.rightOpen && !Settings.barLock && !root.hovered && BarState.popupCount <= 0)
                 BarState.concealBar(root.monitorName);
         }
     }
@@ -183,7 +183,7 @@ PanelWindow {
         onTriggered: {
             if (Settings.barLock)
                 return;
-            if (BarState.state === "search" || BarState.state === "control" || BarState.state === "overview" || BarState.state === "wallpaper" || BarState.leftOpen || BarState.rightOpen) {
+            if (BarState.state === "search" || BarState.state === "control" || BarState.state === "overview" || BarState.leftOpen || BarState.rightOpen) {
                 idleTimer.restart();
                 return;
             }
@@ -355,8 +355,6 @@ PanelWindow {
                 // Size from implicit* only — never .height/.width/childrenRect.
                 // Those depend on stack's assigned size and create binding loops.
                 property real activeWidth: {
-                    if (stack.current === "wallpaper" && wallpaperCacheLoader.item)
-                        return wallpaperCacheLoader.item.implicitWidth || 0;
                     var it = currentPageLoader.item;
                     return it ? (it.implicitWidth || 0) : 0;
                 }
@@ -368,8 +366,6 @@ PanelWindow {
                 }
 
                 property real activeHeight: {
-                    if (stack.current === "wallpaper" && wallpaperCacheLoader.item)
-                        return wallpaperCacheLoader.item.implicitHeight || 0;
                     var hit = currentPageLoader.item;
                     return hit ? (hit.implicitHeight || 0) : 0;
                 }
@@ -380,13 +376,6 @@ PanelWindow {
                     }
                 }
 
-                // Latch: the heavy wallpaper island is created once (primed
-                // async at boot so the first open binds warm shared data)
-                // and then kept alive across closes — reopens only toggle
-                // visibility, so image decodes, aspect caches, scroll and
-                // tab state survive.
-                property bool wallpaperPrimed: true
-
                 // The state actually shown — bound straight to BarState.state.
                 // (A Connections-guarded variant was tried and removed: the
                 // binding updates before signal handlers run, so any
@@ -396,68 +385,20 @@ PanelWindow {
                 // + bindings below.)
                 property string displayed: BarState.state
 
-                // The live item for a shown state (cached wallpaper via
-                // its Loader, transient islands via currentPageLoader).
+                // The live item for a shown state (transient islands via
+                // currentPageLoader).
 
                 property string current: stack.displayed
                 // Note: volume/brightness/control all resolve to controlPage
                 // in the switch below, so pulses across them keep the same
                 // Loader item with no swap churn — same content, no reveal.
                 // (Recording maps to defaultPage for the same reason.)
-                onCurrentChanged: {
-                    // Prime the wallpaper cache on first open; the Loader
-                    // stays active from then on (created once, kept alive).
-                    var firstLoad = false;
-                    if (current === "wallpaper" && !stack.wallpaperPrimed) {
-                        stack.wallpaperPrimed = true;
-                        firstLoad = true;
-                    }
-                    // Reopen unfold: the island always rests folded (expand 0)
-                    // — via the exit fold, or the silent reset below for
-                    // fold-skipping direct switches — so a single assignment
-                    // unfolds cleanly. (A 0-then-1 replay in the same tick
-                    // self-cancels the Behavior: it retargets before anything
-                    // renders and nothing moves. Verified via probe.)
-                    var wisl = current === "wallpaper" ? wallpaperCacheLoader.item : null;
-                    if (wisl && !firstLoad && wisl["expand"] !== undefined)
-                        wisl.expand = 1;
-                    // Fold-skipping switches (island -> island) hide the cached
-                    // island with expand still 1 — reset silently while hidden
-                    // so the next reopen unfolds from 0 with one assignment.
-                    if (current !== "wallpaper" && wallpaperCacheLoader.item && wallpaperCacheLoader.item["expand"] !== undefined)
-                        wallpaperCacheLoader.item.expand = 0;
-                }
                 readonly property string previous: ""
-
-                // Wallpaper lives here permanently (async-cached): created at
-                // boot in the background, then visibility-toggled so decodes,
-                // aspect caches and scroll survive closes. Async so the boot
-                // prime never janks the first frame; visible toggles the
-                // already-built subtree (no paint cost hidden).
-                Loader {
-                    id: wallpaperCacheLoader
-                    active: stack.wallpaperPrimed
-                    visible: stack.current === "wallpaper"
-                    asynchronous: true
-                    sourceComponent: wallpaperPage
-                    onLoaded: {
-                        if (item && item["monitorName"] !== undefined)
-                            item.monitorName = root.monitorName;
-                        // Boot prime builds hidden with expand 1 (island's
-                        // own onCompleted unfolds); fold silently while hidden
-                        // so the first open unfolds 0 -> 1 visibly.
-                        if (stack.current !== "wallpaper" && item && item["expand"] !== undefined)
-                            item.expand = 0;
-                    }
-                }
 
                 Loader {
                     id: currentPageLoader
                     // Handles the small transient states only — left/right
-                    // live in their own side pills, recording in its own,
-                    // wallpaper in the cached Loader above (show an empty
-                    // page here so the transient Loader never instantiates
-                    // and destroys it on open/close).
+                    // live in their own side pills, recording in its own.
                     sourceComponent: {
                         switch (stack.current) {
                         case "default":
@@ -485,8 +426,6 @@ PanelWindow {
                             return controlPage;
                         case "overview":
                             return overviewPage;
-                        case "wallpaper":
-                            return emptyPage;
                         default:
                             return defaultPage;
                         }
@@ -531,14 +470,6 @@ PanelWindow {
                 Component {
                     id: overviewPage
                     OverviewIsland {}
-                }
-                Component {
-                    id: wallpaperPage
-                    WallpaperIsland {}
-                }
-                Component {
-                    id: emptyPage
-                    Item {}
                 }
             }
         }

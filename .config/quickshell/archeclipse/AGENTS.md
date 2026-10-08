@@ -20,8 +20,12 @@
 | `LockScreen` | `widgets/lock/LockScreen.qml` | Single scope; compositor creates one `WlSessionLockSurface` per screen (no `Variants`) |
 
 Startup also `mkdir -p`s every cache dir `FileView` writes to (writes to missing dirs fail silently):
-`~/.cache/quickshell/{settings,launcher,script-timer,crypto,chatbot,auth,wallpaper-thumbs}`,
-`~/.cache/cwal`, `~/.config/wallpapers/{custom,wallhaven,defaults}`, `~/.config/fastfetch/cache`.
+`~/.cache/quickshell/{settings,launcher,script-timer,crypto,chatbot,auth}`, `~/.config/fastfetch/cache`.
+
+Wallpapers are **not** part of this config: `~/.config/qs-wallpaperpicker`
+(separate Quickshell instance, `qs-wallpaperpicker` IPC target `wallpaper`)
+draws them and is the SUPER+W picker; `Ipc.toggleWallpaper` / `togglePanel
+wallpaper-switcher` just run its `toggle`.
 
 ### 1.2 Bar state machine — `services/BarState.qml` (singleton)
 
@@ -79,7 +83,6 @@ left/right/recording islands live in **side pills** flanking it
 | `RightIsland.qml` | side pill (`BarState.rightOpen` flag) | Enabled `Settings.rightPanelWidgets`, outer `SmoothFlickable` + per-widget inner scroll; cached `Loader` owned by `rightPill` |
 | `SearchIsland.qml` + `widgets/launcher/LauncherPanel.qml` | `search` | Launcher results (input lives in the island, results in the panel) |
 | `ControlIsland` (`widgets/controlPanel/ControlPanelBody.qml`) / `PlayerIsland` (`widgets/media/MediaWidget.qml`) / `WeatherIsland` (`widgets/weather/WeatherCard.qml`) / `SystemMonitorIsland` | pulses | Transient/utility pages — **all** islands now carry an `expand` 0→1 driver + `IslandExpandClip` unfold (Player/Weather/System/Overview/Recording gained it 2026-09-21; previously static snap + hover timer only) |
-| `WallpaperIsland` (`widgets/wallpaperPanel/WallpaperPanelBody.qml`) | `wallpaper` (cached) | Heavy switcher: `wallpaperPrimed` latch + `wallpaperCacheLoader` in the `Bar.qml` stack (created once, visibility-toggled) so image decodes, aspect caches and scroll survive closes; no refetch on reopen |
 
 Shared island helpers (`widgets/bar/islands/`, module `qs.widgets.bar.islands`):
 
@@ -109,12 +112,13 @@ directly (no exclusivity anywhere — the window is always a full-width overlay)
 
 ### 1.4 Left island lazy tabs — `widgets/bar/islands/LeftIsland.qml`
 
-`StackLayout` of 6 `Loader`s in `tabOrder` (`UserProfile, ChatBot,
-SettingsWidget, CustomScripts, KeyBinds, Donations`). Each activates on first select
+`StackLayout` of 5 `Loader`s in `tabOrder` (`About, ChatBot,
+SettingsWidget, CustomScripts, KeyBinds`). Each activates on first select
 (`tabPrimed`) and **stays alive** to preserve scroll/page/chat state. `activeWidget`
 exposes the live tab; a tab widget can veto auto-hide via `popupHovered`. Island height is explicit (`bodyHeight`, full monitor
 height); each widget scrolls internally. Tab bodies live in `widgets/leftPanel/`
-(`GeneralTab.qml` is a Settings sub-tab, not an island tab).
+(`GeneralTab.qml` is the About tab: version check + Update button, both
+against `origin` = the user's fork; no accounts, sign-in or cloud sync).
 
 ### 1.5 Services — `services/` (module `qs.services`, see `services/qmldir`)
 
@@ -131,14 +135,14 @@ All stateful logic is a QML singleton (`pragma Singleton`), UI files stay dumb
 | `Notifications` | Daemon mirror: ephemeral `popupToasts` vs retained `history`; `Recorder` toasts get red-dot treatment |
 | `Settings` | Persisted config (`theme/Settings.qml`, ~1270 lines): bar/panel geometry, hotzones, `revealPressure`, widgets, apiKeys, hyprland mirror; `updateSetting/persist/schedulePersist/reload` |
 | `Weather, Brightness, KeyboardLayout, SysInfo, VolumeWatcher` | Device/API polling singletons (`Weather` owns `fmt/fmtRaw/formatTime/formatDate` for `WeatherCard`; `SysInfo.bandwidth` is the single `bandwidth-loop` owner bound by `Bandwidth`) |
-| `AutoWorkspaceSwitching, GlobalTheme, UserProfileState` | Boot/prefs singletons: workspace auto-switch, global theme bridge, profile cache |
-| `Supabase, WorkspaceIcons` | Domain helpers: Supabase client config, workspace glyph map |
+| `AutoWorkspaceSwitching, GlobalTheme` | Boot/prefs singletons: workspace auto-switch, global theme bridge |
+| `WorkspaceIcons` | Domain helper: workspace glyph map |
 
 There is no `utils/` module (deleted 2026-09-13 — `JsonUtils, MonitorUtils,
 SettingsUtils, TimeUtils, WindowManager` are gone; logic was inlined).
 `scripts/` holds `chatbot.py` (Claude via headless `claude -p`, using the Claude Code login; no API key), `crypto.py`, `translate.sh`,
-`get-keybinds.sh`, `get-wallpapers.sh`, `wallhaven.py`, `gen-video-thumbs.sh`,
-`cava/`, `auth-server-callback.py`, plus C loops (`bandwidth-loop.c`,
+`get-keybinds.sh`,
+`cava/`, plus C loops (`bandwidth-loop.c`,
 `system-resources-loop.c`). Hyprland-side scripts live
 **outside** this repo (`~/.config/hypr/scripts/screenrecord.sh`, `filemanager.sh`,
 `screenshot.sh`); keybinds in `~/.config/hypr/config/bind.lua` shell out via `qsIpc`
@@ -146,13 +150,16 @@ SettingsUtils, TimeUtils, WindowManager` are gone; logic was inlined).
 
 ### 1.6 Theme + motion — `theme/` (module `qs.theme`)
 
-`Theme.qml` + `Settings.qml` singletons (see `theme/qmldir`). All widgets consume
+`Theme.qml` + `Settings.qml` singletons (see `theme/qmldir`). `Theme.qml` maps the
+matugen scheme in `~/.cache/quickshell/colors.json` (written on every wallpaper
+change by the `archeclipse` template in `~/.config/matugen/config.toml`) onto its
+`background/foreground/color0-8` palette. All widgets consume
 `Theme.fg/bg/surface/accent/radius/fontSize/…` — never hardcode colors. Extra tokens:
 `cardRadius` 8, `chipRadius` 6, `accentFg` white, `spacing` 8, `barContentHeight` 18.
 Shared controls in `widgets/shared/` (module `qs.widgets.shared`, see its `qmldir`):
 `AppButton`, `AppSlider`, `AppTextField`, `AppTextArea`, `AppCheckBox`, `AppComboBox`,
 `AppSpinBox`, `AppKeybind`, `AppSegmentedControl`, `AppImage`, `AppVideo`, `AppBadge`,
-`AppTooltip`, `AppProgress`, `AppMasonry`, `AppMasonryRow`, `SystemResourcesContent`,
+`AppTooltip`, `AppProgress`, `SystemResourcesContent`,
 `SmoothFlickable`, `SmoothListView`, `SmoothWheelHandler`.
 
 Motion system (Caelestia-expressive port, pure QML, 2026-09-21 — no C++ plugin):
@@ -181,7 +188,6 @@ Widget dirs: `bar/` (pill + `Bandwidth/Battery/Brightness/Clock/Network/Resource
 + `islands/`), `controlPanel/ControlPanelBody.qml`, `launcher/` (`LauncherPanel`, `AppEntry`),
 `lock/` (`LockScreen/LockSurface/LockContext`, WlSessionLock+PAM), `media/` (`MediaWidget/MediaWindow/MediaVideo/WaveVisualizer`
 — `PlayerWidget.qml` deleted), `notifications/NotificationPopups.qml`, `rightPanel/` (Calendar/Crypto/CryptoItem/FormShell/JsonListStore/NotificationHistory/NotificationItem/ScriptTimer/SystemResources/TaskItem — `StackItem.qml` deleted),
-`wallpaperPanel/WallpaperPanelBody.qml` (per-workspace picker + SDDM bg + video thumbs via `gen-video-thumbs.sh`),
 `weather/` (`WeatherCard.qml` single UI, `WeatherWidget.qml` thin wrapper, `WeatherButton.qml`).
 
 ### 1.7 Scrolling — single tuning point
@@ -231,8 +237,6 @@ wrappers. Rules:
    `WindowActions` did migrate to shared. `IslandWindowActions` keeps the existing
    icon buttons verbatim — `Settings.*Lock` is a bool, so the
    shared cluster copies the inline bool-toggle logic, not string labels.
-   WallpaperIsland registers its *body* (not the island root) — `Ipc.wallpaperDiag`
-   reads body probes off the handle.
 8. **Swap model (`Bar.qml` stack).** Opens swap immediately and track the
    unfolding content rigidly — no grow-first pin, no stack crossfade;
    the width glides under it while `clip: true` on the pill cuts spill at

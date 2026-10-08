@@ -12,7 +12,7 @@ import qs.services
 Item {
     id: root
     // NOTE: real-number width (was string: relied on JS coercion), and an
-    // implicitHeight so embeds inside plain Columns (Donations) can size
+    // implicitHeight so embeds inside plain Columns can size
     // off content instead of collapsing to 0.
     property real widgetWidth: parent ? parent.width : 350
     implicitHeight: contentColumn.implicitHeight + 30
@@ -51,13 +51,14 @@ Item {
         }
     }
 
-    // --- Process: fetch + check remote (upstream else origin,
-    // fetch <remote> master, rev-parse <remote>/master — NOT @{u}, which
+    // --- Process: fetch + check remote (origin = your fork, which the
+    // updater syncs from; `upstream`, the original project, is ignored).
+    // fetch origin master, rev-parse origin/master — NOT @{u}, which
     // resolves the current branch's upstream and is wrong on detached HEAD
     // or branches without tracking)
     Process {
         id: fetchRemoteProc
-        command: ["bash", "-c", "cd \"" + root.repoDir + "\" && R=$(git remote | grep -qx 'upstream' && echo upstream || echo origin); git fetch \"$R\" master 2>/dev/null; git rev-parse --short \"$R\"/master"]
+        command: ["bash", "-c", "cd \"" + root.repoDir + "\" && git fetch origin master 2>/dev/null; git rev-parse --short origin/master"]
         running: false
         stdout: StdioCollector {
             onStreamFinished: root.remoteVersion = text.trim()
@@ -95,7 +96,7 @@ Item {
     // --- Process: GitHub stars ---
     Process {
         id: starsProc
-        command: ["bash", "-c", "curl -s https://api.github.com/repos/AymanLyesri/ArchEclipse | jq '.stargazers_count'"]
+        command: ["bash", "-c", "curl -s https://api.github.com/repos/bushninjadots/ArchEclipsedots | jq '.stargazers_count'"]
         running: false
         stdout: StdioCollector {
             onStreamFinished: {
@@ -138,7 +139,7 @@ Item {
             spacing: 16
             topPadding: 10
 
-            // Avatar (circular clip via rounded container, like UserProfile).
+            // Avatar (circular clip via rounded container).
             // NOTE: manual x-centering — parent is a Column positioner,
             // which ignores anchors on children.
             Rectangle {
@@ -180,12 +181,12 @@ Item {
                     model: [
                         {
                             icon: "\uf09b",
-                            url: "https://github.com/AymanLyesri/ArchEclipse",
+                            url: "https://github.com/bushninjadots/ArchEclipsedots",
                             tip: "GitHub Repository"
                         },
                         {
                             icon: "\uf188",
-                            url: "https://github.com/AymanLyesri/ArchEclipse/issues",
+                            url: "https://github.com/bushninjadots/ArchEclipsedots/issues",
                             tip: "Issues Tracker"
                         },
                         {

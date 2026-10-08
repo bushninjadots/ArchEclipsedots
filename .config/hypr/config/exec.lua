@@ -1,12 +1,14 @@
 local home = os.getenv("HOME") or ""
 local scriptsDir = home .. "/.config/hypr/scripts"
 local themeScriptsDir = home .. "/.config/hypr/theme/scripts"
+local wallpaperPicker = home .. "/.config/qs-wallpaperpicker/bin/qs-wallpaperpicker"
 
 hl.on("hyprland.start", function()
     -- NOTE: no `hyprpm reload && hyprctl reload` here — it re-triggers this
     -- on-start block (reload loop / slow start). Run hyprpm manually once
     -- after plugin changes instead.
-    hl.exec_cmd("hyprpaper")
+    -- Draws the wallpaper (and is the SUPER+W picker); recolours via matugen.
+    hl.exec_cmd(wallpaperPicker)
     hl.exec_cmd(scriptsDir .. "/compile-run-binaries.sh")
     hl.exec_cmd(scriptsDir .. "/bar.sh")
     hl.exec_cmd("systemctl --user start hyprpolkitagent")

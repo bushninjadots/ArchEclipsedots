@@ -3,13 +3,15 @@ import QtQuick
 import Quickshell
 import Quickshell.Io
 
-// ArchEclipse theme — colors are read from the cwal (pywal) colors.scss
-// generated from the active wallpaper, so switching palettes re-themes the
-// shell live. Built-in fallbacks below apply until the file loads.
+// ArchEclipse theme — colors are read from the matugen scheme generated from
+// the active wallpaper (~/.cache/quickshell/colors.json, written by the
+// "archeclipse" template in ~/.config/matugen/config.toml whenever
+// qs-wallpaperpicker sets a wallpaper), so switching wallpapers re-themes
+// the shell live. Built-in fallbacks below apply until the file loads.
 QtObject {
     id: root
 
-    // --- raw palette (parsed from cwal colors.scss) ---
+    // --- raw palette (mapped from matugen Material roles, see _matugen) ---
     property string background: "#08080c"
     property string foreground: "#aaabb2"
     property string color0: "#08080c"
@@ -43,8 +45,7 @@ QtObject {
     readonly property string bg: background
     readonly property string fg: foreground
     readonly property string fgDim: rgba(foreground, 0.5)
-    // Accent tracks a vibrant wallpaper color (not foreground, which pywal
-    // keeps a near-constant gray) so it visibly shifts with the wallpaper.
+    // Accent is matugen's primary role, so it visibly shifts with the wallpaper.
     readonly property string accent: color5
     // Muted secondary text/icons.
     readonly property string muted: mix(foreground, color2, phiMin)
@@ -115,27 +116,30 @@ QtObject {
     readonly property string danger: "#ff4444"
     readonly property string dangerBg: Qt.rgba(1.0, 0.26, 0.26, 0.1).toString()
 
-    property FileView _cwal: FileView {
-        path: `${Quickshell.env("HOME")}/.cache/cwal/colors.scss`
+    property FileView _matugen: FileView {
+        path: `${Quickshell.env("HOME")}/.cache/quickshell/colors.json`
         watchChanges: true
         onFileChanged: reload()
         onLoaded: {
-            const t = text();
-            const grab = (name, fb) => {
-                const m = t.match(new RegExp("\\$" + name + "\\s*:\\s*(#[0-9a-fA-F]{6})"));
-                return m ? m[1] : fb;
-            };
-            root.background = grab("background", "#08080c");
-            root.foreground = grab("foreground", "#aaabb2");
-            root.color0 = grab("color0", "#08080c");
-            root.color1 = grab("color1", "#493028");
-            root.color2 = grab("color2", "#413945");
-            root.color3 = grab("color3", "#4e505d");
-            root.color4 = grab("color4", "#917f7a");
-            root.color5 = grab("color5", "#b7b5ae");
-            root.color6 = grab("color6", "#d7af96");
-            root.color7 = grab("color7", "#aaabb2");
-            root.color8 = grab("color8", "#555765");
+            let c = {};
+            try {
+                c = JSON.parse(text());
+            } catch (e) {
+                console.warn("[Theme] bad matugen colors.json:", e);
+                return;
+            }
+            const grab = (name, fb) => /^#[0-9a-fA-F]{6}$/.test(c[name] ?? "") ? c[name] : fb;
+            root.background = grab("surface", "#08080c");
+            root.foreground = grab("on_surface", "#aaabb2");
+            root.color0 = grab("surface_container_lowest", "#08080c");
+            root.color1 = grab("error", "#493028");
+            root.color2 = grab("secondary_container", "#413945");
+            root.color3 = grab("outline_variant", "#4e505d");
+            root.color4 = grab("tertiary", "#917f7a");
+            root.color5 = grab("primary", "#b7b5ae");
+            root.color6 = grab("tertiary_fixed_dim", "#d7af96");
+            root.color7 = grab("on_surface_variant", "#aaabb2");
+            root.color8 = grab("outline", "#555765");
         }
     }
 }

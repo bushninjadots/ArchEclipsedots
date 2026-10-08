@@ -26,6 +26,9 @@
 !.config/btop/
 # Include quickshell
 !.config/quickshell
+# Include the wallpaper picker (qs-wallpaperpicker) and its matugen theming
+!.config/qs-wallpaperpicker/
+!.config/matugen/
 
 # include icons (cursort theme)
 !.icons/

@@ -45,35 +45,7 @@ Singleton {
     // password within this window after locking), persisted, default 10.
     property int lockGraceSeconds: 10
     // Selected left-panel tab (persisted)
-    property string leftPanelWidget: "UserProfile"
-    // Wallpaper switcher category (persisted)
-    property string wallpaperCategory: "defaults/sfw"
-    // Wallpaper provider (persisted): "local" (default/* + custom folders)
-    // or "wallhaven" (wallhaven.cc API). Filter state for the Wallhaven
-    // provider (persisted under wallpaperSwitcher.wallhaven).
-    property string wallpaperProvider: "local"
-    property var wallpaperWallhaven: root.defaultWallpaperWallhaven()
-    // Shared wallpaper masonry view (persisted): row count + exact tile
-    // height in px. Both providers (local + wallhaven) render through one
-    // AppMasonryRow driven by these; the island grows to fit (true height).
-    property int wallpaperMasonryRows: 2
-    property int wallpaperTileSize: 120
-    // Default Wallhaven filter state (single source; reload() merges the
-    // saved file over a fresh copy). categories/purity are wallhaven.cc
-    // bit-strings: categories = general/anime/people, purity = sfw/sketchy/nsfw.
-    function defaultWallpaperWallhaven() {
-        return {
-            q: "",
-            categories: "101",
-            purity: "100",
-            sorting: "date_added",
-            order: "desc",
-            topRange: "1M",
-            atleast: "",
-            ratios: "",
-            page: 1
-        };
-    }
+    property string leftPanelWidget: "About"
     // Weather city override (empty = Auto/IP), persisted
     property string weatherCity: ""
 
@@ -148,68 +120,6 @@ Singleton {
             timeframe: ""
         })
 
-    // Initialized with shipped defaults (not {}) so early fetchers have
-    // credentials even before the settings file load merges saved values
-    // over them. Single source: defaultApiKeys() below.
-    property var apiKeys: root.defaultApiKeys()
-
-    // POSIX single-quote shell-escaping. Needed anywhere a user-editable
-    // string gets spliced into a
-    // `bash -c "..."` command for curl/etc: double-quoting (e.g. via
-    // JSON.stringify) still lets $(...) / `...` expand inside bash double
-    // quotes, so only single-quote wrapping actually neutralizes shell
-    // metacharacters. Embedded single quotes are escaped as '\'' (close,
-    // escaped literal quote, reopen).
-    function shQuote(s) {
-        return "'" + String(s).replace(/'/g, "'\\''") + "'";
-    }
-
-    // Default API credentials (shipped fallback). Used when the settings
-    // file has none saved — the defaults stay in memory.
-    function defaultApiKeys() {
-        return {
-            // Wallhaven needs only a key (no user); empty = guest mode
-            // (SFW-only). A key unlocks sketchy/NSFW purity + user filters.
-            wallhaven: {
-                key: {
-                    value: ""
-                }
-            }
-        };
-    }
-
-    // Merge saved apiKeys over the defaults (per api, per field), accepting
-    // both the nested shape {user:{value}} and flat strings.
-    function mergeApiKeys(saved) {
-        const d = root.defaultApiKeys();
-        if (!saved)
-            return d;
-        for (const api of Object.keys(d)) {
-            const s = saved[api];
-            if (s == null)
-                continue;
-            for (const field of ["user", "key"]) {
-                const v = s[field];
-                if (v == null)
-                    continue;
-                const str = (typeof v === "object") ? (v.value ?? "") : String(v);
-                if (str !== "")
-                    d[api][field] = {
-                        value: str
-                    };
-            }
-        }
-        return d;
-    }
-
-    // Unwrap one credential as a plain string regardless of stored shape.
-    function apiKey(api, field) {
-        const v = (root.apiKeys || {})[api]?.[field];
-        if (v == null)
-            return "";
-        return String((typeof v === "object" ? (v.value ?? "") : v)).replace(/\n/g, "").trim();
-    }
-
     // Single place listing the code-owned default sets: a new defaulted key
     // adds its row here (plus a default*/merge* pair only if the file shape
     // needs normalization on load). Startup snapshot; merge*() above keep
@@ -218,7 +128,6 @@ Singleton {
     // stay authoritative until a live SUPER+B round-trip rewire verifies
     // byte-identical settings.json — not possible in a headless pass.)
     readonly property var _defaults: ({
-            "apiKeys": defaultApiKeys(),
             "rightPanelWidgets": defaultRightPanelWidgets()
         })
     // Static hyprland leaf metadata, transcribed verbatim from persist()
@@ -350,10 +259,6 @@ Singleton {
     property int barBlurPasses: 3
     property int barBlurSize: 4
 
-    // Theme variants
-    property bool dynamicThemeColors: true
-    property bool dynamicThemeVariants: true
-
     // File manager (detected + selected)
     property var fileManagerOptions: []
     property string fileManager: ""
@@ -428,11 +333,6 @@ Singleton {
             "rightPanel.lock": "rightPanelLock",
             "leftPanel.width": "leftPanelWidth",
             "leftPanel.widget": "leftPanelWidget",
-            "wallpaperSwitcher.category": "wallpaperCategory",
-            "wallpaperSwitcher.provider": "wallpaperProvider",
-            "wallpaperSwitcher.wallhaven": "wallpaperWallhaven",
-            "wallpaperSwitcher.masonryRows": "wallpaperMasonryRows",
-            "wallpaperSwitcher.tileSize": "wallpaperTileSize",
             "weather.city": "weatherCity",
             "rightPanel.width": "rightPanelWidth",
             "rightPanel.widgets": "rightPanelWidgets",
@@ -441,8 +341,6 @@ Singleton {
             "lockscreen.graceSeconds": "lockGraceSeconds",
             "autoWorkspaceSwitching": "autoWorkspaceSwitching",
             "gameMode.enabled": "gameModeEnabled",
-            "dynamicThemeColors": "dynamicThemeColors",
-            "dynamicThemeVariants": "dynamicThemeVariants",
             "fileManager": "fileManager",
             "chatBot.api": "chatBotApi"
         };
@@ -471,7 +369,7 @@ Singleton {
         obj[key] = value;
         // Reassign a FRESH clone so the top-level var change signal fires.
         // (Assigning the same object reference back is a no-op: nested
-        // bindings like `Settings.wallpaperWallhaven.page` never re-evaluate.)
+        // bindings like `Settings.hyprland.general` never re-evaluate.)
         if (parts.length > 1) {
             root[parts[0]] = Object.assign({}, obj);
         }
@@ -582,13 +480,6 @@ Singleton {
                 lockscreen: {
                     graceSeconds: root.lockGraceSeconds
                 },
-                wallpaperSwitcher: {
-                    category: root.wallpaperCategory,
-                    provider: root.wallpaperProvider,
-                    wallhaven: root.wallpaperWallhaven,
-                    masonryRows: root.wallpaperMasonryRows,
-                    tileSize: root.wallpaperTileSize
-                },
                 weather: {
                     city: root.weatherCity
                 },
@@ -634,17 +525,10 @@ Singleton {
                         }
                         return out;
                     })(),
-                dynamicThemeColors: {
-                    value: root.dynamicThemeColors
-                },
-                dynamicThemeVariants: {
-                    value: root.dynamicThemeVariants
-                },
                 fileManager: root.fileManager,
                 "chatBot": {
                     api: root.chatBotApi
-                },
-                "apiKeys": root.apiKeys
+                }
             };
             _lastText = JSON.stringify(s, null, 2);
             _file.setText(_lastText);
@@ -759,42 +643,9 @@ Singleton {
                 // (LeftIsland) and are never clobbered by the file.
                 // legacy QS files used the flat "leftPanel.widget" key.
                 const _lpw = s["leftPanel.widget"] ?? s.leftPanel?.widget;
-                root.leftPanelWidget = (typeof _lpw === "string" ? _lpw : _lpw?.name) ?? "UserProfile";
-                const _wc = s.wallpaperSwitcher?.category;
-                root.wallpaperCategory = ((typeof _wc === "object" && _wc !== null ? _wc.value : _wc) ?? "defaults/sfw");
-                // Wallhaven provider state: merge the saved filter object over
-                // fresh defaults so new params never come back undefined.
-                // Bit-strings are re-validated (3 chars of 0/1); sorting falls
-                // back to date_added on unknown values; page clamps to >= 1.
-                const _wp = s.wallpaperSwitcher?.provider;
-                root.wallpaperProvider = ((_wp && typeof _wp === "object" ? _wp.value : _wp) ?? "local");
-                if (root.wallpaperProvider !== "local" && root.wallpaperProvider !== "wallhaven")
-                    root.wallpaperProvider = "local";
-                const _whSaved = s.wallpaperSwitcher?.wallhaven;
-                const _wh = root.defaultWallpaperWallhaven();
-                if (_whSaved && typeof _whSaved === "object") {
-                    const pick = (v, fb) => ((v !== undefined && v !== null) ? String(v) : fb);
-                    _wh.q = pick(_whSaved.q, _wh.q);
-                    const bits = (v, fb) => (/^[01]{3}$/.test(String(v ?? "")) ? String(v) : fb);
-                    _wh.categories = bits(_whSaved.categories, _wh.categories);
-                    _wh.purity = bits(_whSaved.purity, _wh.purity);
-                    const _sortings = ["date_added", "relevance", "random", "views", "favorites", "toplist"];
-                    _wh.sorting = _sortings.includes(_whSaved.sorting) ? _whSaved.sorting : _wh.sorting;
-                    _wh.order = (_whSaved.order === "asc" ? "asc" : "desc");
-                    _wh.topRange = pick(_whSaved.topRange, _wh.topRange);
-                    _wh.atleast = pick(_whSaved.atleast, _wh.atleast);
-                    _wh.ratios = pick(_whSaved.ratios, _wh.ratios);
-                    _wh.page = Math.max(1, parseInt(_whSaved.page) || 1);
-                }
-                root.wallpaperWallhaven = _wh;
-                // Shared masonry view: plain or {value} leaves, clamped
-                // (rows 1-4, tile height 80-200px).
-                const _mr = s.wallpaperSwitcher?.masonryRows;
-                const _mrV = (typeof _mr === "object" && _mr !== null ? _mr.value : _mr);
-                root.wallpaperMasonryRows = Math.min(4, Math.max(1, parseInt(_mrV) || 2));
-                const _ts = s.wallpaperSwitcher?.tileSize;
-                const _tsV = (typeof _ts === "object" && _ts !== null ? _ts.value : _ts);
-                root.wallpaperTileSize = Math.min(200, Math.max(80, parseInt(_tsV) || 120));
+                const _lpwName = (typeof _lpw === "string" ? _lpw : _lpw?.name) ?? "About";
+                // Tabs that were removed (UserProfile, Donations, ...) open About.
+                root.leftPanelWidget = ["About", "ChatBot", "SettingsWidget", "CustomScripts", "KeyBinds"].includes(_lpwName) ? _lpwName : "About";
                 const _wth = s.weather?.city ?? s.weatherCity;
                 root.weatherCity = ((typeof _wth === "object" && _wth !== null ? _wth.value : _wth) ?? "");
                 root.rightPanelWidth = (typeof s.rightPanel?.width === "object" && s.rightPanel?.width !== null ? s.rightPanel.width.value : s.rightPanel?.width) ?? 250;
@@ -808,8 +659,6 @@ Singleton {
                 const _gm = s.gameMode?.enabled;
                 root.gameModeEnabled = (typeof _gm === "object" && _gm !== null) ? (_gm.value ?? false) : (_gm ?? false);
 
-                root.apiKeys = root.mergeApiKeys(s.apiKeys);
-
                 // ChatBot provider (restored on launch; stored as the model
                 // value string here).
                 const cbApi = s.chatBot?.api;
@@ -822,11 +671,6 @@ Singleton {
 
                 // Lockscreen grace period (seconds of free Esc dismiss)
                 root.lockGraceSeconds = s.lockscreen?.graceSeconds ?? 10;
-
-                const _dtc = s.dynamicThemeColors;
-                root.dynamicThemeColors = (typeof _dtc === "object" && _dtc !== null ? _dtc.value : _dtc) ?? true;
-                const _dtv = s.dynamicThemeVariants;
-                root.dynamicThemeVariants = (typeof _dtv === "object" && _dtv !== null ? _dtv.value : _dtv) ?? true;
 
                 // File manager
                 root.fileManager = s.fileManager ?? "";
@@ -942,9 +786,7 @@ Singleton {
     // writer outside updateSetting() (verified via
     // `rg "Settings\.[a-zA-Z]+ =" widgets/ services/ theme/ shell.qml` plus
     // bracket writes). updateSetting() persists directly, so its exclusive
-    // keys need no handler. onApiKeysChanged stays: SettingsWidget
-    // setNestedValue() writes Settings["apiKeys"] directly (and the merge
-    // in reload() normalizes credentials on external edits).
+    // keys need no handler.
     Connections {
         target: root
         function onBarLockChanged() {
@@ -972,9 +814,6 @@ Singleton {
             root.schedulePersist();
         }
         function onCryptoFavoriteChanged() {
-            root.schedulePersist();
-        }
-        function onApiKeysChanged() {
             root.schedulePersist();
         }
         function onDateFormatChanged() {
@@ -1038,12 +877,6 @@ Singleton {
             root.schedulePersist();
         }
         function onBarBlurSizeChanged() {
-            root.schedulePersist();
-        }
-        function onDynamicThemeColorsChanged() {
-            root.schedulePersist();
-        }
-        function onDynamicThemeVariantsChanged() {
             root.schedulePersist();
         }
         function onGameModeEnabledChanged() {

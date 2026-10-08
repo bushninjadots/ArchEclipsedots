@@ -14,12 +14,9 @@ hyprland.lua            # entrypoint: sets XDG env, require_all() base modules, 
 config/*.lua            # tracked base config, one file per Hyprland section
 config/custom/*.lua     # MACHINE-LOCAL overrides (gitignored, except .gitkeep)
 config/defaults/*.lua   # template files with {{ PLACEHOLDERS }} for maintenance/install.py
-hyprpaper.conf          # static hyprpaper config (splash off)
-theme/theme.conf        # gitignored runtime theme state (autocolor/autovariant)
-theme/scripts/          # wal/cwal, gtk/icon/cursor/system theme appliers
-wallpaper-daemon/       # set-wallpaper.sh, hyprpaper.sh, mpvpaper.sh, reload.sh + config/<monitor>/defaults.conf
+theme/scripts/          # system-theme.sh (light/dark), matugen-theme.sh, gtk/icon/cursor appliers
 scripts/                # bar.sh, screenshot.sh, change-brightness.sh, clipboard-monitor.sh, ...
-scripts-c/              # battery-check.c, updates-check.c, wallpaper-loop.c (compiled to /tmp by compile-run-binaries.sh)
+scripts-c/              # battery-check.c, updates-check.c (compiled to /tmp by compile-run-binaries.sh)
 evremap/                # remap.toml + configuration.sh + evremap.service (numlock/numpad remaps)
 maintenance/            # update.py + install.py + components/*.py (ArchEclipse installer/updater)
 ```
@@ -61,13 +58,13 @@ tracked base files for local-only needs).
   colons, which break Lua `require` and most tooling) map 1:1 to a single key.
   Prefer editing the base file unless the value is truly host-local.
 - Shell scripts: `#!/usr/bin/env bash` + `set -euo pipefail` for new code.
-  C helpers: `gcc -O2 -Wall` semantics, no `system()` on hot paths (see
-  `wallpaper-loop.c` `run_wait`/`spawn_detached` pattern).
-- Wallpaper state: `wallpaper-daemon/config/<monitor>/defaults.conf`
-  (`w-<id>=<path>` lines) is gitignored runtime state. `defaults.conf` at the
-  top is the seed template. Never commit per-monitor files.
-  `set-wallpaper.sh` holds `flock` on `${config}.lock` — don't add
-  unsynchronized writers of `defaults.conf`.
+  C helpers: `gcc -O2 -Wall` semantics, no `system()` on hot paths.
+- Wallpapers: `~/.config/qs-wallpaperpicker` (separate Quickshell config,
+  started from `config/exec.lua`, SUPER+W toggles it) draws the wallpaper
+  and runs `matugen image` on each change; `~/.config/matugen/config.toml`
+  fans the scheme out to the picker, the ArchEclipse shell
+  (`~/.cache/quickshell/colors.json`) and kitty. `theme/scripts/system-theme.sh
+  switch` re-runs matugen in the new light/dark mode via `matugen-theme.sh`.
 - Wallpaper downloads (`maintenance/components/wallpapers.py`) manage ONLY the
   four `~/.config/wallpapers/defaults/<category>` dirs. Unknown top-level files
   are quarantined to `~/.cache/archeclipse-wallpaper-quarantine/<category>/`,
@@ -95,23 +92,21 @@ tracked base files for local-only needs).
 
 - Syntax: `luac -p hyprland.lua config/*.lua config/custom/*.lua` (`config/defaults/`
   holds `{{ }}` template markers, not valid Lua — don't lint it), `bash -n scripts/*.sh`,
-  `shellcheck scripts/*.sh wallpaper-daemon/*.sh theme/scripts/*.sh` (if installed),
+  `shellcheck scripts/*.sh theme/scripts/*.sh` (if installed),
   `python3 -m py_compile maintenance/install.py maintenance/update.py maintenance/components/*.py`.
 - Reload live: `hyprctl reload` (or `hyprpm reload && hyprctl reload` after plugin changes).
 - Startup exec: `hyprctl exec-once '...'` semantics — check `hyprctl exec-once` for dupes.
 - C daemons: `gcc scripts-c/<name>.c -o /tmp/<name>` then run once manually.
-- Wallpaper loop logs: `/tmp/wallpaper-daemon.log`.
+- Wallpaper picker logs: `~/.config/qs-wallpaperpicker/bin/qs-wallpaperpicker log`.
 - Bar logs: `/tmp/qs-bar-$USER.log`.
 
 ## Gotchas for agents
 
-- `~` is a git repo with remote `origin https://github.com/AymanLyesri/ArchEclipse.git`;
-  `~/.config/hypr` is its own repo with the SAME `origin` (AymanLyesri/ArchEclipse) —
-  `VitoSanctis` is only a PR-review remote, never push to it. Don't commit,
+- `~` is a git repo (it includes `~/.config/hypr`): `origin` is the user's fork
+  `bushninjadots/ArchEclipsedots`, `upstream` is `AymanLyesri/ArchEclipse`. Don't commit,
   push, or run `maintenance/update.py` / `install.py` (they `reset --hard` and
   `cp -a` over `$HOME`). Read-only inspection only unless asked.
 - Never commit `config/custom/`, `config/defaults/` generated output,
-  `theme/theme.conf`, `wallpaper-daemon/config/*` (except seed `defaults.conf`),
   `monitors.conf/.lua`, `workspaces.conf/.lua`, `__pycache__/`.
 - `compile-run-binaries.sh` installs cron entries only when missing and
   recompiles only stale binaries — safe to run once to test, but don't run

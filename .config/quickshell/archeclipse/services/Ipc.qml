@@ -51,13 +51,11 @@ Item {
             return "overview open";
         }
 
+        // The wallpaper picker is qs-wallpaperpicker (its own Quickshell
+        // config, ~/.config/qs-wallpaperpicker); this just toggles it.
         function toggleWallpaper(): string {
-            if (BarState.state === "wallpaper") {
-                BarState.deactivate("wallpaper");
-                return "wallpaper closed";
-            }
-            BarState.activate("wallpaper", 0);
-            return "wallpaper open";
+            Quickshell.execDetached([Quickshell.env("HOME") + "/.config/qs-wallpaperpicker/bin/qs-wallpaperpicker", "toggle"]);
+            return "wallpaper picker toggled";
         }
 
         // Diagnostic: force the network pulse state (mirrors a network change).
@@ -242,7 +240,7 @@ Item {
         }
 
         function showWidget(name: string, monitor: string): string {
-            const valid = ["UserProfile", "ChatBot", "SettingsWidget", "CustomScripts", "KeyBinds", "Donations"];
+            const valid = ["About", "ChatBot", "SettingsWidget", "CustomScripts", "KeyBinds"];
             if (valid.indexOf(name) === -1) return "unknown widget: " + name;
             // Write through Settings so the island binding (and persistence)
             // stays intact — matches setSetting("leftPanel.widget").
@@ -296,8 +294,8 @@ Item {
         }
 
         function togglePanel(name: string, monitor: string): string {
-            // Canonical UI moved into the bar island — keep the hypr
-            // SUPER+W binding (`togglePanel wallpaper-switcher <mon>`) working.
+            // Old `togglePanel wallpaper-switcher <mon>` binds open
+            // qs-wallpaperpicker.
             if (name === "wallpaper-switcher")
                 return toggleWallpaper();
             // Side panels are bar islands now — keep the SUPER+L/R
@@ -340,99 +338,6 @@ Item {
                 case "selected": return w.selectedWidget;
                 default: return "unknown query";
                 }
-            } catch (e) {
-                return "EX: " + e;
-            }
-        }
-
-        // Wallpaper-switcher probe for parity QA. query is one of:
-        //   "visible", "categories", "selected", "count", "current",
-        //   "target", "workspace", "progress", "provider", "view", "strip",
-        //   "stripdeep", "scrollTo:<x>", or "setCategory:<name>".
-        // "stripdeep" + "scrollTo" are the automated regression hooks for
-        // the strip blank-on-scroll bug: they dump masonry geometry and
-        // drive contentX without a mouse (see strip-test.sh).
-        // monitor selects the per-monitor island body (default eDP-1).
-        // Reads the bar island body (widgets/wallpaperPanel via WallpaperIsland).
-        function wallpaperDiag(query: string, monitor: string): string {
-            try {
-                const mon = (monitor && monitor !== "") ? monitor : "eDP-1";
-                const w = Registry.get(`wallpaper-island-${mon}`)
-                    ?? Registry.get("wallpaper-island");
-                if (!w) return "no island: wallpaper-island-" + mon + " (island=" + (BarState.state === "wallpaper") + ")";
-                if (query === "visible")
-                    return "island=" + (BarState.state === "wallpaper");
-                if (query === "categories") return "categories=" + (w.categories || []).join(",");
-                if (query === "selected") return "selected=" + w.selectedCategory;
-                if (query === "count") return "count=" + (w.provider === "wallhaven" ? (w.whResults || []).length : (w.selectedWallpapers || []).length);
-                if (query === "current") return "current=" + (w.currentWallpapers || []).length;
-                if (query === "target") return "target=" + w.targetType + " ws=" + w.selectedWorkspaceId;
-                if (query === "progress") return "progress=" + w.progressStatus + " label=" + w.progressText;
-                if (query === "provider") return "provider=" + w.provider;
-                if (query === "view") return "rows=" + Settings.wallpaperMasonryRows + " size=" + Settings.wallpaperTileSize;
-                if (query === "strip") {
-                    const s = w.wallStrip;
-                    if (!s) return "strip=NOALIAS";
-                    return "stripW=" + Math.round(s.width) + " contentW=" + Math.round(s.contentWidth)
-                        + " contentX=" + Math.round(s.contentX) + " dir=" + s.flickableDirection
-                        + " maxV=" + s.maximumFlickVelocity + " decel=" + s.flickDeceleration;
-                }
-                if (query.startsWith("scrollTo:")) {
-                    const s2 = w.wallStrip;
-                    if (!s2) return "strip=NOALIAS";
-                    s2.contentX = Math.max(0, Number(query.substring(9)) || 0);
-                    return "x=" + Math.round(s2.contentX) + " cw=" + Math.round(s2.contentWidth);
-                }
-                if (query === "stripdeep") {
-                    const s3 = w.wallStrip;
-                    if (!s3) return "strip=NOALIAS";
-                    const m = w.localMasonry;
-                    if (!m) return "stripdeep=NOMASONRY";
-                    let rows = 0, wraps = 0, inWin = 0, zeroX = 0, badX = 0;
-                    const samples = [];
-                    try {
-                        const col = (m.children && m.children.length > 0) ? m.children[0] : null;
-                        const rws = col ? (col.children || []) : [];
-                        for (let r = 0; r < rws.length; r++) {
-                            const row = rws[r];
-                            if (!row || row.rowItems === undefined) continue;
-                            rows++;
-                            const kids = row.children || [];
-                            let rc = 0;
-                            for (let k = 0; k < kids.length; k++) {
-                                const c = kids[k];
-                                if (!c || c.cellX === undefined) continue;
-                                wraps++;
-                                rc++;
-                                const x = c.cellX, wd = c.cellW;
-                                if (!(x >= 0) && !(x < 0)) badX++;
-                                else if (x === 0) zeroX++;
-                                if (c.inWindow) inWin++;
-                                if (samples.length < 6) samples.push(Math.round(x) + "/" + Math.round(wd) + (c.inWindow ? "*" : ""));
-                            }
-                            if (r < 4) samples.push("row" + r + "=" + rc);
-                        }
-                    } catch (e2) { return "stripdeep EXwalk: " + e2; }
-                    const asp = (w.localAspect && typeof w.localAspect === "object") ? Object.keys(w.localAspect).length : -1;
-                    const mdl = (w.selectedWallpapers || []).length;
-                    return "x=" + Math.round(s3.contentX) + " vw=" + Math.round(s3.width)
-                        + " cw=" + Math.round(s3.contentWidth) + " rows=" + rows
-                        + " wraps=" + wraps + " inWin=" + inWin + " zeroX=" + zeroX + " badX=" + badX
-                        + " aspects=" + asp + " model=" + mdl + " [" + samples.join(" ") + "]";
-                }
-                if (query === "theme") return "dynamicColors=" + Settings.dynamicThemeColors
-                    + " variant=" + (GlobalTheme.currentTheme ? "light" : "dark");
-                if (query.startsWith("setCategory:")) {
-                    Settings.updateSetting("wallpaperSwitcher.category", query.substring(12));
-                    return "selected=" + Settings.wallpaperCategory;
-                }
-                if (query === "show") {
-                    BarState.activate("wallpaper", 0); return "shown (island)";
-                }
-                if (query === "hide") {
-                    BarState.deactivate("wallpaper"); return "hidden (island)";
-                }
-                return "unknown query";
             } catch (e) {
                 return "EX: " + e;
             }

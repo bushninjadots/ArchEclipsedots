@@ -6,7 +6,7 @@ import qs.widgets.shared
 // The caller keeps its sidebar container and anchors this top/left/right.
 //
 // The delegate preserves the Left rail visuals verbatim: icon cells with
-// toggle highlight, the Donations red nudge, and per-tab tooltips. Items
+// toggle highlight and per-tab tooltips. Items
 // are `{ name, icon }`; selection is by `currentIndex` with `selected`
 // carrying the tapped index back.
 //
@@ -46,12 +46,10 @@ Rectangle {
                     icon: modelData.icon !== undefined ? modelData.icon : ""
                     toggle: true
                     checked: index === root.currentIndex
-                    // Donations special red color to nudge users toward
-                    // the support widget (preserved from LeftIsland).
-                    idleBg: modelData.name === "Donations" ? "#f96854" : "transparent"
-                    idleFg: modelData.name === "Donations" ? "#052d49" : Theme.fg
-                    borderColor: modelData.name === "Donations" ? "#f96854" : Theme.accent
-                    tooltipText: modelData.name === "Donations" ? "Click to open Donations\n<b>＼(o￣∇￣)／</b> — Support the project" : "Click to open " + modelData.name
+                    idleBg: "transparent"
+                    idleFg: Theme.fg
+                    borderColor: Theme.accent
+                    tooltipText: "Click to open " + modelData.name
                     onClicked: root.selected(index)
                 }
             }
