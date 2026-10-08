@@ -28,6 +28,8 @@
 !.config/quickshell
 # Include the wallpaper picker (qs-wallpaperpicker) and its matugen theming
 !.config/qs-wallpaperpicker/
+# Desktop widgets (vendored from Ryoku) and their editor
+!.config/ryoku-widgets/
 !.config/matugen/
 
 # include icons (cursort theme)

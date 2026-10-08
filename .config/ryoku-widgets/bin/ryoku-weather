@@ -1,0 +1,222 @@
+#!/usr/bin/env python3
+"""One weather frame for Ryoku's desktop widgets, printed as JSON.
+
+A Python port of the weather part of Ryoku's ryoku-shell daemon (ipc/weather.go,
+GPL-3.0): Open-Meteo forecast + air quality, the place from Open-Meteo's
+geocoder or (with no place set) the public-IP lookup at ipwho.is. No API key.
+services/Weather.qml runs this every 15 minutes and on settings changes.
+
+    ryoku-weather [PLACE] [auto|celsius|fahrenheit]
+"""
+import json, math, os, re, sys, time, urllib.error, urllib.parse, urllib.request
+from datetime import datetime, timezone
+
+FORECAST = "https://api.open-meteo.com/v1/forecast"
+GEOCODE = "https://geocoding-api.open-meteo.com/v1/search"
+IPLOOKUP = "https://ipwho.is/"
+AIR = "https://air-quality-api.open-meteo.com/v1/air-quality"
+HOURLY = ("temperature_2m,relative_humidity_2m,apparent_temperature,precipitation_probability,"
+          "precipitation,weather_code,cloud_cover,pressure_msl,visibility,wind_speed_10m,"
+          "wind_direction_10m,wind_gusts_10m,dew_point_2m,uv_index,is_day")
+DAILY = ("weather_code,temperature_2m_max,temperature_2m_min,relative_humidity_2m_mean,sunrise,"
+         "sunset,uv_index_max,precipitation_sum,precipitation_probability_max,wind_speed_10m_max")
+AIRP = "pm10,pm2_5,ozone,european_aqi"
+DAILY_ROWS = 3
+ERRORS = {"network": "Error loading weather. Check network.",
+          "locationNotFound": "Error loading weather. Location not found.",
+          "rateLimited": "Error loading weather. Too many requests."}
+
+class Fail(Exception):
+    def __init__(self, kind): super().__init__(kind); self.kind = kind
+
+def get(url, params):
+    req = urllib.request.Request(url + ("?" + urllib.parse.urlencode(params) if params else ""),
+                                 headers={"User-Agent": "ryoku-widgets (ArchEclipse)"})
+    try:
+        with urllib.request.urlopen(req, timeout=15) as r:
+            return json.load(r)
+    except urllib.error.HTTPError as e:
+        raise Fail("rateLimited" if e.code == 429 else "other")
+    except (urllib.error.URLError, TimeoutError, OSError):
+        raise Fail("network")
+    except ValueError:
+        raise Fail("other")
+
+def condition(code):
+    if code == 0: return "Clear"
+    if code in (1, 2): return "PartlyCloudy"
+    if code == 3: return "Overcast"
+    if code in (45, 48): return "Fog"
+    if code in (51, 53, 55): return "Drizzle"
+    if code in (56, 57, 66, 67): return "Sleet"
+    if code == 61: return "LightRain"
+    if code in (63, 80, 81, 82): return "Rain"
+    if code == 65: return "HeavyRain"
+    if code == 71: return "LightSnow"
+    if code in (73, 77, 85, 86): return "Snow"
+    if code == 75: return "HeavySnow"
+    if code in (95, 96, 99): return "Thunderstorm"
+    return "Unknown"
+
+def label(code):
+    if code == 0: return "Clear"
+    if code <= 3: return "Cloudy"
+    if code in (45, 48): return "Fog"
+    if code >= 95: return "Thunder"
+    if 71 <= code <= 77 or code in (85, 86): return "Snow"
+    if 51 <= code <= 67 or 80 <= code <= 82: return "Rain"
+    return "Cloudy"
+
+ICONS = {"Cloudy": "wx-cloudy", "Overcast": "wx-overcast", "Mist": "wx-mist", "Fog": "wx-fog",
+         "LightRain": "wx-rain-light", "Rain": "wx-rain", "HeavyRain": "wx-rain-heavy",
+         "Drizzle": "wx-drizzle", "LightSnow": "wx-snow-light", "Snow": "wx-snow",
+         "HeavySnow": "wx-snow-heavy", "Sleet": "wx-sleet", "Thunderstorm": "wx-thunderstorm",
+         "Windy": "wx-windy", "Hail": "wx-hail"}
+
+def icon(cond, day):
+    if cond == "Clear": return "wx-clear-day" if day else "wx-clear-night"
+    if cond == "PartlyCloudy": return "wx-partly-cloudy-day" if day else "wx-partly-cloudy-night"
+    return ICONS.get(cond, "wx-unknown")
+
+def rnd(v): return int(math.floor(v + 0.5)) if v >= 0 else -int(math.floor(-v + 0.5))
+def resolve_unit(u):
+    if u in ("celsius", "fahrenheit"): return u
+    env = os.environ.get("LC_MEASUREMENT") or os.environ.get("LANG") or ""
+    return "fahrenheit" if re.search(r"(^|[_.@-])(US|LR|MM)([_.@-]|$)", env) else "celsius"
+def tint(c, u): return rnd(c * 9 / 5 + 32) if u == "fahrenheit" else rnd(c)
+def ftemp(c, u): return f"{tint(c, u)}°" + ("F" if u == "fahrenheit" else "C")
+def clamp(v, lo, hi): return max(lo, min(hi, rnd(v)))
+def frac(v): return max(0.0, min(1.0, v))
+def at(a, i): return a[i] if 0 <= i < len(a) and a[i] is not None else 0
+def parse(iso):
+    for f in ("%Y-%m-%dT%H:%M", "%H:%M"):
+        try: return datetime.strptime(iso, f)
+        except ValueError: pass
+    return None
+def clock(iso, c24):
+    t = parse(iso)
+    return "" if not t else (t.strftime("%H:%M") if c24 else t.strftime("%-I:%M %p"))
+def hour_label(iso, c24):
+    t = parse(iso)
+    return "" if not t else (t.strftime("%H") if c24 else t.strftime("%I %p"))
+def weekday(iso):
+    try: return datetime.strptime(iso, "%Y-%m-%d").strftime("%a")
+    except ValueError: return ""
+def now_index(times):
+    now = datetime.now()
+    for i, t in enumerate(times):
+        p = parse(t)
+        if p and p > now: return max(0, i - 1)
+    return 0
+
+def locate(place):
+    if place:
+        r = get(GEOCODE, {"name": place, "count": 1}).get("results") or []
+        if not r: raise Fail("locationNotFound")
+        r = r[0]
+        return dict(city=r.get("name", ""), region=r.get("admin1", ""), country=r.get("country", ""),
+                    lat=r["latitude"], lon=r["longitude"])
+    r = get(IPLOOKUP, None)
+    if not r.get("success"): raise Fail("network")
+    return dict(city=r.get("city", ""), region=r.get("region", ""), country=r.get("country", ""),
+                lat=r["latitude"], lon=r["longitude"])
+
+def location_line(l):
+    if not l["city"]: return f'{l["lat"]}, {l["lon"]}'
+    tail = l["region"] or l["country"]
+    return l["city"] + (", " + tail if tail else "")
+
+def moon(now):
+    syn = 29.53058867
+    days = (now - datetime(2000, 1, 6, 18, 14, tzinfo=timezone.utc)).total_seconds() / 86400
+    ph = (days % syn) / syn
+    illum = (1 - math.cos(2 * math.pi * ph)) / 2
+    idx = rnd(ph * 8) % 8
+    names = ["New Moon", "Waxing Crescent", "First Quarter", "Waxing Gibbous",
+             "Full Moon", "Waning Gibbous", "Last Quarter", "Waning Crescent"]
+    return dict(phase=idx, name=names[idx], illumination=rnd(illum * 100), fraction=illum, waxing=ph < 0.5)
+
+def air_block(air):
+    h = (air or {}).get("hourly") or {}
+    if not h.get("time"): return {"available": False}
+    i = now_index(h["time"])
+    e = at(h.get("european_aqi", []), i)
+    verdict = ("Good" if e < 20 else "Fair" if e < 40 else "Moderate" if e < 60 else
+               "Poor" if e < 80 else "Very Poor" if e < 100 else "Extremely Poor")
+    return dict(available=True, eaqi=rnd(e), verdict=verdict, frac=frac(e / 100),
+                pm25=str(rnd(at(h.get("pm2_5", []), i))), pm10=str(rnd(at(h.get("pm10", []), i))),
+                ozone=str(rnd(at(h.get("ozone", []), i))))
+
+def frame(place, unit, c24=True):
+    u = resolve_unit(unit)
+    loc = locate(place)
+    base = {"latitude": loc["lat"], "longitude": loc["lon"], "timezone": "auto"}
+    data = get(FORECAST, dict(base, hourly=HOURLY, daily=DAILY, temperature_unit="celsius",
+                              wind_speed_unit="kmh", forecast_days=7))
+    try: air = get(AIR, dict(base, hourly=AIRP, forecast_days=1))
+    except Fail: air = None
+    h, d = data.get("hourly", {}), data.get("daily", {})
+    times = h.get("time", [])
+    idx = now_index(times)
+    now = datetime.now(timezone.utc)
+    f = dict(status="loaded", errorKind="", error="", location=location_line(loc), city=loc["city"],
+             hasData=True, current=None, hourly=[], daily=[],
+             updatedAt=datetime.now().strftime("%H:%M" if c24 else "%-I:%M %p"),
+             moon=moon(now), air=air_block(air))
+    dmax, dmin = d.get("temperature_2m_max", []), d.get("temperature_2m_min", [])
+    if times:
+        code = int(at(h.get("weather_code", []), idx)); day = at(h.get("is_day", []), idx) > 0.5
+        c = at(h.get("temperature_2m", []), idx); feels = at(h.get("apparent_temperature", []), idx)
+        wind = at(h.get("wind_speed_10m", []), idx); deg = at(h.get("wind_direction_10m", []), idx)
+        prec = at(h.get("precipitation", []), idx)
+        f["current"] = dict(
+            icon=icon(condition(code), day), code=code, condition=label(code), isDay=day,
+            temperature=ftemp(c, u), feelsLike=ftemp(feels, u),
+            humidity=clamp(at(h.get("relative_humidity_2m", []), idx), 0, 100),
+            uvIndex=clamp(at(h.get("uv_index", []), idx), 0, 15),
+            wind=str(rnd(wind * 0.621371 if u == "fahrenheit" else wind)),
+            windUnits=" mph winds" if u == "fahrenheit" else " kmh winds",
+            windDir=["N", "NNE", "NE", "ENE", "E", "ESE", "SE", "SSE", "S", "SSW", "SW", "WSW", "W", "WNW", "NW", "NNW"][rnd(deg / 22.5) % 16],
+            windDeg=clamp(deg, 0, 360),
+            precip=(f"{round(prec / 25.4, 2):g} in" if u == "fahrenheit" else f"{round(prec, 1):g} mm"),
+            precipProb=clamp(at(h.get("precipitation_probability", []), idx), 0, 100),
+            visibility=(f"{rnd(at(h.get('visibility', []), idx) / 1609.344)} mi" if u == "fahrenheit"
+                        else f"{rnd(at(h.get('visibility', []), idx) / 1000)} km"),
+            pressure=f"{rnd(at(h.get('pressure_msl', []), idx))} hPa",
+            sunrise=clock(d["sunrise"][0], c24) if d.get("sunrise") else "",
+            sunset=clock(d["sunset"][0], c24) if d.get("sunset") else "",
+            hi=tint(dmax[0], u) if dmax else 0, lo=tint(dmin[0], u) if dmin else 0,
+            high=ftemp(dmax[0], u) if dmax else "", low=ftemp(dmin[0], u) if dmin else "",
+            temp=tint(c, u), feels=tint(feels, u),
+            windValue=rnd(wind * 0.621371 if u == "fahrenheit" else wind))
+    for i in range(idx, min(idx + 24, len(times))):
+        code = int(at(h.get("weather_code", []), i)); day = at(h.get("is_day", []), i) > 0.5
+        c = at(h.get("temperature_2m", []), i)
+        f["hourly"].append(dict(time=hour_label(times[i], c24), hour=times[i][11:13], icon=icon(condition(code), day),
+                                code=code, isDay=day, temp=tint(c, u), temperature=ftemp(c, u),
+                                uv=f"{clamp(at(h.get('uv_index', []), i), 0, 15)} UV",
+                                precip=clamp(at(h.get("precipitation_probability", []), i), 0, 100)))
+    days = d.get("time", [])[:7]
+    rows = min(DAILY_ROWS, len(days))
+    if rows:
+        lo_r = min(tint(at(dmin, i), u) for i in range(rows)); hi_r = max(tint(at(dmax, i), u) for i in range(rows))
+    for i, iso in enumerate(days):
+        code = int(at(d.get("weather_code", []), i)); hi = at(dmax, i); lo = at(dmin, i)
+        hiI, loI = tint(hi, u), tint(lo, u)
+        lf, hf = 0.0, 1.0
+        if rows and hi_r > lo_r:
+            lf, hf = frac((loI - lo_r) / (hi_r - lo_r)), frac((hiI - lo_r) / (hi_r - lo_r))
+        wd = weekday(iso)
+        f["daily"].append(dict(weekday=wd, day=wd, icon=icon(condition(code), True), code=code, hi=hiI, lo=loI,
+                               high=ftemp(hi, u), low=ftemp(lo, u), loFrac=lf, hiFrac=hf))
+    return f
+
+if __name__ == "__main__":
+    place = sys.argv[1] if len(sys.argv) > 1 else ""
+    unit = sys.argv[2] if len(sys.argv) > 2 else "auto"
+    try:
+        out = frame(place.strip(), unit)
+    except Fail as e:
+        out = dict(status="error", errorKind=e.kind, error=ERRORS.get(e.kind, "Error loading weather."),
+                   hourly=[], daily=[])
+    print(json.dumps(out, separators=(",", ":")))

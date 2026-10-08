@@ -198,6 +198,7 @@ Fuzzy search · clipboard history · emoji · calc · URL forward · custom cmds
 
 - **Right:** media, notifications, calendar, script runner, crypto.
 - **Left:** Claude chatbot (Opus/Sonnet/Haiku through your Claude Code login), live keybinds, Hyprland/Quickshell settings.
+- **Desktop widgets** from [Ryoku](https://github.com/Ryoku-dev/ryoku): clock faces, calendar, music, notes, system stats, weather and an all-in-one card on the wallpaper, with an editor (Settings → Desktop Widgets).
 
 ### Deployer
 

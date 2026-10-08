@@ -23,7 +23,20 @@ Item {
     // each time this tab becomes visible and sections key their opacity
     // off their index.
     property int revealCount: 0
-    property int sectionCount: 8
+    property int sectionCount: 9
+
+    // Desktop widgets on/off, read from `ryoku-widgets status` each time the
+    // tab opens (the marker file can change outside this panel).
+    readonly property string desktopWidgetsBin: Quickshell.env("HOME") + "/.config/ryoku-widgets/bin/ryoku-widgets"
+    property bool desktopWidgetsOn: true
+    Process {
+        id: desktopWidgetsStatus
+        running: true
+        command: [root.desktopWidgetsBin, "status"]
+        stdout: StdioCollector {
+            onStreamFinished: root.desktopWidgetsOn = text.trim() !== "off"
+        }
+    }
     Timer {
         id: revealTimer
         interval: 60
@@ -42,6 +55,7 @@ Item {
     onVisibleChanged: {
         if (visible) {
             root.playReveal();
+            desktopWidgetsStatus.running = true;
         }
     }
 
@@ -447,11 +461,75 @@ Item {
                     }
                 }
 
+                // ============ DESKTOP WIDGETS ============
+                // Ryoku's desktop widgets (~/.config/ryoku-widgets, their own
+                // Quickshell instance): this switches them on/off and opens
+                // their editor, where each widget is added and styled.
+                Rectangle {
+                    width: parent.width
+                    implicitHeight: dwSec.implicitHeight + 20
+                    opacity: root.revealCount > 3 ? 1 : 0
+                    Behavior on opacity {
+                        NumberAnimation {
+                            duration: 250
+                            easing.type: Easing.OutCubic
+                        }
+                    }
+                    radius: Theme.radius
+                    color: Theme.surface
+                    border.color: Theme.border
+                    border.width: 1
+
+                    Column {
+                        id: dwSec
+                        anchors.fill: parent
+                        anchors.margins: 10
+                        spacing: 8
+                        Label {
+                            text: "Desktop Widgets"
+                            font.pixelSize: Theme.fontSize + 2
+                            font.bold: true
+                            color: Theme.accent
+                        }
+                        Label {
+                            width: parent.width
+                            text: "Clock, calendar, music, notes, system stats and weather on your wallpaper. Drag a widget to move it; right-click it for options."
+                            font.pixelSize: Theme.fontSize - 1
+                            color: Theme.fgDim
+                            wrapMode: Text.WordWrap
+                        }
+                        RowLayout {
+                            width: parent.width
+                            spacing: 8
+                            Label {
+                                font.pixelSize: Theme.fontSize
+                                text: "Show desktop widgets"
+                                color: Theme.fg
+                                Layout.fillWidth: true
+                            }
+                            AppCheckBox {
+                                checked: root.desktopWidgetsOn
+                                onToggled: {
+                                    root.desktopWidgetsOn = checked;
+                                    Quickshell.execDetached([root.desktopWidgetsBin, checked ? "enable" : "disable"]);
+                                }
+                            }
+                        }
+                        AppButton {
+                            width: parent.width
+                            implicitHeight: 30
+                            icon: "\u{f00a}"
+                            text: "Open widget editor"
+                            onClicked: Quickshell.execDetached([root.desktopWidgetsBin, "editor"])
+                        }
+                    }
+                }
+
                 // ============ INTERFACE ============
                 Rectangle {
                     width: parent.width
                     implicitHeight: ifaceSec.implicitHeight + 20
-                    opacity: root.revealCount > 3 ? 1 : 0
+                    opacity: root.revealCount > 4 ? 1 : 0
                     Behavior on opacity {
                         NumberAnimation {
                             duration: 250
@@ -557,7 +635,7 @@ Item {
                 Rectangle {
                     width: parent.width
                     implicitHeight: animSec.implicitHeight + 20
-                    opacity: root.revealCount > 4 ? 1 : 0
+                    opacity: root.revealCount > 5 ? 1 : 0
                     Behavior on opacity {
                         NumberAnimation {
                             duration: 250
@@ -662,7 +740,7 @@ Item {
                 Rectangle {
                     width: parent.width
                     implicitHeight: fmSec.implicitHeight + 20
-                    opacity: root.revealCount > 5 ? 1 : 0
+                    opacity: root.revealCount > 6 ? 1 : 0
                     Behavior on opacity {
                         NumberAnimation {
                             duration: 250
@@ -735,7 +813,7 @@ Item {
                 Rectangle {
                     width: parent.width
                     implicitHeight: hyprSec.implicitHeight + 20
-                    opacity: root.revealCount > 6 ? 1 : 0
+                    opacity: root.revealCount > 7 ? 1 : 0
                     Behavior on opacity {
                         NumberAnimation {
                             duration: 250
@@ -1279,7 +1357,7 @@ Item {
                 Rectangle {
                     width: parent.width
                     implicitHeight: lockSec.implicitHeight + 20
-                    opacity: root.revealCount > 7 ? 1 : 0
+                    opacity: root.revealCount > 8 ? 1 : 0
                     Behavior on opacity {
                         NumberAnimation {
                             duration: 250

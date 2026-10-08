@@ -25,7 +25,10 @@ Startup also `mkdir -p`s every cache dir `FileView` writes to (writes to missing
 Wallpapers are **not** part of this config: `~/.config/qs-wallpaperpicker`
 (separate Quickshell instance, `qs-wallpaperpicker` IPC target `wallpaper`)
 draws them and is the SUPER+W picker; `Ipc.toggleWallpaper` / `togglePanel
-wallpaper-switcher` just run its `toggle`.
+wallpaper-switcher` just run its `toggle`. Desktop widgets are likewise separate:
+`~/.config/ryoku-widgets` (vendored Ryoku widgets + editor, see its README);
+SettingsWidget's "Desktop Widgets" section only shells out to its
+`bin/ryoku-widgets enable|disable|status|editor`.
 
 ### 1.2 Bar state machine — `services/BarState.qml` (singleton)
 
