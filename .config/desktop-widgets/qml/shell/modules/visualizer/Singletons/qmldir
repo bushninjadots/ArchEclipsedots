@@ -3,4 +3,5 @@ singleton Spectrum Spectrum.qml
 singleton Waveform Waveform.qml
 singleton Config Config.qml
 singleton Performance Performance.qml
+singleton ShellGeom ShellGeom.qml
 VizItem VizItem.qml

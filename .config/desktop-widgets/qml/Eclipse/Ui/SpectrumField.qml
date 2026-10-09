@@ -39,6 +39,23 @@ Item {
     property real boxY: 0.58
     property real boxW: 1
     property real boxH: 0.42
+    // Aura (the flowing screen-edge border): how deep the reactive light may
+    // reach inward from the edges, as a fraction of the shorter screen side.
+    property real depth: 0.12
+    // Which edges the aura hugs: bitmask 1 top 2 right 4 bottom 8 left.
+    property int auraSides: 15
+    // px of the top edge given to the bar reservation (aura only): the aura's
+    // top boundary starts below the navbar, so it reads as hanging off it.
+    // 0 hugs the screen's very top.
+    property real auraGapT: 0
+    // Live shell geometry (aura only), from the desktop-widgets ShellGeom
+    // bridge: the navbar pill the top band suspends from, and the left/right
+    // panel inner edges the side bands adopt. All zero/false when there is no
+    // live shell, which keeps the flat fallback look untouched.
+    property vector4d pillRect: Qt.vector4d(0, 0, 0, 0)
+    property real pillOn: 0
+    property real panelLx: 0
+    property real panelRx: 0
     property string grow: "up"           // up | down | center | left | right
     // The whole look turns about the box centre, so a spectrum can sit at any
     // angle rather than only along an axis. The box stays axis-aligned: turning
@@ -50,12 +67,14 @@ Item {
     property real tiltY: 0               // degrees, lean one side back
 
     readonly property var styles: ["bars", "split", "dots", "segments", "wave",
-                                   "ribbon", "curtain", "line", "frame", "radial", "orb", "spiral"]
+                                   "ribbon", "curtain", "line", "frame", "radial", "orb", "spiral", "aura"]
     // An unknown look falls back to bars rather than painting nothing.
     readonly property int styleIndex: Math.max(0, root.styles.indexOf(root.style))
-    // The polar three sit at the tail; the frame is a whole-screen edge look.
-    readonly property bool polar: root.styleIndex >= 9
+    // The polar three sit at the tail; the frame and the aura are whole-screen
+    // edge looks.
+    readonly property bool polar: root.styleIndex >= 9 && root.styleIndex <= 11
     readonly property bool frame: root.style === "frame"
+    readonly property bool aura: root.style === "aura"
     readonly property bool vertical: root.grow === "left" || root.grow === "right"
     readonly property bool centred: (root.grow === "center" && root.style !== "curtain")
         || root.style === "split"
@@ -76,7 +95,9 @@ Item {
     readonly property real framePerim: 2 * (root.width + root.height)
     readonly property real frameDepth: Math.max(6, Math.min(root.width, root.height) * 0.06)
     readonly property real maxLen: root.frame ? root.frameDepth
-        : Math.max(2, Math.round(root.acrossFull - root.reflectPx))
+        : (root.aura ? Math.max(6, Math.min(root.width, root.height)
+                                    * Math.max(0.02, Math.min(0.45, root.depth)))
+        : Math.max(2, Math.round(root.acrossFull - root.reflectPx)))
     readonly property real reflectPx: (root.grow === "up" && !root.polar && !root.centred)
         ? Math.round(root.acrossFull * root.reflection) : 0
 
@@ -90,8 +111,8 @@ Item {
 
     // The bloom is sized to the shape it wraps, never to the screen: a skirt
     // wider than the gap between two bands dissolves the spectrum into one mass.
-    readonly property real slotPx: (root.frame ? root.framePerim : root.alongFull) / root.drawBands
-    readonly property real shapePx: root.frame
+    readonly property real slotPx: (root.frame || root.aura ? root.framePerim : root.alongFull) / root.drawBands
+    readonly property real shapePx: (root.frame || root.aura)
         ? Math.max(2, root.framePerim / (root.drawBands * 3) * root.thickness)
         : (root.polar
            ? Math.max(3, 2 * Math.PI * root.r0 / root.drawBands * root.thickness)
@@ -111,11 +132,12 @@ Item {
     // about the pass centre is a turn about the box centre.
     readonly property rect passRect: Qt.rect(pass.x, pass.y, pass.width, pass.height)
     // The box itself, for a host drawing placement guides.
-    readonly property rect boxRect: root.frame ? Qt.rect(0, 0, root.width, root.height)
+    readonly property rect boxRect: (root.frame || root.aura)
+        ? Qt.rect(0, 0, root.width, root.height)
         : Qt.rect(root.bx, root.by, root.bw, root.bh)
     // What the turned look covers, for a host sampling the wallpaper under it.
     readonly property rect coverRect: {
-        if (root.frame)
+        if (root.frame || root.aura)
             return Qt.rect(0, 0, root.width, root.height);
         var a = root.angle * Math.PI / 180;
         var c = Math.abs(Math.cos(a)), s = Math.abs(Math.sin(a));
@@ -130,13 +152,13 @@ Item {
         // The frame owns the whole screen and never turns; every other look sits
         // in its box plus room for the bloom to fall off, centred so a turn about
         // the pass centre is a turn about the box centre.
-        x: root.frame ? 0 : root.bx - root.margin
-        y: root.frame ? 0 : root.by - root.margin
-        width: root.frame ? root.width : root.bw + 2 * root.margin
-        height: root.frame ? root.height : root.bh + 2 * root.margin
+        x: (root.frame || root.aura) ? 0 : root.bx - root.margin
+        y: (root.frame || root.aura) ? 0 : root.by - root.margin
+        width: (root.frame || root.aura) ? root.width : root.bw + 2 * root.margin
+        height: (root.frame || root.aura) ? root.height : root.bh + 2 * root.margin
         transform: Matrix4x4 {
             matrix: {
-                var m = root.frame
+                var m = (root.frame || root.aura)
                     ? PlaceMath.flat(PlaceMath.boxMatrix(0, 0, 0, pass.width, pass.height))
                     : PlaceMath.flat(PlaceMath.boxMatrix(root.angle, root.tiltX, root.tiltY,
                                                          pass.width, pass.height));
@@ -153,11 +175,17 @@ Item {
             fragmentShader: Qt.resolvedUrl("shaders/spectrum.frag.qsb")
 
             property real style: root.styleIndex
-            property real posMode: root.frame ? 0
+            property real posMode: (root.frame || root.aura) ? 0
                 : (root.grow === "down" ? 1
                 : (root.grow === "center" ? 2
                 : (root.grow === "left" ? 3 : (root.grow === "right" ? 4 : 0))))
-            property real pad: root.frame ? 0 : root.margin
+            property real pad: (root.frame || root.aura) ? 0 : root.margin
+            property real auraSides: root.auraSides
+            property real auraGapT: root.auraGapT
+            property vector4d pillRect: root.pillRect
+            property real pillOn: root.pillOn
+            property real panelLx: root.panelLx
+            property real panelRx: root.panelRx
             property real bands: root.drawBands
             property real maxLen: root.maxLen
             property real minLen: Math.max(1.5, 2 * root.ui) * (root.fade > 0.9 ? 1 : root.fade)

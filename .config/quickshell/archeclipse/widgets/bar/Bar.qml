@@ -139,6 +139,70 @@ PanelWindow {
         return {visible: root.visible, displayed: name,
             rect: {x: g.x, y: g.y, w: pillItem.width, h: pillItem.height}};
     }
+
+    // --- live geometry feed for the desktop-widgets aura visualiser ---
+    // The aura runs in a separate Quickshell process that cannot see the bar,
+    // so publish the main pill and both side-panel inner edges every frame the
+    // pills/unfold animate. A closed panel collapses to the screen edge via the
+    // clip's expand (0 -> screen edge, 1 -> panel inner edge), which slides the
+    // aura's band in lock-step with the panel's own unfold.
+    function _auraRect(item) {
+        // stripRoot fills contentItem at (0,0), so the item's own x/y are the
+        // same coordinates. Reading them directly (unlike mapToItem) makes the
+        // Binding re-evaluate when the item slides, not only when it resizes.
+        return { x: item.x, y: item.y, w: item.width, h: item.height };
+    }
+
+    Binding {
+        target: AuraBridge
+        property: "pillRect"
+        value: root._auraRect(pill)
+    }
+    Binding {
+        target: AuraBridge
+        property: "leftRect"
+        value: ({
+            x: 0,
+            y: leftPill.y,
+            w: (leftPill.x + leftPill.width) * leftClip.expand,
+            h: leftPill.height
+        })
+    }
+    Binding {
+        target: AuraBridge
+        property: "rightRect"
+        value: ({
+            x: stripRoot.width - (stripRoot.width - rightPill.x) * rightClip.expand,
+            y: rightPill.y,
+            w: 0,
+            h: rightPill.height
+        })
+    }
+    Binding {
+        target: AuraBridge
+        property: "pillShown"
+        value: root.barVisible
+    }
+    Binding {
+        target: AuraBridge
+        property: "barGap"
+        value: root.barHeight
+    }
+    Binding {
+        target: AuraBridge
+        property: "screenW"
+        value: (root.screen && root.screen.width > 0) ? root.screen.width : 1920
+    }
+    Binding {
+        target: AuraBridge
+        property: "screenH"
+        value: root.screenHeight
+    }
+    Binding {
+        target: AuraBridge
+        property: "screenScale"
+        value: (root.screen && root.screen.scale) ? root.screen.scale : 1
+    }
     Component.onDestruction: Registry.unregister("capture-bar-" + root.monitorName)
     Component.onCompleted: {
         Registry.register("capture-bar-" + root.monitorName, root);
@@ -540,6 +604,7 @@ PanelWindow {
                 onTriggered: leftPill.shown = false
             }
             IslandExpandClip {
+                id: leftClip
                 expand: leftPill.openT
                 contentHeight: leftPill.height
                 anchors.top: Settings.barOrientation ? parent.top : undefined
@@ -614,6 +679,7 @@ PanelWindow {
                 onTriggered: rightPill.shown = false
             }
             IslandExpandClip {
+                id: rightClip
                 expand: rightPill.openT
                 contentHeight: rightPill.height
                 anchors.top: Settings.barOrientation ? parent.top : undefined

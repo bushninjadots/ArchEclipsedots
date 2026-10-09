@@ -33,6 +33,7 @@ layout(std140, binding = 0) uniform buf {
 
     float style;     // 0 bars 1 split 2 dots 3 segments 4 wave 5 ribbon
                      // 6 curtain 7 line 8 frame 9 radial 10 orb 11 spiral
+                     // 12 aura
     float posMode;   // 0 bottom 1 top 2 center 3 left 4 right
     float bands;
     float maxLen;
@@ -54,6 +55,13 @@ layout(std140, binding = 0) uniform buf {
     float energy;
     float fade;
     float aa;
+    float auraSides; // bitmask 1 top 2 right 4 bottom 8 left (aura only)
+    float auraGapT;  // px of top edge given to the bar reservation (aura only);
+                     // 0 hugs the screen's very top
+    vec4 pillRect;   // aura: navbar pill (x, y, w, h) in screen px
+    float pillOn;    // 0 = no live pill (flat top at auraGapT), 1 = suspend
+    float panelLx;   // aura: left panel inner edge, px (0 = screen edge)
+    float panelRx;   // aura: right panel inner edge, px (cw = screen edge)
 };
 
 const float TAU = 6.28318530718;
@@ -126,6 +134,40 @@ float roundBox(vec2 p, vec2 b, float r) {
     return min(max(q.x, q.y), 0.0) + length(max(q, 0.0)) - r;
 }
 
+// Quadratic smooth-min (Inigo Quilez): blends two distances, rounding their
+// 90° crossing into an arc of radius ~r. Collapses to a plain min whenever
+// the two distances differ by more than r — which is what lets the aura's
+// disabled sides (+inf) opt their corners out of the rounding for free.
+float smin(float a, float b, float r) {
+    float h = clamp(0.5 + 0.5 * (b - a) / r, 0.0, 1.0);
+    return mix(b, a, h) - r * h * (1.0 - h);
+}
+
+// Quintic ease (Perlin smootherstep): C2-continuous, so a curve built from it
+// leaves its anchor and rejoins without a visible kink. Used for the top
+// suspension so the band flows off the navbar rather than bending at a seam.
+float smootherstep(float a, float b, float x) {
+    float t = clamp((x - a) / max(1e-4, b - a), 0.0, 1.0);
+    return t * t * t * (t * (t * 6.0 - 15.0) + 10.0);
+}
+
+// One enabled aura side's contribution, as (inward ratio, blend weight, level,
+// perimeter fraction). The ratio is 0 at the side's boundary and 1 at the
+// crest, so sides can be combined in normalised space: the corner handoff in
+// the aura branch smooth-mins these ratios instead of raw pixel distances,
+// which is what lets adjacent sides merge into one continuous field. A
+// disabled side returns +inf ratio and zero weight, so it drops out entirely.
+vec4 auraSide(float d, float s, float onF, float perimA, float minL, float maxL) {
+    if (onF < 0.5)
+        return vec4(1e9, 0.0, 0.0, 0.0);
+    float al = fract(s / perimA);
+    float lv = lvSmooth(al);
+    float ln = max(minL, maxL * lv);
+    float r = max(0.0, d) / max(ln, 1.0);
+    float w = exp(-min(r, 3.0) * 2.4);
+    return vec4(r, w, lv, al);
+}
+
 float segDist(vec2 p, vec2 a, vec2 b) {
     vec2 pa = p - a;
     vec2 ba = b - a;
@@ -173,8 +215,9 @@ void main() {
         axisLen = cw;
     }
 
-    bool polar = st >= 9;
+    bool polar = st >= 9 && st <= 11;
     bool frame = st == 8;
+    bool aura = st == 12;
     bool centred = (pm == 2 && st != 6) || st == 1;
     float signedAcross = polar ? 0.0
         : ((pm == 3 || pm == 4) ? cpx.x - cw * 0.5 : ch * 0.5 - cpx.y);
@@ -182,7 +225,7 @@ void main() {
     if (centred) across = abs(signedAcross);
 
     float mirrorFade = 1.0;
-    if (!polar && !frame && !centred && across < 0.0) {
+    if (!polar && !frame && !aura && !centred && across < 0.0) {
         if (reflectPx <= 0.0) {
             fragColor = vec4(0.0);
             return;
@@ -356,6 +399,123 @@ void main() {
                                  vec2(barWp * 0.46, capH * 0.5), capH * 0.5);
             extraA += (1.0 - smoothstep(-aa, aa, sdp)) * 0.85;
         }
+    } else if (st == 12) {
+        // aura: a flowing reactive border hugging the screen edges (the iNiR
+        // OrganicEdge "full frame" idea, drawn analytically). Each enabled
+        // side contributes a NORMALISED inward ratio (0 at the edge, 1 at the
+        // crest); the frame is the smooth-min of those ratios, so adjoining
+        // sides hand off through one continuous field and a corner reads as a
+        // single light going round the turn instead of four stripes ending at
+        // a point. Level, depth and the perimeter/colour coordinate are all
+        // blended with the same weights, so there is no step at the corner.
+        //
+        // The top boundary follows a suspension curve when a live pill is known:
+        // at the screen corners, dipping to the pill underside under its span.
+        // Anywhere else (no live pill, bar hidden, invalid bridge) it is flat at
+        // `auraGapT`, exactly as before; nothing ever paints above it.
+        float gT = max(0.0, auraGapT);    // flat-top fallback (bar hidden / no bridge)
+        float yTop = gT;
+        if (pillOn > 0.5) {
+            // A wide, C2-continuous "curtain" off the bar: the top boundary
+            // leaves the screen corners, sweeps up to the pill's underside and
+            // eases back down with no kink, so the frame always reads as if it
+            // grows out of the navbar. The ease scales with the screen width
+            // (clamped), not the pill height, so it stays gentle even when the
+            // search/control island makes the pill tall.
+            float px0 = pillRect.x;
+            float px1 = pillRect.x + pillRect.z;
+            float pb = clamp(pillRect.y + pillRect.w, 0.0, ch);
+            float m = clamp(0.18 * cw, 160.0, 360.0);
+            float under = smootherstep(px0 - m, px0, cpx.x)
+                        * (1.0 - smootherstep(px1, px1 + m, cpx.x));
+            yTop = mix(0.0, pb, under);
+        }
+        // Panel inner edges are the left/right boundaries while a panel is out;
+        // they ride the unfold live, so the band follows continuously. Crossing
+        // edges (a panel wider than half, or stale geometry) fall back flat.
+        float Lx = clamp(panelLx, 0.0, cw);
+        float Rx = (panelRx > 0.0) ? clamp(panelRx, 0.0, cw) : cw;
+        if (Lx > Rx) { Lx = 0.0; Rx = cw; }
+        float Ty = yTop, By = ch;
+        // Which sides are enabled, decoded from the bitmask.
+        float onT = mod(auraSides, 2.0) >= 1.0 ? 1.0 : 0.0;
+        float onR = mod(auraSides, 4.0) >= 2.0 ? 1.0 : 0.0;
+        float onB = mod(auraSides, 8.0) >= 4.0 ? 1.0 : 0.0;
+        float onL = mod(auraSides, 16.0) >= 8.0 ? 1.0 : 0.0;
+        float gTw = max(1.0, ch - gT);          // usable height below the gap
+        float perimA = 2.0 * (cw + gTw);
+        if (cpx.y < yTop || cpx.x < Lx || cpx.x > Rx) {
+            // Outside the frame box: above the (curved) top boundary — the
+            // reserved bar strip — and the margins hidden behind an open panel.
+            // Clipping these keeps the band sitting on the panel's inner edge
+            // instead of filling the whole margin.
+            sd = 1e9;
+        } else {
+            // Per-side inward distance (>=0 inside the frame box) and the
+            // perimeter fraction the fragment projects onto that side.
+            float dT = cpx.y - Ty, dR = Rx - cpx.x, dB = By - cpx.y, dL = cpx.x - Lx;
+            float sT = cpx.x / max(cw, 1.0);
+            float sR = cw + clamp(dT / max(gTw, 1.0), 0.0, 1.0) * gTw;
+            float sB = cw + gTw + clamp((cw - cpx.x) / max(cw, 1.0), 0.0, 1.0) * cw;
+            float sL = 2.0 * cw + gTw + clamp((By - cpx.y) / max(gTw, 1.0), 0.0, 1.0) * gTw;
+            vec4 aT = auraSide(dT, sT * cw, onT, perimA, minLen, maxLen);
+            vec4 aR = auraSide(dR, sR, onR, perimA, minLen, maxLen);
+            vec4 aB = auraSide(dB, sB, onB, perimA, minLen, maxLen);
+            vec4 aL = auraSide(dL, sL, onL, perimA, minLen, maxLen);
+            // Smooth-min the enabled ratios: adjacent sides merge through an
+            // arc, and because a disabled side is +inf it simply drops out and
+            // its neighbour ends square (smin returns the finite value).
+            float kR = 0.35;   // corner handoff, in ratio units (~0.35*depth px)
+            float fr = 1e9;
+            fr = smin(fr, aT.x, kR);
+            fr = smin(fr, aR.x, kR);
+            fr = smin(fr, aB.x, kR);
+            fr = smin(fr, aL.x, kR);
+            // Blend level/depth across the corner (nearer sides weigh more), so
+            // the crest height flows instead of stepping at the diagonal.
+            float wsum = max(1e-4, aT.y + aR.y + aB.y + aL.y);
+            float blv = (aT.y * aT.z + aR.y * aR.z + aB.y * aB.z + aL.y * aL.z) / wsum;
+            float blen = max(minLen, maxLen * blv);
+            // The frame boundary is ratio == 1, i.e. depth = len. Scaling back
+            // to px keeps the body/crest maths identical to the other looks.
+            sd = (fr - 1.0) * blen;
+            // Perimeter coordinate as a weighted phase average: two sides that
+            // meet at a corner point the same way, so the palette sweeps one
+            // continuous path (no colour seam where the loop wraps).
+            vec2 phv = vec2(0.0);
+            phv += vec2(cos(aT.w * TAU), sin(aT.w * TAU)) * aT.y;
+            phv += vec2(cos(aR.w * TAU), sin(aR.w * TAU)) * aR.y;
+            phv += vec2(cos(aB.w * TAU), sin(aB.w * TAU)) * aB.y;
+            phv += vec2(cos(aL.w * TAU), sin(aL.w * TAU)) * aL.y;
+            float alA = atan(phv.y, phv.x) / TAU;
+            if (alA < 0.0)
+                alA += 1.0;
+            tRamp = alA;
+            hot = blv;
+            // Distance to the nearest ENABLED boundary, for the root lift and
+            // the resting rail (a min of two side distances forms a connected
+            // right angle at the corner).
+            float dmin = 1e9;
+            if (onT > 0.5) dmin = min(dmin, dT);
+            if (onR > 0.5) dmin = min(dmin, dR);
+            if (onB > 0.5) dmin = min(dmin, dB);
+            if (onL > 0.5) dmin = min(dmin, dL);
+            // the body is a wash of light, not paint: quiet bands leave the
+            // wallpaper readable, loud ones push further in and fill more.
+            fillA = (0.05 + 0.40 * blv);
+            lift = clamp(dmin / max(blen, 1.0), 0.0, 1.0);
+            // the crest itself: a lit line riding the level curve, hotter on
+            // louder bands, so the border reads as energy rather than geometry.
+            float crestA = abs(sd) - max(1.2, aa * 1.6);
+            extraA += (1.0 - smoothstep(-aa, aa, crestA)) * (0.30 + 0.50 * blv);
+            // the resting rail: a 1.5px hairline at the very edge while the
+            // band under it is quiet, melting away as that band's crest
+            // arrives. Because it rides the min side distance it walks the
+            // corner too, so silence rests as one connected outline.
+            float railA = abs(dmin - 1.5) - max(0.8, aa * 0.8);
+            extraA += (1.0 - smoothstep(-aa, aa, railA)) * 0.10
+                      * (1.0 - clamp(blv * 3.0, 0.0, 1.0));
+        }
     } else if (st == 9) {
         vec2 q = px - origin;
         float d = length(q);
@@ -453,8 +613,8 @@ void main() {
 
     float a = clamp(cover + halo, 0.0, 1.0) * fade * mirrorFade * qt_Opacity;
     // Edge looks melt into the wallpaper at both ends instead of being cut off;
-    // the frame wraps, so it has no ends to fade.
-    if (!polar && !frame)
+    // the frame and the aura wrap, so they have no ends to fade.
+    if (!polar && !frame && !aura)
         a *= smoothstep(0.0, 0.035, along) * (1.0 - smoothstep(0.965, 1.0, along));
     if (a <= 0.002) {
         fragColor = vec4(0.0);

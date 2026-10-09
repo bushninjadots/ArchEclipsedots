@@ -92,6 +92,29 @@ Item {
         thickness: root.cfg.thickness
         reflection: root.cfg.reflection
         segments: root.cfg.segments
+        // The aura's inward reach: stored as the box height (a fraction of the
+        // screen, so the placer's box maths keeps governing it) and passed as
+        // the depth fraction of the shorter side the shader wants.
+        depth: root.cfg.h
+        auraSides: root.cfg.auraSides
+        // Attached to the navbar: the bar's reserved zone becomes the top
+        // boundary, in real px (the reservation is a px number already).
+        auraGapT: root.cfg.auraBarHug ? Config.auraBarsGap : 0
+        // Live shell geometry: suspend the top band from the navbar pill and
+        // adopt the open side panels' inner edges, in real px. `ShellGeom`
+        // is in scope via `import "Singletons"`; when the bridge is
+        // missing/stale it reports invalid and these stay at their flat
+        // fallbacks (pillOn 0; panel edges at the screen edges), which the
+        // shader treats as today's look.
+        pillOn: (ShellGeom.valid && ShellGeom.pill && ShellGeom.pill.shown) ? 1 : 0
+        pillRect: {
+            const p = ShellGeom.pill
+            if (ShellGeom.valid && p && p.shown)
+                return Qt.vector4d(p.x, p.y, p.w, p.h)
+            return Qt.vector4d(0, 0, 0, 0)
+        }
+        panelLx: ShellGeom.valid ? (ShellGeom.left.x + ShellGeom.left.w) : 0
+        panelRx: ShellGeom.valid ? ShellGeom.right.x : 0
         // cfg owns the rule, so the bar dims the switch this binding ignores.
         peakCaps: root.cfg.peaks && root.cfg.peaksApply
         glow: root.cfg.bloom
