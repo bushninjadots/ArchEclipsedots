@@ -408,7 +408,9 @@ Singleton {
         if (root._playerStarting)
             return;
 
-        root.activate("player", 2500);
+        // No auto-pulse: the player island (transport + equalizer) opens
+        // only from a click on the bar's player pill or the togglePlayer IPC,
+        // never because the track changed.
     }
 
     function setupPlayerWatcher() {

@@ -10,6 +10,7 @@ import qs.widgets.bar.islands
 import qs.widgets.launcher
 import qs.widgets.notifications
 import qs.widgets.shared
+import qs.widgets.frame
 
 // Port of widgets/bar/Bar.tsx — the floating ArchEclipse bar pill.
 PanelWindow {
@@ -64,7 +65,9 @@ PanelWindow {
     // window is a full-width, full-height transparent surface — without
     // a mask it eats every click outside the pills.
     mask: Region {
-        item: pill
+        // Null while the pill is concealed (frame mode keeps the surface up
+        // for the band, so a hidden pill must not keep eating clicks).
+        item: pill.visible ? pill : null
         // Regions track item geometry even when the item is hidden, so
         // null the item while its pill is closed — otherwise the
         // full-height surface eats clicks across the hidden pill's area.
@@ -203,6 +206,26 @@ PanelWindow {
         property: "screenScale"
         value: (root.screen && root.screen.scale) ? root.screen.scale : 1
     }
+    // --- bodies for the shell frame (Settings -> Shell frame) ---
+    // The main pill and each side panel's visible extent (the unfold clip's
+    // live height, grown from the bar edge), so the frame's fillets track the
+    // same frame the pills move on.
+    function _frameSide(pillItem, clip) {
+        const h = clip.height;
+        return {
+            x: pillItem.x,
+            y: Settings.barOrientation ? pillItem.y : pillItem.y + pillItem.height - h,
+            w: pillItem.width,
+            h: h,
+            on: pillItem.visible && h > 1
+        };
+    }
+    readonly property var frameBodies: ({
+        pill: { x: pill.x, y: pill.y, w: pill.width, h: pill.height, on: root.barVisible },
+        left: root._frameSide(leftPill, leftClip),
+        right: root._frameSide(rightPill, rightClip)
+    })
+
     Component.onDestruction: Registry.unregister("capture-bar-" + root.monitorName)
     Component.onCompleted: {
         Registry.register("capture-bar-" + root.monitorName, root);
@@ -323,9 +346,21 @@ PanelWindow {
         id: stripRoot
         anchors.fill: parent
 
+        // ---- the shell frame (Settings -> Bar -> Shell Style "Frame") ----
+        // Part of the bar's own surface, under every pill: the band borders
+        // the screen and the pills grow out of it in the same frame they move.
+        FrameField {
+            anchors.fill: parent
+            bodies: root.frameBodies
+            topBar: Settings.barOrientation
+        }
+
         // ---- the pill ----
         Rectangle {
             id: pill
+            // In frame mode the surface stays up for the band, so the pill
+            // conceals itself; otherwise the window's own visibility does it.
+            visible: !ShellFrame.enabled || root.barVisible
             // Pushed-center: side pills dock to the screen edges and the
             // main pill centers in the remaining space — never fixed-center,
             // never overlapping. `x` itself carries NO Behavior: it tracks
@@ -380,7 +415,8 @@ PanelWindow {
             bottomLeftRadius: Settings.barOrientation ? Theme.radius : 0
             topRightRadius: Settings.barOrientation ? 0 : Theme.radius
             topLeftRadius: Settings.barOrientation ? 0 : Theme.radius
-            color: Theme.surface
+            // In frame mode FrameField paints this body as part of the frame.
+            color: ShellFrame.enabled ? "transparent" : Theme.surface
 
             // Hover detection lives on the pill itself (stable container).
             // The motion controller is on the bar pill — hot-zone
@@ -610,7 +646,8 @@ PanelWindow {
                 anchors.top: Settings.barOrientation ? parent.top : undefined
                 anchors.bottom: Settings.barOrientation ? undefined : parent.bottom
                 Rectangle {
-                    color: Theme.surface
+                    // In frame mode FrameField paints this body as part of the frame.
+                    color: ShellFrame.enabled ? "transparent" : Theme.surface
                     width: parent.width
                     height: leftPill.height
                     anchors.top: Settings.barOrientation ? parent.top : undefined
@@ -685,7 +722,8 @@ PanelWindow {
                 anchors.top: Settings.barOrientation ? parent.top : undefined
                 anchors.bottom: Settings.barOrientation ? undefined : parent.bottom
                 Rectangle {
-                    color: Theme.surface
+                    // In frame mode FrameField paints this body as part of the frame.
+                    color: ShellFrame.enabled ? "transparent" : Theme.surface
                     width: parent.width
                     height: rightPill.height
                     anchors.top: Settings.barOrientation ? parent.top : undefined
@@ -806,5 +844,5 @@ PanelWindow {
 
     // The toast pill maps on toasts alone so notifications survive a
     // concealed bar (the old separate window always did).
-    visible: barVisible || notifPill.hasContent
+    visible: barVisible || notifPill.hasContent || ShellFrame.enabled
 }

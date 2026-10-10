@@ -1,5 +1,6 @@
 pragma ComponentBehavior: Bound
 import QtQuick
+import "../organic/OrganicEdgeConfig.js" as EdgeConfig
 
 // One visualiser's settings, normalised. A plain JSON object goes in as `data`
 // (the primary's flat keys, or one entry of the extras list); reactive,
@@ -22,15 +23,44 @@ QtObject {
     // The looks the renderer knows; the polar three sit at the tail so one index
     // decides the family, and `frame` is the whole-screen edge look.
     readonly property var knownStyles: ["bars", "split", "dots", "segments", "wave",
-                                        "ribbon", "curtain", "line", "frame", "radial", "orb", "spiral"]
+                                        "ribbon", "curtain", "line", "frame", "radial", "orb", "spiral",
+                                        "aura"]
 
     readonly property string rawStyle: "" + item.val("style", "bars")
     readonly property string styleId: item.knownStyles.indexOf(item.rawStyle) >= 0 ? item.rawStyle
         : (item.rawStyle === "circle" ? "orb" : "bars")
     readonly property bool isPolar: item.knownStyles.indexOf(item.styleId) >= 9
+        && item.knownStyles.indexOf(item.styleId) <= 11
+    readonly property bool isAura: item.styleId === "aura"
     readonly property bool peaksApply: item.styleId === "bars" || item.styleId === "segments"
         || item.styleId === "frame"
     readonly property bool mirrorApplies: !item.isPolar && item.styleId !== "frame"
+        && !item.isAura
+    // The aura reads box height as its depth and carries its own side mask;
+    // every other knob still applies.
+    readonly property int auraSides: {
+        var m = 0;
+        var sv = item.val("auraSides", 15);
+        if (sv === true)  sv = 15;
+        if (sv === false) sv = 0;
+        m |= (sv & 1) ? 1 : 0;
+        m |= (sv & 2) ? 2 : 0;
+        m |= (sv & 4) ? 4 : 0;
+        m |= (sv & 8) ? 8 : 0;
+        return m;
+    }
+    // Attach the aura to the navbar: with TOP on AND a bar reservation above
+    // 0, the aura's top boundary sits at the navbar's bottom edge (the crest
+    // rises from under the bar like it is shed from it) and other sides stop
+    // at the same gap. The corner arcs carry both across the turns.
+    readonly property bool auraBarHug: item.val("auraBarHug", false) === true
+    // The aura is iNiR's Organic Edge: its stored tuning, and that tuning laid
+    // over the Organic defaults so the renderer always has every key.
+    readonly property var organicRaw: {
+        var o = item.val("organic", {});
+        return (o && typeof o === "object") ? o : {};
+    }
+    readonly property var organic: Object.assign({}, EdgeConfig.defaults, item.organicRaw)
 
     readonly property string shape:  "" + item.val("shape", "rounded")
     readonly property int bars:      Math.max(16, Math.min(128, Math.round(item.val("bars", 64))))

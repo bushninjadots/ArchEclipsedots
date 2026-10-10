@@ -253,7 +253,7 @@ var rows = [{
         "hi": 1,
         "unit": "%",
         "pct": true,
-        "when": {"style":["bars","split","dots","segments","frame","radial","spiral"]}
+        "when": {"style":["bars","split","dots","segments","frame","radial","spiral","aura"]}
     },{
         "tab": "Visualizer",
         "group": "SPECTRUM",

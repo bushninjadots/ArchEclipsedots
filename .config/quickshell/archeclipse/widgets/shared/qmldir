@@ -23,3 +23,4 @@ AppProgress 1.0 AppProgress.qml
 AppTooltip 1.0 AppTooltip.qml
 Card 1.0 Card.qml
 SystemResourcesContent 1.0 SystemResourcesContent.qml
+AppColorPicker 1.0 AppColorPicker.qml

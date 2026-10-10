@@ -54,7 +54,7 @@ Singleton {
     property alias calendarGradient: adapter.calendarGradient
 
     property alias musicEnabled: adapter.musicEnabled
-    property alias musicStyle:   adapter.musicStyle    // cover | glass
+    property alias musicStyle:   adapter.musicStyle    // cover | glass | vinyl
     property alias musicLyrics:  adapter.musicLyrics   // show the synced lyric sheet
     property alias musicViz:     adapter.musicViz     // bars | wave (no-lyrics visualiser look)
     property alias musicScale:   adapter.musicScale
@@ -118,6 +118,34 @@ Singleton {
     property alias notesColor:    adapter.notesColor
     property alias notesColor2:   adapter.notesColor2
     property alias notesGradient: adapter.notesGradient
+
+    // lyrics (impasto port): the playing track's words on the wallpaper.
+    property alias lyricsEnabled: adapter.lyricsEnabled
+    property alias lyricsDesign:  adapter.lyricsDesign   // line | band | sheet
+    property alias lyricsScale:   adapter.lyricsScale
+    property alias lyricsAnchor:  adapter.lyricsAnchor
+    property alias lyricsX:       adapter.lyricsX
+    property alias lyricsY:       adapter.lyricsY
+    property alias lyricsLocked:  adapter.lyricsLocked
+    property alias lyricsOpacity: adapter.lyricsOpacity
+    property alias lyricsColor:    adapter.lyricsColor
+    property alias lyricsColor2:   adapter.lyricsColor2
+    property alias lyricsGradient: adapter.lyricsGradient
+
+    // heatmap (GitHub contributions)
+    property alias heatmapEnabled: adapter.heatmapEnabled
+    property alias heatmapScale:   adapter.heatmapScale
+    property alias heatmapAnchor:  adapter.heatmapAnchor
+    property alias heatmapX:       adapter.heatmapX
+    property alias heatmapY:       adapter.heatmapY
+    property alias heatmapLocked:  adapter.heatmapLocked
+    property alias heatmapOpacity: adapter.heatmapOpacity
+    property alias heatmapColor:    adapter.heatmapColor
+    property alias heatmapColor2:   adapter.heatmapColor2
+    property alias heatmapGradient: adapter.heatmapGradient
+    property alias heatmapDesign:   adapter.heatmapDesign    // auto | horizontal | vertical
+    property alias heatmapUsername: adapter.heatmapUsername
+    property alias heatmapYear:     adapter.heatmapYear
 
     // brand: the desktop's mark + name, user-overridable from Ryoku Settings ->
     // Shell -> Global. a small cross-cutting identity master (like theme.json).
@@ -275,6 +303,30 @@ Singleton {
             property string notesColor: ""
             property string notesColor2: ""
             property bool notesGradient: false
+            property bool lyricsEnabled: false
+            property string lyricsDesign: "line"
+            property real lyricsScale: 1.0
+            property string lyricsAnchor: "bottom-left"
+            property int lyricsX: 80
+            property int lyricsY: 80
+            property bool lyricsLocked: false
+            property real lyricsOpacity: 1.0
+            property string lyricsColor: ""
+            property string lyricsColor2: ""
+            property bool lyricsGradient: false
+            property bool heatmapEnabled: false
+            property real heatmapScale: 1.0
+            property string heatmapAnchor: "bottom-right"
+            property int heatmapX: 80
+            property int heatmapY: 80
+            property bool heatmapLocked: false
+            property real heatmapOpacity: 1.0
+            property string heatmapColor: ""
+            property string heatmapColor2: ""
+            property bool heatmapGradient: false
+            property string heatmapDesign: "auto"
+            property string heatmapUsername: ""
+            property int heatmapYear: new Date().getFullYear()
         }
     }
 

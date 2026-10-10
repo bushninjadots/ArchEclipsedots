@@ -2,6 +2,7 @@ pragma ComponentBehavior: Bound
 import QtQuick
 import QtQuick.Shapes
 import Eclipse.Ui.Singletons
+import "../shell/modules/desktop/music"
 
 /**
  * A plain-QML preview of the desktop music sheet for the Desktop Widgets
@@ -15,7 +16,7 @@ import Eclipse.Ui.Singletons
 Item {
     id: preview
 
-    property string style: "cover"     // cover | glass
+    property string style: "cover"     // cover | glass | vinyl
     property bool lyrics: true
     property string viz: "bars"        // bars | wave
 
@@ -236,6 +237,24 @@ Item {
                     font.pixelSize: parent.mid ? 12 : 11
                 }
             }
+        }
+    }
+
+    // Vinyl: Spun's record and tonearm, at rest, over the same plate.
+    Rectangle {
+        anchors.fill: parent
+        visible: preview.style === "vinyl"
+        radius: 16
+        color: preview.plate
+        border.width: 1
+        border.color: Qt.rgba(1, 1, 1, 0.10)
+        Item {
+            anchors.centerIn: parent
+            width: 440
+            height: 440
+            scale: Math.min(preview.width, preview.height) * 0.9 / 440
+            SpunRecord { anchors.centerIn: parent; width: 410; height: 410; angle: 18 }
+            SpunTonearm { anchors.fill: parent; engaged: true; progress: 0.3; motion: false; accent: preview.accent }
         }
     }
 }

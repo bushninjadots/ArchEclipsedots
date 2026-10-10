@@ -11,6 +11,8 @@ import "aio"
 import "stats"
 import "weather"
 import "notes"
+import "lyrics"
+import "heatmap"
 import Eclipse.PluginKit
 import shell.services as Services
 import "../stage"
@@ -78,7 +80,7 @@ Scope {
     }
     // Human titles for the built-in widgets, for the frame labels.
     function widgetTitle(w) {
-        const n = { clock: "Clock", calendar: "Calendar", music: "Music", aio: "All-in-one", stats: "System stats", weather: "Weather", notes: "Notes" };
+        const n = { clock: "Clock", calendar: "Calendar", music: "Music", aio: "All-in-one", stats: "System stats", weather: "Weather", notes: "Notes", lyrics: "Lyrics", heatmap: "Activity heatmap" };
         return n[w] || w;
     }
     // The Add drop-down's model (docs/stage.md, "Edit widgets"): every widget
@@ -98,6 +100,8 @@ Scope {
             { id: "stats", label: "System stats", icon: "monitor_heart", enabled: Config.statsEnabled, group: "" },
             { id: "weather", label: "Weather", icon: "partly_cloudy_day", enabled: Config.weatherEnabled, group: "" },
             { id: "notes", label: "Notes", icon: "sticky_note_2", enabled: Config.notesEnabled, group: "" },
+            { id: "lyrics", label: "Lyrics", icon: "lyrics", enabled: Config.lyricsEnabled, group: "" },
+            { id: "heatmap", label: "Activity heatmap", icon: "heatmap", enabled: Config.heatmapEnabled, group: "" },
             { id: "visualizer", label: "Visualizer", icon: "graphic_eq", enabled: VizCfg.Config.enabled, group: "" }
         ];
         // Fallback group name for a plugin whose manifest names no set. Plain
@@ -163,6 +167,8 @@ Scope {
         case "stats": return statsLoader.item;
         case "weather": return weatherLoader.item;
         case "notes": return notesLoader.item;
+        case "lyrics": return lyricsLoader.item;
+        case "heatmap": return heatmapLoader.item;
         }
         return null;
     }
@@ -210,7 +216,9 @@ Scope {
         "aioEnabled", "aioStyle", "aioScale", "aioAnchor", "aioX", "aioY", "aioLocked", "aioOpacity", "aioColor", "aioColor2", "aioGradient",
         "statsEnabled", "statsScale", "statsAnchor", "statsX", "statsY", "statsLocked", "statsOpacity", "statsColor", "statsColor2", "statsGradient",
         "weatherEnabled", "weatherDesign", "weatherScale", "weatherAnchor", "weatherX", "weatherY", "weatherLocked", "weatherOpacity", "weatherColor", "weatherColor2", "weatherGradient",
-        "notesEnabled", "notesScale", "notesAnchor", "notesX", "notesY", "notesLocked", "notesOpacity", "notesWidth", "notesHeight", "notesColor", "notesColor2", "notesGradient"
+        "notesEnabled", "notesScale", "notesAnchor", "notesX", "notesY", "notesLocked", "notesOpacity", "notesWidth", "notesHeight", "notesColor", "notesColor2", "notesGradient",
+        "lyricsEnabled", "lyricsDesign", "lyricsScale", "lyricsAnchor", "lyricsX", "lyricsY", "lyricsLocked", "lyricsOpacity", "lyricsColor", "lyricsColor2", "lyricsGradient",
+        "heatmapEnabled", "heatmapScale", "heatmapAnchor", "heatmapX", "heatmapY", "heatmapLocked", "heatmapOpacity", "heatmapColor", "heatmapColor2", "heatmapGradient"
     ]
     property var _snapConfig: null
     property var _snapPlugins: null
@@ -408,7 +416,9 @@ Scope {
             : (aioLoader.item && aioLoader.item.dragging) ? aioLoader.item
             : (statsLoader.item && statsLoader.item.dragging) ? statsLoader.item
             : (weatherLoader.item && weatherLoader.item.dragging) ? weatherLoader.item
-            : (notesLoader.item && notesLoader.item.dragging) ? notesLoader.item : null
+            : (notesLoader.item && notesLoader.item.dragging) ? notesLoader.item
+            : (lyricsLoader.item && lyricsLoader.item.dragging) ? lyricsLoader.item
+            : (heatmapLoader.item && heatmapLoader.item.dragging) ? heatmapLoader.item : null
 
         // on release, flash the slot's four edges plus the centre line it snapped
         // to (centre within half a grid step, the window the guides light up).
@@ -808,6 +818,71 @@ Scope {
             }
         }
 
+        Loader {
+            id: lyricsLoader
+            anchors.fill: parent
+            z: root.widgetZ("lyrics")
+            active: root.widgetsEnabled && root.reloadReady && Config.lyricsEnabled
+            sourceComponent: Component {
+            Item {
+                anchors.fill: parent
+            WidgetSlot {
+                id: lyricsSlot
+                widget: "lyrics"
+                z: root.widgetZ("lyrics")
+                visible: true
+                anchor: Config.lyricsAnchor
+                freeX: Config.lyricsX
+                freeY: Config.lyricsY
+                locked: root.stageComposing ? false : Config.lyricsLocked
+                composing: root.stageComposing
+                bg: "none"
+                scaleCfg: Config.lyricsScale
+                onMenuRequested: (x, y, w) => root.openWidgetMenu(w, x, y)
+                onDropped: (box) => win.flashDrop(box)
+                onResized: if (root.stageComposing) StageCfg.StageSession.markDirty()
+                LyricsWidget {
+                    design: Config.lyricsDesign
+                    s: Config.lyricsScale
+                    active: lyricsSlot.visible
+                }
+            }
+            }
+            }
+        }
+
+        Loader {
+            id: heatmapLoader
+            anchors.fill: parent
+            z: root.widgetZ("heatmap")
+            active: root.widgetsEnabled && root.reloadReady && Config.heatmapEnabled
+            sourceComponent: Component {
+            Item {
+                anchors.fill: parent
+            WidgetSlot {
+                id: heatmapSlot
+                widget: "heatmap"
+                z: root.widgetZ("heatmap")
+                visible: true
+                anchor: Config.heatmapAnchor
+                freeX: Config.heatmapX
+                freeY: Config.heatmapY
+                locked: root.stageComposing ? false : Config.heatmapLocked
+                composing: root.stageComposing
+                bg: "none"
+                scaleCfg: Config.heatmapScale
+                onMenuRequested: (x, y, w) => root.openWidgetMenu(w, x, y)
+                onDropped: (box) => win.flashDrop(box)
+                onResized: if (root.stageComposing) StageCfg.StageSession.markDirty()
+                HeatmapWidget {
+                    s: Config.heatmapScale
+                    active: heatmapSlot.visible
+                }
+            }
+            }
+            }
+        }
+
         // one draggable PluginDesktopSlot per enabled desktopWidget plugin.
         // drag = write free pos. resize bracket = write scale. right-click
         // = per-tile menu. each commit goes through its own Process so a
@@ -999,6 +1074,8 @@ Scope {
             WidgetFrame { wid: "stats"; slotItem: statsLoader.item }
             WidgetFrame { wid: "weather"; slotItem: weatherLoader.item }
             WidgetFrame { wid: "notes"; slotItem: notesLoader.item }
+            WidgetFrame { wid: "lyrics"; slotItem: lyricsLoader.item }
+            WidgetFrame { wid: "heatmap"; slotItem: heatmapLoader.item }
         }
 
         Process { id: paletteProc }

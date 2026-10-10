@@ -27,7 +27,9 @@ Item {
         id: motion
         cfg: root.cfg
         style: root.style
-        active: root.visible && Config.enabled
+        // The aura carries its own motion (OrganicAudioMotion), so the band
+        // easing here would only burn frames for a field nobody draws.
+        active: root.visible && Config.enabled && !root.cfg.isAura
     }
 
     // Normalised for the wallpaper luminance map: a turned look sits on a different
@@ -77,9 +79,17 @@ Item {
         return out;
     }
 
+    // The aura is iNiR's Organic Edge, drawn by its own shader.
+    Loader {
+        anchors.fill: parent
+        active: root.cfg.isAura
+        sourceComponent: OrganicAura { cfg: root.cfg }
+    }
+
     SpectrumField {
         id: field
         anchors.fill: parent
+        visible: !root.cfg.isAura
 
         levels: motion.levels
         peaks: motion.peaks

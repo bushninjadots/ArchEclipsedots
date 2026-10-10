@@ -1,0 +1,7 @@
+OrganicAudioMotion.qml, OrganicScreenEdge.qml, OrganicScreenEdge.frag,
+OrganicIdleClock.qml and OrganicEdgeConfig.js are copied unchanged from iNiR
+(https://github.com/snowarch/inir, modules/common/widgets and
+modules/background/widgets), GPL-3.0. The baked OrganicScreenEdge.frag.qsb is
+rebuilt locally:
+
+  /usr/lib/qt6/bin/qsb --qt6 -o OrganicScreenEdge.frag.qsb OrganicScreenEdge.frag

@@ -5,6 +5,7 @@ import Quickshell.Io
 import Quickshell.Services.Mpris
 import qs.services
 import qs.theme
+import qs.widgets.visualizer
 
 // MPRIS music player for the bar pill, ported from ryoku's qsbar
 // MprisWidget + MprisArtwork (GPL-3) with the ryoku ties removed:
@@ -586,50 +587,20 @@ Item {
                     width: 96
                     height: Theme.barContentHeight - 2
                     anchors.verticalCenter: parent.verticalCenter
+                    visible: Settings.visualizerStyle !== "off"
 
-                    Canvas {
-                        id: museCanvas
+                    CavaBars {
                         anchors.fill: parent
-                        antialiasing: true
-                        property color tint: root.accentColor
-                        onTintChanged: requestPaint()
-                        onPaint: {
-                            var ctx = getContext("2d");
-                            ctx.clearRect(0, 0, width, height);
-                            var levels = root.museLevels;
-                            var count = root.museBands;
-                            var barWidth = 2;
-                            var gap = (width - count * barWidth) / (count - 1);
-                            var centerY = height / 2;
-                            var maxHalf = centerY - 1;
-                            ctx.fillStyle = tint;
+                        visible: Settings.visualizerStyle === "bars"
+                        points: root.museLevels
+                        tint: root.accentColor
+                    }
 
-                            for (var i = 0; i < count; i++) {
-                                var level = levels && levels[i] !== undefined ? levels[i] : 0.04;
-                                var half = 1 + level * (maxHalf - 1);
-                                var x = i * (barWidth + gap);
-                                var y = centerY - half;
-                                var barHeight = half * 2;
-                                var radius = barWidth / 2;
-
-                                ctx.beginPath();
-                                ctx.moveTo(x + radius, y);
-                                ctx.arcTo(x + barWidth, y, x + barWidth, y + radius, radius);
-                                ctx.lineTo(x + barWidth, y + barHeight - radius);
-                                ctx.arcTo(x + barWidth, y + barHeight, x + radius, y + barHeight, radius);
-                                ctx.arcTo(x, y + barHeight, x, y + barHeight - radius, radius);
-                                ctx.lineTo(x, y + radius);
-                                ctx.arcTo(x, y, x + radius, y, radius);
-                                ctx.closePath();
-                                ctx.fill();
-                            }
-                        }
-
-                        Connections {
-                            target: root
-                            function onMuseLevelsChanged() { museCanvas.requestPaint() }
-                        }
-                        Component.onCompleted: requestPaint()
+                    CavaWave {
+                        anchors.fill: parent
+                        visible: Settings.visualizerStyle === "wave"
+                        points: root.museLevels
+                        tint: root.accentColor
                     }
                 }
 

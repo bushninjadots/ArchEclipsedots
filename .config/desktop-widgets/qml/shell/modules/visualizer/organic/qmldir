@@ -1,0 +1,3 @@
+singleton OrganicIdleClock 1.0 OrganicIdleClock.qml
+OrganicAudioMotion 1.0 OrganicAudioMotion.qml
+OrganicScreenEdge 1.0 OrganicScreenEdge.qml

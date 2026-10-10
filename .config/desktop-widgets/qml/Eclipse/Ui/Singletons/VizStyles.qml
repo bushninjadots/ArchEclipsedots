@@ -27,7 +27,8 @@ Singleton {
         { key: "frame",    kind: "frame", what: I18n.tr("Bars around the whole screen's edge, growing inward as one body") },
         { key: "radial",   kind: "polar", what: I18n.tr("Rounded bars around a placeable ring with a bass-pulsed centre") },
         { key: "orb",      kind: "polar", what: I18n.tr("A filled orb with a crisp lit rim and a pulsing pupil ring") },
-        { key: "spiral",   kind: "polar", what: I18n.tr("Bands laid along an Archimedean spiral over one and a half turns") }
+        { key: "spiral",   kind: "polar", what: I18n.tr("Bands laid along an Archimedean spiral over one and a half turns") },
+        { key: "aura",     kind: "aura",  what: I18n.tr("iNiR Organic Edge: a flowing light along the screen edges, reaching inward with the music") }
     ]
 
     readonly property var keys: styles.map(function (s) { return s.key; })
@@ -185,6 +186,27 @@ Singleton {
                 c.fillRect(fm, fy, ll, fbw);
                 c.fillRect(W - fm - rl, fy, rl, fbw);
             }
+        } else if (key === "aura") {
+            // the aura tile: a faint rail the whole way round, and one connected
+            // crest frame swelling inward off all four sides — the corner arcs
+            // join the sides into a single perimeter exactly as the shader does,
+            // so the tile reads as one frame rather than four stripes.
+            var am = 3;
+            c.strokeStyle = faint; c.lineWidth = 1;
+            c.strokeRect(am + 0.5, am + 0.5, W - 2 * am - 1, H - 2 * am - 1);
+            var ains = [4.5, 3.0, 5.5, 3.6];   // top, right, bottom, left reach
+            var ax0 = am + ains[3], ay0 = am + ains[0];
+            var ax1 = W - am - ains[1], ay1 = H - am - ains[2];
+            var arc = Math.max(2, Math.min(6, (ax1 - ax0) / 2, (ay1 - ay0) / 2));
+            c.strokeStyle = fg; c.lineWidth = 2;
+            c.beginPath();
+            c.moveTo(ax0 + arc, ay0);
+            c.arcTo(ax1, ay0, ax1, ay1, arc);
+            c.arcTo(ax1, ay1, ax0, ay1, arc);
+            c.arcTo(ax0, ay1, ax0, ay0, arc);
+            c.arcTo(ax0, ay0, ax1, ay0, arc);
+            c.closePath();
+            c.stroke();
         } else if (key === "radial") {
             // a ring of stubby bars pointing outward off a lit inner ring
             var rin = 6, rn = 10, pa, plen;

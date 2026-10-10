@@ -52,6 +52,11 @@ Ryoku's widgets talk to its `ryoku-shell` daemon. ArchEclipse has no daemon, so:
   (`~/.config/desktop-widgets/settings/visualizer.json`; right-click the desktop to place or
   restyle it). It uses cava on the PipeWire output and only analyses while
   audio is playing.
+- **Aura look = iNiR Organic Edge:** the `aura` style draws with iNiR's own
+  Organic Edge files (`qml/shell/modules/visualizer/organic/`, see its NOTICE);
+  `OrganicAura.qml` maps the instance's `organic` settings onto it. Scenes,
+  materials, shape, light, colours, response and silence are in the edit bar.
+  With ArchEclipse's Shell frame on, it starts at the frame's inner line.
 
 `qml/` is vendored from Ryoku (module names renamed to `Eclipse.*`; Ryoku's bar, launcher, dock and other shell modules removed) (`ryoku/shell/quickshell/shell`, `ryoku/ui`,
 `ryoku/shell/framebars`, `ryoku/shell/quickshell/plugins/kit`,

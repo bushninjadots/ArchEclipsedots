@@ -8,6 +8,7 @@ singleton Motion Motion.qml
 singleton Perf Perf.qml
 singleton Media Media.qml
 singleton Music Music.qml
+singleton Lyrics Lyrics.qml
 singleton AudioBars AudioBars.qml
 singleton Recorder Recorder.qml
 singleton Battery Battery.qml
@@ -49,3 +50,4 @@ singleton Needle Needle.qml
 singleton StatsFeed StatsFeed.qml
 singleton AppLaunch AppLaunch.qml
 singleton Icons Icons.qml
+singleton GithubContrib GithubContrib.qml

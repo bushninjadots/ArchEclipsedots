@@ -24,6 +24,38 @@ Singleton {
     // (transport + marquee + EQ), true = visualizer-only (vinyl + cava
     // waveform). Toggled by right-clicking the player pill.
 
+    // iNiR visualizer import: navbar widget style (bars / wave / off).
+    // (The screen-edge border lives in the desktop-widgets visualizer now,
+    // under right-click desktop -> Customize visualizer.)
+    property string visualizerStyle: "bars"     // "bars" | "wave" | "off"
+
+    // Shell frame (iNiR Iris "surround" port): a band round the whole screen
+    // with rounded inner corners that the navbar pill and side panels melt
+    // into. Off = the classic floating-pill shell. frameMusic swells the band
+    // inward with the bass on frameMusicEdges ("sides" | "horizontal" | "all").
+    property bool shellFrame: false
+    property int frameThickness: 8
+    property int frameRadius: 22
+    property bool frameMusic: true
+    property string frameMusicEdges: "sides"
+    property int frameMusicStrength: 160
+    // Frame colour: "surface" (the bar's own) | "accent" | "dynamic" (album
+    // art while music plays, else the wallpaper theme) | "wallpaper" (sampled
+    // from the wallpaper image itself) | "custom". frameTint
+    // is how much of that colour is mixed into the bar background (%), so
+    // text on the pills stays readable. The border is an outer stroke round
+    // the band and pills: "subtle" | "accent" | "dynamic" (a gradient that
+    // flows round the screen) | "custom".
+    property string frameColor: "surface"
+    property string frameCustomColor: "#7c5cff"
+    property int frameTint: 35
+    // The frame's (and its pills') own opacity, %, separate from uiOpacity.
+    property int frameOpacity: 75
+    property bool frameBorder: false
+    property string frameBorderColor: "dynamic"
+    property string frameBorderCustom: "#ffffff"
+    property int frameBorderWidth: 2
+
     property string dateFormat: "%H:%M"
     readonly property var dateFormats: ["%H:%M", "%I:%M %p"]
     property real uiOpacity: 0.618
@@ -322,6 +354,21 @@ Singleton {
             "bar.revealOutPressure": "revealOutPressure",
             "bar.orientation": "barOrientation",
             "mpris.visualizer": "mprisVisualizer",
+            "visualizer.style": "visualizerStyle",
+            "frame.enable": "shellFrame",
+            "frame.thickness": "frameThickness",
+            "frame.radius": "frameRadius",
+            "frame.music": "frameMusic",
+            "frame.musicEdges": "frameMusicEdges",
+            "frame.musicStrength": "frameMusicStrength",
+            "frame.color": "frameColor",
+            "frame.customColor": "frameCustomColor",
+            "frame.tint": "frameTint",
+            "frame.opacity": "frameOpacity",
+            "frame.border": "frameBorder",
+            "frame.borderColor": "frameBorderColor",
+            "frame.borderCustom": "frameBorderCustom",
+            "frame.borderWidth": "frameBorderWidth",
             "bar.blur": "barBlur",
             "bar.blurSize": "barBlurSize",
             "bar.blurPasses": "barBlurPasses",
@@ -431,6 +478,27 @@ Singleton {
                     visualizer: {
                         value: root.mprisVisualizer
                     }
+                },
+                visualizer: {
+                    style: {
+                        value: root.visualizerStyle
+                    }
+                },
+                frame: {
+                    enable: { value: root.shellFrame },
+                    thickness: { value: root.frameThickness },
+                    radius: { value: root.frameRadius },
+                    music: { value: root.frameMusic },
+                    musicEdges: { value: root.frameMusicEdges },
+                    musicStrength: { value: root.frameMusicStrength },
+                    color: { value: root.frameColor },
+                    customColor: { value: root.frameCustomColor },
+                    tint: { value: root.frameTint },
+                    opacity: { value: root.frameOpacity },
+                    border: { value: root.frameBorder },
+                    borderColor: { value: root.frameBorderColor },
+                    borderCustom: { value: root.frameBorderCustom },
+                    borderWidth: { value: root.frameBorderWidth }
                 },
                 dateFormat: root.dateFormat,
                 crypto: {
@@ -620,6 +688,33 @@ Singleton {
                 root.revealOutPressure = s.bar?.revealOutPressure?.value ?? s.bar?.revealPressure?.value ?? 1000;
                 root.barOrientation = s.bar?.orientation?.value ?? true;
                 root.mprisVisualizer = s.mpris?.visualizer?.value ?? false;
+
+                // iNiR visualizer import: validate the enum so a stale or
+                // corrupt settings.json can't wedge the shell
+                // (islandAnimStyle precedent).
+                const _vs = s.visualizer?.style?.value;
+                root.visualizerStyle = ["bars", "wave", "off"].includes(_vs) ? _vs : "bars";
+
+                // Shell frame: clamp numbers, validate the edge enum.
+                const _clampN = (v, lo, hi, d) => Number.isFinite(Number(v)) ? Math.max(lo, Math.min(hi, Math.round(Number(v)))) : d;
+                root.shellFrame = s.frame?.enable?.value ?? false;
+                root.frameThickness = _clampN(s.frame?.thickness?.value, 2, 24, 8);
+                root.frameRadius = _clampN(s.frame?.radius?.value, 0, 48, 22);
+                root.frameMusic = s.frame?.music?.value ?? true;
+                const _fe = s.frame?.musicEdges?.value;
+                root.frameMusicEdges = ["sides", "horizontal", "all"].includes(_fe) ? _fe : "sides";
+                root.frameMusicStrength = _clampN(s.frame?.musicStrength?.value, 50, 300, 160);
+                const _hex = (v, d) => /^#[0-9a-fA-F]{6}$/.test(String(v ?? "")) ? String(v) : d;
+                const _fc = s.frame?.color?.value;
+                root.frameColor = ["surface", "accent", "dynamic", "wallpaper", "custom"].includes(_fc) ? _fc : "surface";
+                root.frameCustomColor = _hex(s.frame?.customColor?.value, "#7c5cff");
+                root.frameTint = _clampN(s.frame?.tint?.value, 0, 100, 35);
+                root.frameOpacity = _clampN(s.frame?.opacity?.value, 10, 100, 75);
+                root.frameBorder = s.frame?.border?.value ?? false;
+                const _bc = s.frame?.borderColor?.value;
+                root.frameBorderColor = ["subtle", "accent", "dynamic", "wallpaper", "custom"].includes(_bc) ? _bc : "dynamic";
+                root.frameBorderCustom = _hex(s.frame?.borderCustom?.value, "#ffffff");
+                root.frameBorderWidth = _clampN(s.frame?.borderWidth?.value, 1, 6, 2);
 
                 root.dateFormat = s.dateFormat ?? "%H:%M";
                 root.cryptoFavorite = s.crypto?.favorite ?? {
@@ -849,6 +944,23 @@ Singleton {
         function onIslandAnimStyleChanged() {
             root.schedulePersist();
         }
+        function onVisualizerStyleChanged() {
+            root.schedulePersist();
+        }
+        function onShellFrameChanged() { root.schedulePersist(); }
+        function onFrameThicknessChanged() { root.schedulePersist(); }
+        function onFrameRadiusChanged() { root.schedulePersist(); }
+        function onFrameMusicChanged() { root.schedulePersist(); }
+        function onFrameMusicEdgesChanged() { root.schedulePersist(); }
+        function onFrameMusicStrengthChanged() { root.schedulePersist(); }
+        function onFrameColorChanged() { root.schedulePersist(); }
+        function onFrameCustomColorChanged() { root.schedulePersist(); }
+        function onFrameTintChanged() { root.schedulePersist(); }
+        function onFrameOpacityChanged() { root.schedulePersist(); }
+        function onFrameBorderChanged() { root.schedulePersist(); }
+        function onFrameBorderColorChanged() { root.schedulePersist(); }
+        function onFrameBorderCustomChanged() { root.schedulePersist(); }
+        function onFrameBorderWidthChanged() { root.schedulePersist(); }
         function onLeftPanelHotZoneSizeChanged() {
             root.schedulePersist();
         }

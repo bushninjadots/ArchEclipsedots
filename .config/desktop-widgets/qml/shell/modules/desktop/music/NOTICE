@@ -1,0 +1,8 @@
+SpunRecord.qml, SpunTonearm.qml and MusicSpun.qml port the vinyl record
+(src/disc.cpp, Disc::paintVinyl), tonearm (qml/Tonearm.qml) and mini mode
+(qml/Main.qml) of Spun by yappologistic — https://github.com/yappologistic/Spun
+
+Spun is licensed under the PolyForm Noncommercial License 1.0.0:
+https://polyformproject.org/licenses/noncommercial/1.0.0
+These ports are used under those terms (personal, noncommercial use).
+Required Notice: Copyright yappologistic (https://github.com/yappologistic/Spun)

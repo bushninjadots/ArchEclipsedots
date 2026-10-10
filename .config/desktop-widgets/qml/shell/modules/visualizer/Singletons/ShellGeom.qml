@@ -33,6 +33,13 @@ Singleton {
     readonly property var left: (valid && _data.left) ? _data.left : defaultLeft
     readonly property var right: (valid && _data.right) ? _data.right : defaultRight
 
+    // The shell's screen frame (archeclipse Settings -> Shell frame): the band
+    // every edge reserves and its inner corner radius, 0 when the frame is off.
+    readonly property var frame: (valid && _data.frame) ? _data.frame : null
+    readonly property bool framed: frame !== null && frame.on === true
+    readonly property real frameBand: framed ? (Number(frame.band) || 0) : 0
+    readonly property real frameRadius: framed ? (Number(frame.radius) || 0) : 0
+
     function refreshFresh() {
         var d = root._data;
         root._fresh = d !== null && d.ts !== undefined && (Date.now() - d.ts) <= 2000;

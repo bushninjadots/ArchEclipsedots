@@ -1,0 +1,3 @@
+module qs.widgets.frame
+
+FrameField 1.0 FrameField.qml

@@ -7,11 +7,13 @@ import Quickshell.Services.Mpris
 import qs.theme
 import qs.services
 import qs.widgets.shared
+import qs.widgets.visualizer
 
 // Media Widget — port of widgets/MediaWidget.tsx + widgets/Player.tsx.
 // Shows the active (playing-else-first) player with the rich Player layout:
 // cover art + spinning indicator + track slide transition, drag-scrubbable
-// position, can_* gated controls. (Cava visualizer omitted: requires cava.)
+// position, can_* gated controls. Includes the iNiR-style audio strip
+// (CavaBars/CavaWave on the shared AudioBars feed).
 Item {
     id: root
     property int widgetWidth: parent.width
@@ -36,6 +38,26 @@ Item {
     }
 
     readonly property bool playing: root.player?.isPlaying ?? false
+
+    // Shared AudioBars feed claim (MprisIsland pattern): only while this
+    // widget is on screen, playing, and the strip is set to render.
+    function _syncAudioBars() {
+        AudioBars.setActive(root, root.visible && root.playing
+            && Settings.visualizerStyle !== "off" && Settings.animationsEnabled);
+    }
+    onVisibleChanged: root._syncAudioBars()
+    onPlayingChanged: root._syncAudioBars()
+    // Born-visible case: shell restart while the island page is active and
+    // a player is playing → no change signal ever fires, so claim once at
+    // creation too.
+    Component.onCompleted: root._syncAudioBars()
+    Component.onDestruction: AudioBars.setActive(root, false)
+    // Style flips are live (Settings UI writes without restart): re-evaluate
+    // the claim so bars/wave ↔ off starts/stops the feed while open.
+    Connections {
+        target: Settings
+        function onVisualizerStyleChanged() { root._syncAudioBars() }
+    }
 
     // Hysteresis: hold last valid cover to prevent flicker
     property string _lastCover: ""
@@ -370,6 +392,27 @@ Item {
                     HoverHandler {
                         id: iconTip
                     }
+                }
+            }
+
+            // iNiR-style audio strip: shared AudioBars feed, styled by
+            // Settings.visualizerStyle (bars / wave; off hides it).
+            Item {
+                Layout.fillWidth: true
+                Layout.preferredHeight: 22
+                visible: root.playing && Settings.visualizerStyle !== "off" && Settings.animationsEnabled
+
+                CavaBars {
+                    anchors.fill: parent
+                    visible: Settings.visualizerStyle === "bars"
+                    points: AudioBars.levels
+                    tint: Theme.accent
+                }
+                CavaWave {
+                    anchors.fill: parent
+                    visible: Settings.visualizerStyle === "wave"
+                    points: AudioBars.levels
+                    tint: Theme.accent
                 }
             }
 

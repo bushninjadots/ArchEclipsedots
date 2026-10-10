@@ -18,3 +18,4 @@ singleton PpdState 1.0 PpdState.qml
 singleton AudioBars 1.0 AudioBars.qml
 singleton Equalizer 1.0 Equalizer.qml
 singleton AuraBridge 1.0 AuraBridge.qml
+singleton ShellFrame 1.0 ShellFrame.qml

@@ -345,10 +345,10 @@ var rows = [
         "group": "WIDGET",
         "key": "musicStyle",
         "label": "Style",
-        "desc": "Cover wears the album colour; Glass is a frosted pane",
+        "desc": "Cover wears the album colour; Glass is a frosted pane; Vinyl is Spun's spinning record",
         "ctl": "seg",
         "src": "widgets.json",
-        "opts": ["cover", "glass"]
+        "opts": ["cover", "glass", "vinyl"]
     },
     {
         "tab": "music",
@@ -364,7 +364,7 @@ var rows = [
         "group": "WIDGET",
         "key": "musicViz",
         "label": "Visualiser",
-        "desc": "Shown when a track has no lyrics: Bars or Wave",
+        "desc": "Bars or Wave: shown when a track has no lyrics, and round the record in Vinyl",
         "ctl": "seg",
         "src": "widgets.json",
         "opts": ["bars", "wave"]
@@ -618,6 +618,103 @@ var rows = [
     {
         "tab": "notes", "group": "PLACEMENT", "key": "notesLocked", "label": "Lock on desktop",
         "desc": "Blocks dragging the pad on the desktop",
+        "ctl": "sw", "src": "widgets.json", "adv": true
+    },
+    {
+        "tab": "lyrics", "group": "WIDGET", "key": "lyricsEnabled", "label": "Enabled",
+        "desc": "Shows the playing track's lyrics on the wallpaper",
+        "ctl": "sw", "src": "widgets.json"
+    },
+    {
+        "tab": "lyrics", "group": "WIDGET", "key": "lyricsDesign", "label": "Design",
+        "desc": "Line is the sung line large; Band is a slim strip; Sheet scrolls them",
+        "ctl": "seg", "src": "widgets.json", "opts": ["line", "band", "sheet"]
+    },
+    {
+        "tab": "lyrics", "group": "SIZE & SHAPE", "key": "lyricsScale", "label": "Size",
+        "desc": "Scales the lyrics panel; 100% is its designed size",
+        "ctl": "step", "src": "widgets.json", "lo": 0.5, "hi": 2.5
+    },
+    {
+        "tab": "lyrics", "group": "SIZE & SHAPE", "key": "lyricsOpacity", "label": "Opacity",
+        "desc": "Fades the lyrics panel while keeping it readable",
+        "ctl": "slid", "src": "widgets.json", "lo": 0.2, "hi": 1.0, "unit": "%", "pct": true
+    },
+    {
+        "tab": "lyrics", "group": "PLACEMENT", "key": "lyricsAnchor", "label": "Anchor",
+        "desc": "Where lyrics sit; Auto finds a calm spot, Free X/Y",
+        "ctl": "pick", "src": "widgets.json",
+        "opts": ["auto", "top-left", "top", "top-right", "left", "center", "right", "bottom-left", "bottom", "bottom-right", "free"]
+    },
+    {
+        "tab": "lyrics", "group": "PLACEMENT", "key": "lyricsX", "label": "X",
+        "desc": "Lyrics panel's distance from the left edge, in pixels",
+        "ctl": "step", "src": "widgets.json", "lo": 0, "hi": 5000, "unit": "px",
+        "when": { "lyricsAnchor": ["free"] }
+    },
+    {
+        "tab": "lyrics", "group": "PLACEMENT", "key": "lyricsY", "label": "Y",
+        "desc": "Lyrics panel's distance from the top edge, in pixels",
+        "ctl": "step", "src": "widgets.json", "lo": 0, "hi": 5000, "unit": "px",
+        "when": { "lyricsAnchor": ["free"] }
+    },
+    {
+        "tab": "lyrics", "group": "PLACEMENT", "key": "lyricsLocked", "label": "Lock on desktop",
+        "desc": "Blocks dragging the lyrics panel on the desktop",
+        "ctl": "sw", "src": "widgets.json", "adv": true
+    },
+    {
+        "tab": "heatmap", "group": "WIDGET", "key": "heatmapEnabled", "label": "Enabled",
+        "desc": "Shows your contribution heatmap; settings kept while off",
+        "ctl": "sw", "src": "widgets.json"
+    },
+    {
+        "tab": "heatmap", "group": "GITHUB", "key": "heatmapUsername", "label": "GitHub username",
+        "desc": "Your GitHub username for the contribution graph",
+        "ctl": "text", "src": "widgets.json"
+    },
+    {
+        "tab": "heatmap", "group": "LAYOUT", "key": "heatmapDesign", "label": "Layout",
+        "desc": "Horizontal is wide; Vertical is tall and narrow",
+        "ctl": "seg", "src": "widgets.json",
+        "opts": ["auto", "horizontal", "vertical"]
+    },
+    {
+        "tab": "heatmap", "group": "GITHUB", "key": "heatmapYear", "label": "Year",
+        "desc": "Calendar year to graph; the toolbar year selector also sets this",
+        "ctl": "step", "src": "widgets.json", "lo": 2008, "hi": 2026
+    },
+    {
+        "tab": "heatmap", "group": "SIZE & SHAPE", "key": "heatmapScale", "label": "Size",
+        "desc": "Scales the heatmap; 100% is its designed size",
+        "ctl": "step", "src": "widgets.json", "lo": 0.5, "hi": 2.0
+    },
+    {
+        "tab": "heatmap", "group": "SIZE & SHAPE", "key": "heatmapOpacity", "label": "Opacity",
+        "desc": "Fades the heatmap while keeping it readable",
+        "ctl": "slid", "src": "widgets.json", "lo": 0.2, "hi": 1.0, "unit": "%", "pct": true
+    },
+    {
+        "tab": "heatmap", "group": "PLACEMENT", "key": "heatmapAnchor", "label": "Anchor",
+        "desc": "Where the heatmap sits; Auto finds a calm spot, Free X/Y",
+        "ctl": "pick", "src": "widgets.json",
+        "opts": ["auto", "top-left", "top", "top-right", "left", "center", "right", "bottom-left", "bottom", "bottom-right", "free"]
+    },
+    {
+        "tab": "heatmap", "group": "PLACEMENT", "key": "heatmapX", "label": "X",
+        "desc": "Heatmap's distance from the left edge, in pixels",
+        "ctl": "step", "src": "widgets.json", "lo": 0, "hi": 5000, "unit": "px",
+        "when": { "heatmapAnchor": ["free"] }
+    },
+    {
+        "tab": "heatmap", "group": "PLACEMENT", "key": "heatmapY", "label": "Y",
+        "desc": "Heatmap's distance from the top edge, in pixels",
+        "ctl": "step", "src": "widgets.json", "lo": 0, "hi": 5000, "unit": "px",
+        "when": { "heatmapAnchor": ["free"] }
+    },
+    {
+        "tab": "heatmap", "group": "PLACEMENT", "key": "heatmapLocked", "label": "Lock on desktop",
+        "desc": "Blocks dragging the heatmap on the desktop",
         "ctl": "sw", "src": "widgets.json", "adv": true
     }
 ];

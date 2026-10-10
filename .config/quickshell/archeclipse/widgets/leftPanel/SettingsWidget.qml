@@ -238,6 +238,267 @@ Item {
                                     }
                                 }
                             }
+                            RowLayout {
+                                width: parent.width
+                                spacing: 8
+                                Label {
+                                    font.pixelSize: Theme.fontSize
+                                    text: "Player Visualizer"
+                                    color: Theme.fg
+                                    Layout.fillWidth: true
+                                }
+                                AppComboBox {
+                                    model: ["Bars", "Wave", "Off"]
+                                    currentIndex: ["bars", "wave", "off"].indexOf(Settings.visualizerStyle)
+                                    onActivated: Settings.visualizerStyle = ["bars", "wave", "off"][index]
+                                    Layout.preferredWidth: 160
+                                }
+                            }
+                            // Shell frame (iNiR Iris surround): the band round
+                            // the screen the pill and panels melt into.
+                            RowLayout {
+                                width: parent.width
+                                spacing: 8
+                                Label {
+                                    font.pixelSize: Theme.fontSize
+                                    text: "Shell Style"
+                                    color: Theme.fg
+                                    Layout.fillWidth: true
+                                }
+                                AppComboBox {
+                                    model: ["Floating", "Frame"]
+                                    currentIndex: Settings.shellFrame ? 1 : 0
+                                    onActivated: Settings.shellFrame = (index === 1)
+                                    Layout.preferredWidth: 160
+                                }
+                            }
+                            RowLayout {
+                                width: parent.width
+                                spacing: 8
+                                visible: Settings.shellFrame
+                                Label {
+                                    font.pixelSize: Theme.fontSize
+                                    text: "Frame Thickness"
+                                    color: Theme.fg
+                                    Layout.fillWidth: true
+                                }
+                                AppSpinBox {
+                                    from: 2
+                                    to: 24
+                                    value: Settings.frameThickness
+                                    Layout.preferredWidth: 160
+                                    onValueChanged: {
+                                        if (value === Settings.frameThickness)
+                                            return;
+                                        Settings.frameThickness = value;
+                                    }
+                                }
+                            }
+                            RowLayout {
+                                width: parent.width
+                                spacing: 8
+                                visible: Settings.shellFrame
+                                Label {
+                                    font.pixelSize: Theme.fontSize
+                                    text: "Frame Corner Radius"
+                                    color: Theme.fg
+                                    Layout.fillWidth: true
+                                }
+                                AppSpinBox {
+                                    from: 0
+                                    to: 48
+                                    value: Settings.frameRadius
+                                    Layout.preferredWidth: 160
+                                    onValueChanged: {
+                                        if (value === Settings.frameRadius)
+                                            return;
+                                        Settings.frameRadius = value;
+                                    }
+                                }
+                            }
+                            RowLayout {
+                                width: parent.width
+                                spacing: 8
+                                visible: Settings.shellFrame
+                                Label {
+                                    font.pixelSize: Theme.fontSize
+                                    text: "Frame Music Swell"
+                                    color: Theme.fg
+                                    Layout.fillWidth: true
+                                }
+                                AppCheckBox {
+                                    checked: Settings.frameMusic
+                                    onToggled: Settings.frameMusic = checked
+                                }
+                            }
+                            RowLayout {
+                                width: parent.width
+                                spacing: 8
+                                visible: Settings.shellFrame && Settings.frameMusic
+                                Label {
+                                    font.pixelSize: Theme.fontSize
+                                    text: "Swell Edges"
+                                    color: Theme.fg
+                                    Layout.fillWidth: true
+                                }
+                                AppComboBox {
+                                    model: ["Sides", "Top & Bottom", "All"]
+                                    currentIndex: ["sides", "horizontal", "all"].indexOf(Settings.frameMusicEdges)
+                                    onActivated: Settings.frameMusicEdges = ["sides", "horizontal", "all"][index]
+                                    Layout.preferredWidth: 160
+                                }
+                            }
+                            RowLayout {
+                                width: parent.width
+                                spacing: 8
+                                visible: Settings.shellFrame && Settings.frameMusic
+                                Label {
+                                    font.pixelSize: Theme.fontSize
+                                    text: "Swell Strength"
+                                    color: Theme.fg
+                                    Layout.fillWidth: true
+                                }
+                                AppSpinBox {
+                                    from: 50
+                                    to: 300
+                                    value: Settings.frameMusicStrength
+                                    Layout.preferredWidth: 160
+                                    onValueChanged: {
+                                        if (value === Settings.frameMusicStrength)
+                                            return;
+                                        Settings.frameMusicStrength = value;
+                                    }
+                                }
+                            }
+                            RowLayout {
+                                width: parent.width
+                                spacing: 8
+                                visible: Settings.shellFrame
+                                Label {
+                                    font.pixelSize: Theme.fontSize
+                                    text: "Frame Color"
+                                    color: Theme.fg
+                                    Layout.fillWidth: true
+                                }
+                                AppComboBox {
+                                    model: ["Bar Surface", "Accent", "Dynamic (Album Art)", "Dynamic (Wallpaper)", "Custom"]
+                                    currentIndex: ["surface", "accent", "dynamic", "wallpaper", "custom"].indexOf(Settings.frameColor)
+                                    onActivated: Settings.frameColor = ["surface", "accent", "dynamic", "wallpaper", "custom"][index]
+                                    Layout.preferredWidth: 160
+                                }
+                            }
+                            AppColorPicker {
+                                width: parent.width
+                                visible: Settings.shellFrame && Settings.frameColor === "custom"
+                                label: "Frame Color"
+                                value: Settings.frameCustomColor
+                                onPicked: hex => Settings.frameCustomColor = hex
+                            }
+                            RowLayout {
+                                width: parent.width
+                                spacing: 8
+                                visible: Settings.shellFrame && Settings.frameColor !== "surface"
+                                Label {
+                                    font.pixelSize: Theme.fontSize
+                                    text: "Color Strength %"
+                                    color: Theme.fg
+                                    Layout.fillWidth: true
+                                }
+                                AppSpinBox {
+                                    from: 0
+                                    to: 100
+                                    value: Settings.frameTint
+                                    Layout.preferredWidth: 160
+                                    onValueChanged: {
+                                        if (value === Settings.frameTint)
+                                            return;
+                                        Settings.frameTint = value;
+                                    }
+                                }
+                            }
+                            RowLayout {
+                                width: parent.width
+                                spacing: 8
+                                visible: Settings.shellFrame
+                                Label {
+                                    font.pixelSize: Theme.fontSize
+                                    text: "Frame Opacity %"
+                                    color: Theme.fg
+                                    Layout.fillWidth: true
+                                }
+                                AppSpinBox {
+                                    from: 10
+                                    to: 100
+                                    value: Settings.frameOpacity
+                                    Layout.preferredWidth: 160
+                                    onValueChanged: {
+                                        if (value === Settings.frameOpacity)
+                                            return;
+                                        Settings.frameOpacity = value;
+                                    }
+                                }
+                            }
+                            RowLayout {
+                                width: parent.width
+                                spacing: 8
+                                visible: Settings.shellFrame
+                                Label {
+                                    font.pixelSize: Theme.fontSize
+                                    text: "Frame Border"
+                                    color: Theme.fg
+                                    Layout.fillWidth: true
+                                }
+                                AppCheckBox {
+                                    checked: Settings.frameBorder
+                                    onToggled: Settings.frameBorder = checked
+                                }
+                            }
+                            RowLayout {
+                                width: parent.width
+                                spacing: 8
+                                visible: Settings.shellFrame && Settings.frameBorder
+                                Label {
+                                    font.pixelSize: Theme.fontSize
+                                    text: "Border Color"
+                                    color: Theme.fg
+                                    Layout.fillWidth: true
+                                }
+                                AppComboBox {
+                                    model: ["Subtle", "Accent", "Dynamic (Album Art)", "Dynamic (Wallpaper)", "Custom"]
+                                    currentIndex: ["subtle", "accent", "dynamic", "wallpaper", "custom"].indexOf(Settings.frameBorderColor)
+                                    onActivated: Settings.frameBorderColor = ["subtle", "accent", "dynamic", "wallpaper", "custom"][index]
+                                    Layout.preferredWidth: 160
+                                }
+                            }
+                            AppColorPicker {
+                                width: parent.width
+                                visible: Settings.shellFrame && Settings.frameBorder && Settings.frameBorderColor === "custom"
+                                label: "Border Color"
+                                value: Settings.frameBorderCustom
+                                onPicked: hex => Settings.frameBorderCustom = hex
+                            }
+                            RowLayout {
+                                width: parent.width
+                                spacing: 8
+                                visible: Settings.shellFrame && Settings.frameBorder
+                                Label {
+                                    font.pixelSize: Theme.fontSize
+                                    text: "Border Width"
+                                    color: Theme.fg
+                                    Layout.fillWidth: true
+                                }
+                                AppSpinBox {
+                                    from: 1
+                                    to: 6
+                                    value: Settings.frameBorderWidth
+                                    Layout.preferredWidth: 160
+                                    onValueChanged: {
+                                        if (value === Settings.frameBorderWidth)
+                                            return;
+                                        Settings.frameBorderWidth = value;
+                                    }
+                                }
+                            }
                         }
                     }
                 }

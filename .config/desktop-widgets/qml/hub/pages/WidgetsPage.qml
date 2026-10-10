@@ -35,7 +35,10 @@ Item {
         "aioEnabled", "aioStyle", "aioScale", "aioOpacity", "aioAnchor", "aioX", "aioY", "aioLocked",
         "statsEnabled", "statsScale", "statsOpacity", "statsAnchor", "statsX", "statsY", "statsLocked",
         "weatherEnabled", "weatherDesign", "weatherScale", "weatherOpacity", "weatherAnchor", "weatherX", "weatherY", "weatherLocked",
-        "notesEnabled", "notesScale", "notesOpacity", "notesWidth", "notesHeight", "notesAnchor", "notesX", "notesY", "notesLocked"
+        "notesEnabled", "notesScale", "notesOpacity", "notesWidth", "notesHeight", "notesAnchor", "notesX", "notesY", "notesLocked",
+        "lyricsEnabled", "lyricsDesign", "lyricsScale", "lyricsOpacity", "lyricsAnchor", "lyricsX", "lyricsY", "lyricsLocked",
+        "heatmapEnabled", "heatmapScale", "heatmapOpacity", "heatmapAnchor", "heatmapX", "heatmapY", "heatmapLocked",
+        "heatmapUsername", "heatmapDesign", "heatmapYear"
     ]
 
     // Factory values mirror the wallpaper clock's canonical Config defaults.
@@ -58,17 +61,25 @@ Item {
         "weatherEnabled": false, "weatherDesign": "compact", "weatherScale": 1.0, "weatherOpacity": 1.0,
         "weatherAnchor": "top-right", "weatherX": 80, "weatherY": 80, "weatherLocked": false,
         "notesEnabled": false, "notesScale": 1.0, "notesOpacity": 1.0, "notesWidth": 260, "notesHeight": 180,
-        "notesAnchor": "right", "notesX": 80, "notesY": 80, "notesLocked": false
+        "notesAnchor": "right", "notesX": 80, "notesY": 80, "notesLocked": false,
+        "lyricsEnabled": false, "lyricsDesign": "line", "lyricsScale": 1.0, "lyricsOpacity": 1.0,
+        "lyricsAnchor": "bottom-left", "lyricsX": 80, "lyricsY": 80, "lyricsLocked": false,
+        "heatmapEnabled": false, "heatmapScale": 1.0, "heatmapOpacity": 1.0,
+        "heatmapAnchor": "bottom-right", "heatmapX": 80, "heatmapY": 80, "heatmapLocked": false,
+        "heatmapUsername": "", "heatmapDesign": "auto", "heatmapYear": new Date().getFullYear()
     })
 
     // Scale and opacity persist as ratios; the sheet edits integer percents.
     readonly property var pctKeys: ({
         "clockOpacity": true, "calendarOpacity": true, "musicOpacity": true,
-        "aioOpacity": true, "statsOpacity": true, "weatherOpacity": true, "notesOpacity": true
+        "aioOpacity": true, "statsOpacity": true, "weatherOpacity": true, "notesOpacity": true, "lyricsOpacity": true
+    })
+    readonly property var userKeys: ({
+        "heatmapUsername": true
     })
     readonly property var scaleKeys: ({
         "clockScale": true, "calendarScale": true, "musicScale": true,
-        "aioScale": true, "statsScale": true, "weatherScale": true, "notesScale": true
+        "aioScale": true, "statsScale": true, "weatherScale": true, "notesScale": true, "lyricsScale": true
     })
 
     property var draft: ({})
@@ -382,6 +393,24 @@ Item {
             property int notesX: 80
             property int notesY: 80
             property bool notesLocked: false
+            property bool lyricsEnabled: false
+            property string lyricsDesign: "line"
+            property real lyricsScale: 1.0
+            property real lyricsOpacity: 1.0
+            property string lyricsAnchor: "bottom-left"
+            property int lyricsX: 80
+            property int lyricsY: 80
+            property bool lyricsLocked: false
+            property bool heatmapEnabled: false
+            property real heatmapScale: 1.0
+            property real heatmapOpacity: 1.0
+            property string heatmapAnchor: "bottom-right"
+            property int heatmapX: 80
+            property int heatmapY: 80
+            property bool heatmapLocked: false
+            property string heatmapUsername: ""
+            property string heatmapDesign: "auto"
+            property int heatmapYear: new Date().getFullYear()
         }
     }
 
@@ -443,7 +472,9 @@ Item {
         { "tab": "calendar", "title": I18n.tr("Calendar"),     "jp": "暦",   "enable": "calendarEnabled", "anchor": "calendarAnchor", "natW": 330, "natH": 210 },
         { "tab": "music",    "title": I18n.tr("Music"),        "jp": "音楽", "enable": "musicEnabled",    "anchor": "musicAnchor",    "natW": 400, "natH": 216 },
         { "tab": "weather",  "title": I18n.tr("Weather"),      "jp": "天気", "enable": "weatherEnabled",  "anchor": "weatherAnchor",  "natW": 220, "natH": 390 },
-        { "tab": "notes",    "title": I18n.tr("Notes"),        "jp": "メモ", "enable": "notesEnabled",    "anchor": "notesAnchor",    "natW": 260, "natH": 180 }
+        { "tab": "notes",    "title": I18n.tr("Notes"),        "jp": "メモ", "enable": "notesEnabled",    "anchor": "notesAnchor",    "natW": 260, "natH": 180 },
+        { "tab": "lyrics",   "title": I18n.tr("Lyrics"),       "jp": "歌詞", "enable": "lyricsEnabled",   "anchor": "lyricsAnchor",   "natW": 300, "natH": 130 },
+        { "tab": "heatmap",  "title": I18n.tr("Activity Heatmap"), "jp": "熱地図", "enable": "heatmapEnabled", "anchor": "heatmapAnchor", "natW": 400, "natH": 220 }
     ]
     function widgetOf(tab) { for (var i = 0; i < pg.widgets.length; i++) if (pg.widgets[i].tab === tab) return pg.widgets[i]; return null; }
     readonly property var curWidget: pg.selected === "" ? null : pg.widgetOf(pg.selected)
@@ -461,8 +492,12 @@ Item {
     Component { id: weatherPrevC; Loader { anchors.fill: parent; source: Qt.resolvedUrl("../WeatherPreview.qml")
         onLoaded: { item.design = Qt.binding(() => pg.draft.weatherDesign || "compact"); } } }
     Component { id: notesPrevC; Loader { anchors.fill: parent; source: Qt.resolvedUrl("../NotesPreview.qml") } }
+    Component { id: lyricsPrevC; Loader { anchors.fill: parent; source: Qt.resolvedUrl("../LyricsPreview.qml")
+        onLoaded: { item.design = Qt.binding(() => pg.draft.lyricsDesign || "line"); } } }
+    Component { id: heatmapPrevC; Loader { anchors.fill: parent; source: Qt.resolvedUrl("../HeatmapPreview.qml")
+        onLoaded: { item.design = Qt.binding(() => pg.draft.heatmapDesign || "auto"); item.year = Qt.binding(() => pg.draft.heatmapYear || new Date().getFullYear()); } } }
     function previewFor(tab) {
-        switch (tab) { case "aio": return aioPrevC; case "stats": return statsPrevC; case "calendar": return calPrevC; case "music": return musicPrevC; case "weather": return weatherPrevC; case "notes": return notesPrevC; default: return clockPrevC; }
+        switch (tab) { case "aio": return aioPrevC; case "stats": return statsPrevC; case "calendar": return calPrevC; case "music": return musicPrevC; case "weather": return weatherPrevC; case "notes": return notesPrevC; case "lyrics": return lyricsPrevC; case "heatmap": return heatmapPrevC; default: return clockPrevC; }
     }
 
     // ── store-installed desktop widgets ──────────────────────────────────────

@@ -3,6 +3,7 @@ pragma Singleton
 import QtQuick
 import Quickshell
 import Quickshell.Io
+import qs.theme
 
 // Publishes the shell's live geometry (navbar pill + side panels) for the
 // desktop-widgets "aura" visualiser, which runs in a separate Quickshell
@@ -39,6 +40,13 @@ Singleton {
     onScreenWChanged: poke()
     onScreenHChanged: poke()
     onScreenScaleChanged: poke()
+    // The shell frame, so the aura can start at its inner line.
+    readonly property bool frameOn: Settings.shellFrame
+    readonly property real frameBand: Settings.frameThickness
+    readonly property real frameRadius: Settings.frameRadius
+    onFrameOnChanged: poke()
+    onFrameBandChanged: poke()
+    onFrameRadiusChanged: poke()
 
     function poke() {
         root.dirty = true;
@@ -57,6 +65,7 @@ Singleton {
             ts: Date.now(),
             screen: { w: root.screenW, h: root.screenH, scale: root.screenScale },
             barGap: root.barGap,
+            frame: { on: root.frameOn, band: root.frameBand, radius: root.frameRadius },
             pill: {
                 x: p.x || 0, y: p.y || 0, w: p.w || 0, h: p.h || 0,
                 r: p.r || 0, shown: root.pillShown

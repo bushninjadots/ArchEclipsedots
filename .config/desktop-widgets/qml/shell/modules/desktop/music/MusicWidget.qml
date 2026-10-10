@@ -21,7 +21,7 @@ import Eclipse.Ui.Singletons
 Item {
     id: root
 
-    property string style: "cover"          // cover | glass
+    property string style: "cover"          // cover | glass | vinyl (Spun's mini player)
     property bool showLyrics: true
     property bool active: true
     property string musicApp: ""            // corner-button launch command (from Config)
@@ -36,7 +36,9 @@ Item {
     property string shape: "wide"           // wide | tall (9:16 canvas)
     property string videoMode: "canvas"     // off | canvas | custom (default: the track's Spotify Canvas, falls back to the cover when none)
     property string videoFile: ""           // custom backdrop file (video/gif)
-    readonly property bool tall: root.shape === "tall"
+    readonly property bool vinyl: root.style === "vinyl"
+    // the vinyl design is its own square layout, so the tall canvas skips it.
+    readonly property bool tall: root.shape === "tall" && !root.vinyl
     // the backdrop the surfaces play: the track's Spotify Canvas, a custom
     // file, or nothing (then the cover carries the picture).
     readonly property string videoSource: root.videoMode === "canvas" ? Music.canvas
@@ -55,8 +57,8 @@ Item {
     readonly property real infoH: 42 * root.s
     readonly property real seekH: 38 * root.s
 
-    implicitWidth: root.tall ? 320 * root.s : 560 * root.s
-    implicitHeight: root.tall ? Math.round(320 * 16 / 9) * root.s
+    implicitWidth: root.vinyl ? 300 * root.s : root.tall ? 320 * root.s : 560 * root.s
+    implicitHeight: root.vinyl ? 354 * root.s : root.tall ? Math.round(320 * 16 / 9) * root.s
         : root.pad * 2 + root.coverSize + root.gap + root.infoH + 8 * root.s + root.seekH
 
     // The playback clock and the lyric tracker run only while a surface wants
@@ -100,7 +102,7 @@ Item {
 
     Loader {
         anchors.fill: parent
-        active: !root.tall || !root.present
+        active: !root.vinyl && (!root.tall || !root.present)
         sourceComponent: root.style === "glass" ? glassPlate : coverPlate
     }
     Component {
@@ -125,10 +127,26 @@ Item {
         }
     }
 
+    // ── vinyl: Spun's mini player ───────────────────────────────────────────
+    Loader {
+        anchors.fill: parent
+        active: root.vinyl
+        sourceComponent: MusicSpun {
+            s: root.s
+            art: root.artSource
+            accent: root.accent
+            ink: root.ink
+            dim: root.dim
+            active: root.wanted
+            hovered: hover.hovered
+            viz: root.viz
+        }
+    }
+
     // ── nothing playing ─────────────────────────────────────────────────────
     Column {
         anchors.centerIn: parent
-        visible: !root.present
+        visible: !root.present && !root.vinyl
         spacing: 10 * root.s
 
         GlyphIcon {
@@ -154,7 +172,7 @@ Item {
         id: body
         anchors.fill: parent
         anchors.margins: root.pad
-        visible: root.present && !root.tall
+        visible: root.present && !root.tall && !root.vinyl
 
         MusicCover {
             id: cover
@@ -341,6 +359,7 @@ Item {
     // whether or not a track is playing.
     Item {
         id: openBtn
+        visible: !root.vinyl
         width: 26 * root.s
         height: width
         anchors.right: parent.right

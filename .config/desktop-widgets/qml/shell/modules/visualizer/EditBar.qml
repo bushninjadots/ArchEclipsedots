@@ -3,6 +3,7 @@ import QtQuick
 import Eclipse.Ui
 import Eclipse.Ui.Singletons
 import "Singletons"
+import "organic/OrganicEdgeConfig.js" as EdgeConfig
 
 // The spectrum's editing bar, shown while a look is being placed, so a look is tuned
 // where you can see it rather than in the Hub with the desktop behind a window.
@@ -57,6 +58,36 @@ Item {
 
     anchors.fill: parent
 
+    // A compact button that steps through named options: click for the next,
+    // wheel either way. Used for the aura's Organic Edge choices.
+    component Cycle: Btn {
+        id: cyc
+        property var names: []
+        property var values: []
+        property string current: ""
+        signal pick(string value)
+        readonly property int at: cyc.values.indexOf(cyc.current)
+        compact: true
+        text: (cyc.at >= 0 ? cyc.names[cyc.at] : cyc.current).toUpperCase()
+        function step(by) {
+            var n = cyc.values.length;
+            var from = cyc.at >= 0 ? cyc.at : (by > 0 ? -1 : 0);
+            if (n > 0) cyc.pick(cyc.values[((from + by) % n + n) % n]);
+        }
+        onAct: cyc.step(1)
+        WheelHandler {
+            acceptedDevices: PointerDevice.Mouse | PointerDevice.TouchPad
+            onWheel: (w) => cyc.step(w.angleDelta.y > 0 ? -1 : 1)
+        }
+    }
+
+    // Scenes: iNiR's curated set first, then its classic presets.
+    readonly property var organicScenes: EdgeConfig.scenePresets.concat(
+        EdgeConfig.legacyPresets.filter(function (p) {
+            return EdgeConfig.scenePresets.every(function (s) { return s.name !== p.name; });
+        }))
+    property int sceneAt: -1
+
     // The bar and the tray are laid out at their natural width, then scaled to
     // fit the surface: every control sits in one row (about 1900 logical px),
     // and a scaled display is narrower in logical px than in pixels (1600 at
@@ -93,7 +124,7 @@ Item {
         Gallery {
             id: gal
             anchors.centerIn: parent
-            width: 11 * 132 + 10 * 7
+            width: 12 * 132 + 11 * 7
             painter: VizStyles
             options: VizStyles.styles.map(function (s) { return { key: s.key, origin: s.kind, draw: s.key }; })
             current: Config.styleId
@@ -336,6 +367,158 @@ Item {
                     Sw {
                         on: Config.peaks
                         onToggled: if (Config.peaksApply) Config.togglePeaks()
+                    }
+                }
+
+                // The aura's own knobs: which edges it hugs, and how deep the
+                // light reaches in. Hidden for every other look, which use the
+                // box geometry these replace.
+                Rule { visible: auraSec.visible }
+                Group {
+                    id: auraSec
+                    visible: Config.styleId === "aura"
+                    label: I18n.tr("EDGES")
+                    Row {
+                        spacing: Tokens.s2
+                        Repeater {
+                            model: [{ bit: 1, label: I18n.tr("TOP") },
+                                    { bit: 2, label: I18n.tr("RIGHT") },
+                                    { bit: 4, label: I18n.tr("BOTTOM") },
+                                    { bit: 8, label: I18n.tr("LEFT") }]
+                            Btn {
+                                required property var modelData
+                                compact: true
+                                // `checked` paints the on-state; the button stays
+                                // clickable either way, so a switched-off edge can
+                                // always be switched back on.
+                                text: modelData.label
+                                checked: (Config.auraSides & modelData.bit) !== 0
+                                onAct: Config.toggleAuraSide(modelData.bit)
+                            }
+                        }
+                    }
+                }
+                Group {
+                    visible: Config.styleId === "aura"
+                    label: I18n.tr("BAR")
+                    Btn {
+                        // Hug the navbar: with TOP on and the bar reserving a
+                        // top zone, the aura's crest rises from the navbar's
+                        // bottom edge instead of the screen's — reads as shed
+                        // from the bar itself.
+                        compact: true
+                        text: ShellGeom.framed ? I18n.tr("IN FRAME") : I18n.tr("HUG")
+                        checked: ShellGeom.framed || (Config.auraBarHug && (Config.auraSides & 1) !== 0)
+                        armed: !ShellGeom.framed && Config.auraBarsGap > 0
+                        onAct: Config.poke("auraBarHug", !Config.auraBarHug)
+                    }
+                }
+                Group {
+                    visible: Config.styleId === "aura"
+                    label: I18n.tr("DEPTH")
+                    Row {
+                        spacing: Tokens.s2
+                        Slid {
+                            anchors.verticalCenter: parent.verticalCenter
+                            width: 96
+                            value: Number(Config.organic.depth)
+                            from: 24
+                            to: 600
+                            onModified: (v) => Config.setOrganic("depth", Math.round(v))
+                        }
+                        Value {
+                            anchors.verticalCenter: parent.verticalCenter
+                            text: Math.round(Number(Config.organic.depth)) + "px"
+                        }
+                    }
+                }
+                Rule { visible: auraSec.visible }
+                Group {
+                    visible: Config.styleId === "aura"
+                    label: I18n.tr("SCENE")
+                    Cycle {
+                        names: bar.organicScenes.map(function (p) { return p.name; })
+                        values: names
+                        current: bar.sceneAt >= 0 ? bar.organicScenes[bar.sceneAt].name : I18n.tr("Custom")
+                        onPick: (v) => {
+                            var i = names.indexOf(v);
+                            bar.sceneAt = i;
+                            Config.applyOrganic(bar.organicScenes[i].values);
+                        }
+                    }
+                }
+                Group {
+                    visible: Config.styleId === "aura"
+                    label: I18n.tr("MATERIAL")
+                    Cycle {
+                        names: EdgeConfig.materialPresets.map(function (p) { return p.name; })
+                        values: names
+                        current: {
+                            var o = Config.organic;
+                            var hit = EdgeConfig.materialPresets.filter(function (p) {
+                                return p.values.style === o.style && p.values.shape === o.shape
+                                    && p.values.effectMode === o.effectMode;
+                            });
+                            return hit.length ? hit[0].name : ("" + o.style);
+                        }
+                        onPick: (v) => Config.applyOrganic(EdgeConfig.materialPresets[names.indexOf(v)].values)
+                    }
+                }
+                Group {
+                    visible: Config.styleId === "aura"
+                    label: I18n.tr("SHAPE")
+                    Cycle {
+                        names: EdgeConfig.shapes.map(function (p) { return p.name; })
+                        values: EdgeConfig.shapes.map(function (p) { return p.value; })
+                        current: "" + Config.organic.shape
+                        onPick: (v) => Config.setOrganic("shape", v)
+                    }
+                }
+                Group {
+                    visible: Config.styleId === "aura"
+                    label: I18n.tr("LIGHT")
+                    Cycle {
+                        names: EdgeConfig.effects.map(function (p) { return p.name; })
+                        values: EdgeConfig.effects.map(function (p) { return p.value; })
+                        current: "" + Config.organic.effectMode
+                        onPick: (v) => Config.setOrganic("effectMode", v)
+                    }
+                }
+                Group {
+                    visible: Config.styleId === "aura"
+                    label: I18n.tr("COLOURS")
+                    Cycle {
+                        // Custom is the COLOR swatch's job here, so it is left out.
+                        names: EdgeConfig.palettes.filter(function (p) { return p.value !== "custom"; }).map(function (p) { return p.name; })
+                        values: EdgeConfig.palettes.filter(function (p) { return p.value !== "custom"; }).map(function (p) { return p.value; })
+                        current: "" + Config.organic.palette
+                        onPick: (v) => Config.setOrganic("palette", v)
+                    }
+                }
+                Group {
+                    visible: Config.styleId === "aura"
+                    label: I18n.tr("RESPONSE")
+                    Cycle {
+                        names: EdgeConfig.responsePresets.map(function (p) { return p.name; })
+                        values: names
+                        current: {
+                            var o = Config.organic;
+                            var hit = EdgeConfig.responsePresets.filter(function (p) {
+                                return p.values.sensitivity === Number(o.sensitivity) && p.values.attack === Number(o.attack);
+                            });
+                            return hit.length ? hit[0].name : I18n.tr("Custom");
+                        }
+                        onPick: (v) => Config.applyOrganic(EdgeConfig.responsePresets[names.indexOf(v)].values)
+                    }
+                }
+                Group {
+                    visible: Config.styleId === "aura"
+                    label: I18n.tr("SILENCE")
+                    Cycle {
+                        names: [I18n.tr("Ambient"), I18n.tr("Still"), I18n.tr("Hide")]
+                        values: ["ambient", "still", "hidden"]
+                        current: "" + Config.organic.idleMode
+                        onPick: (v) => Config.setOrganic("idleMode", v)
                     }
                 }
 

@@ -36,6 +36,8 @@ Item {
     readonly property bool isStats: menu.scope === "stats"
     readonly property bool isWeather: menu.scope === "weather"
     readonly property bool isNotes: menu.scope === "notes"
+    readonly property bool isLyrics: menu.scope === "lyrics"
+    readonly property bool isHeatmap: menu.scope === "heatmap"
     // only offer to place the spectrum when it is actually running
     readonly property bool vizOn: VizCfg.Config.enabled
     readonly property bool locked: menu.isWidget ? Config[menu.scope + "Locked"] : false
@@ -68,7 +70,9 @@ Item {
         "aio": "一体",
         "stats": "計測",
         "weather": "天気",
-        "notes": "筆記"
+        "notes": "筆記",
+        "lyrics": "歌詞",
+        "heatmap": "熱地図"
     })
 
     function openFor(widget, x, y) { menu.scope = widget; shell.px = x; shell.py = y; shell.open = true; }
@@ -80,9 +84,11 @@ Item {
         const lists = {
             clock: ["digital", "minimal", "grand", "column", "outline", "banner", "analog", "flip", "rings", "bighour", "metal", "goodnight"],
             calendar: ["glass", "paper"],
-            music: ["cover", "glass"],
+            music: ["cover", "glass", "vinyl"],
             aio: ["wide", "tall"],
-            weather: ["compact", "full"]
+            weather: ["compact", "full"],
+            lyrics: ["line", "band", "sheet"],
+            heatmap: ["auto", "horizontal", "vertical"]
         };
         const d = lists[menu.scope];
         if (!d)
@@ -186,7 +192,7 @@ Item {
     DesktopMenu {
         id: shell
         title: ({ desktop: "Desktop", clock: "Clock", calendar: "Calendar", music: "Music",
-                  aio: "All-in-one", stats: "System stats", weather: "Weather", notes: "Notes" })[menu.scope] || menu.cap(menu.scope)
+                  aio: "All-in-one", stats: "System stats", weather: "Weather", notes: "Notes", lyrics: "Lyrics" })[menu.scope] || menu.cap(menu.scope)
         gloss: ""
 
         // ── desktop scope ──────────────────────────────────────────────
@@ -214,6 +220,13 @@ Item {
             value: menu.cap(menu.curDesign)
             closeOnTrigger: false
             onTriggered: menu.cycleDesign()
+        }
+        MenuRow {
+            visible: menu.isHeatmap
+            label: I18n.tr("Sync now")
+            value: Services.GithubContrib.loading ? I18n.tr("Syncing…") : ""
+            closeOnTrigger: false
+            onTriggered: Services.GithubContrib.forceRefresh()
         }
         MenuRow {
             visible: menu.isClock

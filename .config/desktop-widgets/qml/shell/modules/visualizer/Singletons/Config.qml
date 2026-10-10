@@ -38,7 +38,10 @@ Singleton {
             "gain": adapter.gain, "smoothing": adapter.smoothing, "peaks": adapter.peaks,
             "spin": adapter.spin, "x": adapter.x, "y": adapter.y, "w": adapter.w,
             "h": adapter.h, "grow": adapter.grow, "angle": adapter.angle,
-            "tiltX": adapter.tiltX, "tiltY": adapter.tiltY
+            "tiltX": adapter.tiltX, "tiltY": adapter.tiltY,
+            "auraSides": adapter.auraSides,
+            "auraBarHug": adapter.auraBarHug,
+            "organic": adapter.organic
         };
     }
     function dataAt(index) {
@@ -103,6 +106,11 @@ Singleton {
     readonly property real   angle:         act.angle
     readonly property real   tiltX:         act.tiltX
     readonly property real   tiltY:         act.tiltY
+    // Aura (flowing screen-edge border): which edges it hugs, as a bitmask
+    // 1 top 2 right 4 bottom 8 left. 15 = all four.
+    readonly property int  auraSides:     act.auraSides
+    // Aura look (iNiR Organic Edge): the merged scene/material/response values.
+    readonly property var  organic:       act.organic
 
     // Colour + gradient of the active instance, for the editor's picker.
     readonly property bool   hasCustomColor: act.hasCustomColor
@@ -133,7 +141,93 @@ Singleton {
     function setStyle(k) {
         if (root.knownStyles.indexOf(k) < 0)
             return;
+        // First switch onto the aura: seed a sensible default reach, since the
+        // box height the other looks use as their height would read as the
+        // aura's inward depth and a tall box floods half the screen.
+        if (k === "aura" && root.styleId !== "aura" && root.h > 0.30)
+            root.poke("h", 0.12);
         root.poke("style", k);
+    }
+
+    // --- the navbar reservation -------------------------------------------
+    // The bar tells the compositor how much of the screen's top to keep clear
+    // (its layer-shell exclusive zone); `hyprctl monitors -j` reports it as
+    // the monitor's `reserved` array [left, top, right, bottom] in logical px
+    // per screen, folded here into one number the aura shader takes as its
+    // top boundary. Reading the reservation — not hardcoding the bar height —
+    // means the aura follows the bar wherever the compositor puts it: locked,
+    // unlocked (0), auto-hidden (0 until shown), bottom (0 top). Polled on a
+    // slow clip so a toggle costs no per-frame process.
+    readonly property real auraBarsGap: {
+        var g = 0.0;
+        var s = root._screens;
+        for (var i = 0; i < s.length; i++)
+            g = Math.max(g, Number(s[i] && s[i].reserved && s[i].reserved[1]) || 0.0);
+        return g;
+    }
+    property var _screens: []
+    Process {
+        id: reservedProc
+        command: ["sh", "-c",
+            Quickshell.env("HYPRLAND_INSTANCE_SIGNATURE")
+                ? "hyprctl -j monitors 2>/dev/null || echo []"
+                : "echo []"]
+        stdout: StdioCollector {
+            onStreamFinished: {
+                try {
+                    var arr = JSON.parse(text());
+                    for (var i = 0; i < arr.length; i++)
+                        if (!arr[i].reserved || arr[i].reserved.length < 4)
+                            arr[i].reserved = [-1, -1, -1, -1]; // normalise missing
+                    root._screens = arr;
+                } catch (e) {
+                    // keep the old value; a failed read is not a zero.
+                }
+            }
+        }
+    }
+    Timer {
+        id: reservedTimer
+        interval: 15000
+        running: true
+        repeat: true
+        triggeredOnStart: false
+        onTriggered: reservedProc.running = true
+    }
+
+    // Aura edges: set/clear one side's bit, staying live with the rest. The last
+    // remaining edge cannot be cleared: an aura with no edges is invisible, and
+    // the look that reads as "it broke" (a mask stuck at 0 once painted nothing
+    // and nothing on screen said why). Toggle a different edge back on first.
+    function toggleAuraSide(bit) {
+        var m = root.auraSides;
+        if ((m & bit) !== 0 && (m & ~bit) === 0)
+            return;
+        root.poke("auraSides", (m ^ bit) & 15);
+    }
+    // One Organic Edge value (iNiR key names), merged into this instance's
+    // `organic` object so every other tuning survives.
+    function setOrganic(key, value) {
+        var o = Object.assign({}, act.organicRaw);
+        o[key] = value;
+        root.poke("organic", o);
+    }
+    // A scene / material / response preset: its values land over the current
+    // ones, and a preset's `edges` list also drives the side mask.
+    function applyOrganic(values) {
+        var o = Object.assign({}, act.organicRaw, values);
+        root.poke("organic", o);
+        if (values.edges && values.edges.length) {
+            var m = 0;
+            if (values.edges.indexOf("top") >= 0) m |= 1;
+            if (values.edges.indexOf("right") >= 0) m |= 2;
+            if (values.edges.indexOf("bottom") >= 0) m |= 4;
+            if (values.edges.indexOf("left") >= 0) m |= 8;
+            if (m) root.poke("auraSides", m);
+        }
+    }
+    function setAuraSides(m) {
+        root.poke("auraSides", Math.max(0, Math.min(15, Math.round(m))));
     }
     function cycleStyle(by) {
         var i = root.knownStyles.indexOf(root.styleId);
@@ -302,6 +396,9 @@ Singleton {
         adapter.spin = o.spin; adapter.x = o.x; adapter.y = o.y; adapter.w = o.w;
         adapter.h = o.h; adapter.grow = o.grow; adapter.angle = o.angle;
         adapter.tiltX = o.tiltX; adapter.tiltY = o.tiltY;
+        adapter.auraSides = o.auraSides === undefined ? 15 : o.auraSides;
+        adapter.auraBarHug = o.auraBarHug === true;
+        adapter.organic = o.organic || ({});
     }
     function removeVisualizer(i) {
         var idx = i === undefined ? root.active : i;
@@ -368,6 +465,14 @@ Singleton {
             property real angle: 0
             property real tiltX: 0
             property real tiltY: 0
+            // Aura (flowing screen-edge border) sides, bitmask 1 top 2 right
+            // 4 bottom 8 left.
+            property int auraSides: 15
+            // Attach the aura to the bar reservation's bottom edge (HUG flag).
+            property bool auraBarHug: false
+            // Aura look: iNiR Organic Edge values (OrganicEdgeConfig.defaults
+            // keys); missing keys fall back to those defaults.
+            property var organic: ({})
             // Additional visualisers beyond the primary, each a full per-viz
             // object, and which instance the desktop editor is tuning.
             property var extras: []
@@ -445,12 +550,38 @@ Singleton {
         return moved;
     }
 
+    // A mask of 0 (all edges off, painted nothing) predates the guard in
+    // toggleAuraSide and is unreachable going forward; fold a stored one back to
+    // all edges once, so a config saved in the trap does not come back invisible.
+    // Returns true when something changed, so the caller knows to persist.
+    function healAuraSides() {
+        var healed = false;
+        if (adapter.style === "aura" && adapter.auraSides === 0) {
+            adapter.auraSides = 15;
+            healed = true;
+        }
+        var arr = adapter.extras || [];
+        for (var i = 0; i < arr.length; i++) {
+            var e = arr[i] || {};
+            if (e.style === "aura" && (e.auraSides === 0 || e.auraSides === undefined)) {
+                arr[i] = Object.assign({}, e, { auraSides: 15 });
+                healed = true;
+            }
+        }
+        if (healed)
+            adapter.extras = arr;
+        return healed;
+    }
+
     Component.onCompleted: {
+        reservedProc.running = true;   // seed the bar reservation the aura hangs from
         if (!file.text()) {
             file.writeAdapter();
             return;
         }
         var write = root.migrate();
+        if (root.healAuraSides())
+            write = true;
         if (adapter.style === "circle") {
             adapter.style = "orb";
             write = true;

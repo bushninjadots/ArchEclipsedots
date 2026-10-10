@@ -14,7 +14,7 @@
 
 | Window | Source | Notes |
 |---|---|---|
-| `Bar` | `widgets/bar/Bar.qml` | Main pill; one instance per monitor |
+| `Bar` | `widgets/bar/Bar.qml` | Main pill; one instance per monitor. In Shell Style "Frame" it also hosts `widgets/frame/FrameField.qml` (iNiR Iris surround port) under the pills: one surface for band + pills; `frame.frag` (rebuild with `qsb --qt6`) smooth-unions the band with the pill/side-panel bodies, and with music (`services/ShellFrame.qml`, claims `AudioBars`) the bodies swell into it and the top band rises under the pill. Frame mode keeps the window mapped while the pill conceals itself |
 | `BarHoverWindow` | `widgets/bar/BarHoverWindow.qml` | Edge strip that dwell-reveals an auto-hidden bar |
 | `NotificationPopups` | `widgets/notifications/NotificationPopups.qml` | Toast popups, per monitor |
 | `LockScreen` | `widgets/lock/LockScreen.qml` | Single scope; compositor creates one `WlSessionLockSurface` per screen (no `Variants`) |
