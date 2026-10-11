@@ -6,28 +6,36 @@ import qs.theme
 import qs.services
 import qs.widgets.bar.pill
 
-// Islands bar face (Settings.barStyle !== "pill").
+// Islands bar face (Settings.barStyle !== "pill"), freeform linear form.
 //
-// The visual chrome is unchanged: a coloured centre pill (bandwidth |
-// control | clock), fixed-width left/right zones so the pill keeps symmetric
-// clearance, and a full-width workspace strip at the bottom. What changed is
-// that each zone's membership and order now come from the BarWidgets registry
-// (Settings.barLayoutIslands) instead of being hard-coded.
+// The zone chrome is gone: the visible widgets come straight from the linear
+// layout (Settings.barLayoutTop for the top edge, barLayoutBottom for the
+// bottom) and render as two centred strips (top + bottom edges of the bar's
+// pill) with each widget at its natural size. The outer pill / shell frame
+// supplies the background surface.
+//
+// VISUAL RULING (recorded in the plan ledger): the old centre accent chip
+// (surfaceActive capsule over the centre zone) is dropped because in linear
+// mode the left/center/right groups no longer exist — a widget belongs where
+// its linear position puts it. Defaults reproduce today's widget ORDER,
+// spacing and membership via the zone→linear migration (left+center+right =
+// top, bottom = bottom); only the inner capsule is gone.
 Column {
     id: root
     spacing: 4
 
-    // ---- edit-mode geometry (Task 7) ----
-    // The overlay walks our live Loaders and maps them into window (scene)
-    // coordinates so it can hit-test drags without owning the widget tree.
+    // ---- linear sequence access (Settings bar layout model, Task 1) ----
+    readonly property var linearTopIds: Array.isArray(Settings.barLayoutTop) ? Settings.barLayoutTop : []
+    readonly property var linearBottomIds: Array.isArray(Settings.barLayoutBottom) ? Settings.barLayoutBottom : []
+
+    // ---- edit-mode geometry (scene coords) ----
     function _collectCells(rep, ids, zone, out) {
         for (let i = 0; i < rep.count; i++) {
             const d = rep.itemAt(i);
             if (!d)
                 continue;
-            // The delegate may be a plain Loader (left/right/bottom) or an
-            // Item wrapper whose child is a Loader (center's equal-width
-            // cells). Resolve to that Loader and use the delegate's geometry.
+            // The delegate may be a plain Loader or an Item wrapper whose child
+            // is a Loader. Resolve to that Loader and use the delegate geometry.
             let ldr = d;
             if (typeof d.item === "undefined") {
                 ldr = null;
@@ -45,164 +53,56 @@ Column {
             out.push({ id: ids[i], zone: zone, x: p.x, y: p.y, w: d.width, h: d.height });
         }
     }
-    function _zoneRect(item, zone) {
-        const p = item.mapToItem(null, 0, 0);
-        return { zone: zone, x: p.x, y: p.y, w: item.width, h: item.height };
-    }
     function editCells() {
         if (Settings.barStyle === "pill")
             return pillLoader.item && pillLoader.item.editCells ? pillLoader.item.editCells() : [];
         const out = [];
-        _collectCells(centerRep, root.centerIds, "center", out);
-        _collectCells(leftRep, root.leftIds, "left", out);
-        _collectCells(rightRep, root.rightIds, "right", out);
-        _collectCells(bottomRep, root.bottomIds, "bottom", out);
+        root._collectCells(topRep, root.linearTopIds, "top", out);
+        root._collectCells(bottomRep, root.linearBottomIds, "bottom", out);
         return out;
+    }
+    function _stripRect(row, zone) {
+        const p = row.mapToItem(null, 0, 0);
+        return { zone: zone, x: p.x, y: p.y, w: row.width, h: row.height };
     }
     function editZones() {
         if (Settings.barStyle === "pill")
             return pillLoader.item && pillLoader.item.editZones ? pillLoader.item.editZones() : [];
-        return [
-            _zoneRect(leftZone, "left"),
-            _zoneRect(centerPill, "center"),
-            _zoneRect(rightZone, "right"),
-            _zoneRect(bottomRow, "bottom")
-        ];
+        const zones = [];
+        if (topRow.visible)
+            zones.push(root._stripRect(topRow, "top"));
+        if (bottomRow.visible)
+            zones.push(root._stripRect(bottomRow, "bottom"));
+        return zones;
     }
 
-    readonly property var leftIds: BarWidgets.layout("islands", "left")
-    readonly property var centerIds: BarWidgets.layout("islands", "center")
-    readonly property var rightIds: BarWidgets.layout("islands", "right")
-    readonly property var bottomIds: BarWidgets.layout("islands", "bottom")
-
+    // ---- top edge strip (barLayoutTop order) ----
     Item {
         id: topRow
         visible: Settings.barStyle !== "pill"
-        // Both side sections count as wide as the wider one, so the centered
-        // pill always keeps at least Theme.spacing clearance from either side
-        // instead of clipping into the wider section. The weather button
-        // stretches to absorb any slack on the left.
-        readonly property real leftMinWidth: leftRow.implicitWidth
-        readonly property real rightMinWidth: utilities.implicitWidth
-        readonly property real sideWidth: Math.max(leftMinWidth, rightMinWidth)
-        implicitWidth: 2 * sideWidth + centerPill.width + Theme.spacing * 2
+        implicitWidth: topStrip.implicitWidth
         width: implicitWidth
         height: Theme.barContentHeight
 
-        // Center rectangle — bandwidth on the left, control panel button
-        // dead-center, clock on the right. The model drives the children; the
-        // two end cells are equalised so the control button stays dead-center
-        // relative to the whole bar even when the end widgets differ in width.
-        Rectangle {
-            id: centerPill
+        Row {
+            id: topStrip
             anchors.horizontalCenter: parent.horizontalCenter
             anchors.verticalCenter: parent.verticalCenter
-            width: centerRow.implicitWidth + 20
-            height: Theme.barContentHeight
-            radius: Theme.radius
-            color: Theme.surfaceActive
+            spacing: Theme.spacing
 
-            Row {
-                id: centerRow
-                anchors.centerIn: parent
-                spacing: Theme.spacing
-                height: parent.height
-                // Equal-width side cells so the control button stays dead-
-                // center relative to the whole bar even when the end widgets
-                // (bandwidth, clock) differ in width. Each delegate is an Item
-                // wrapper that keeps its widget at its natural size and pads
-                // the two end cells out to the shared width — a bare Loader
-                // with an explicit width would instead stretch (or zero) the
-                // widget, which breaks widgets that only declare `width`.
-                readonly property real sideCellWidth: {
-                    const n = root.centerIds.length;
-                    if (n < 2)
-                        return 0;
-                    const f = centerRep.itemAt(0);
-                    const l = centerRep.itemAt(n - 1);
-                    return Math.max(f ? f.naturalWidth : 0, l ? l.naturalWidth : 0);
-                }
-
-                Repeater {
-                    id: centerRep
-                    model: root.centerIds
-                    delegate: Item {
-                        id: cell
-                        required property int index
-                        required property string modelData
-
-                        readonly property bool isEnd: root.centerIds.length >= 2
-                            && (index === 0 || index === root.centerIds.length - 1)
-                        // The Loader auto-sizes to the widget's natural size
-                        // (its `width` when the widget declares no
-                        // `implicitWidth`).
-                        readonly property real naturalWidth: widget.implicitWidth
-                        width: isEnd ? centerRow.sideCellWidth : naturalWidth
-                        height: parent.height
-
-                        Loader {
-                            id: widget
-                            anchors.centerIn: parent
-                            sourceComponent: BarWidgets.component(cell.modelData, "islands", "center")
-                        }
-                    }
+            Repeater {
+                id: topRep
+                model: root.linearTopIds
+                delegate: Loader {
+                    // No width binding: the Loader auto-sizes to the widget's
+                    // natural size (widgets lack implicitWidth).
+                    required property string modelData
+                    sourceComponent: BarWidgets.component(modelData, "islands", "top")
+                    anchors.verticalCenter: parent.verticalCenter
                 }
             }
         }
-
-        // left zone — fixed sideWidth; children stretch into the slack
-        Item {
-            id: leftZone
-            anchors.left: parent.left
-            anchors.verticalCenter: parent.verticalCenter
-            width: topRow.sideWidth
-            height: parent.height
-
-            RowLayout {
-                id: leftRow
-                anchors.fill: parent
-                spacing: Theme.spacing
-
-                Repeater {
-                    id: leftRep
-                    model: root.leftIds
-                    delegate: Loader {
-                        required property string modelData
-                        sourceComponent: BarWidgets.component(modelData, "islands", "left")
-                        Layout.fillWidth: true
-                    }
-                }
-            }
-        }
-
-        // right zone — fixed sideWidth like the left, content right-aligned so
-        // the center pill keeps symmetric spacing on both sides
-        Item {
-            id: rightZone
-            anchors.right: parent.right
-            anchors.verticalCenter: parent.verticalCenter
-            width: topRow.sideWidth
-            height: parent.height
-
-            Row {
-                id: utilities
-                spacing: Theme.spacing
-                height: parent.height
-                anchors.right: parent.right
-                anchors.verticalCenter: parent.verticalCenter
-
-                Repeater {
-                    id: rightRep
-                    model: root.rightIds
-                    delegate: Loader {
-                        required property string modelData
-                        sourceComponent: BarWidgets.component(modelData, "islands", "right")
-                        anchors.verticalCenter: parent.verticalCenter
-                    }
-                }
-            }
-        }
-    } // topRow
+    }
 
     // Pill bar style face (Settings.barStyle === "pill"). The outer pill in
     // Bar.qml stays the surface; this is only the morphing content face.
@@ -216,16 +116,16 @@ Column {
         PillBar {}
     }
 
-    // bottom zone — full width of the bar content
+    // ---- bottom edge strip (barLayoutBottom order) ----
     Row {
         id: bottomRow
         visible: Settings.barStyle !== "pill"
-        width: topRow.implicitWidth
+        width: topRow.width
         spacing: Theme.spacing
 
         Repeater {
             id: bottomRep
-            model: root.bottomIds
+            model: root.linearBottomIds
             delegate: Loader {
                 required property string modelData
                 sourceComponent: BarWidgets.component(modelData, "islands", "bottom")
