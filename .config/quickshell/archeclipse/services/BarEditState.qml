@@ -28,6 +28,13 @@ Singleton {
     property real dragX: 0
     property real dragY: 0
 
+    // Linear drag state (freeform). `draggingId`/`dragFromZone` above carry
+    // the payload; these add the linear insert index and edge.
+    property int dragIndex: -1
+    property int dropIndex: -1
+    property string dragEdge: "top"
+    property string axis: "x"
+
     // Whole-section drag (detached islands). While dragSection is non-empty,
     // the matching DetachedPill follows dragSectionX/Y instead of its anchor.
     property string dragSection: ""
@@ -51,9 +58,84 @@ Singleton {
         root.dragFromZone = "";
         root.dragX = 0;
         root.dragY = 0;
+        root.dragIndex = -1;
+        root.dropIndex = -1;
+        root.dragEdge = "top";
         root.dragSection = "";
         root.cells = [];
         root.dropZones = [];
+    }
+
+    // ---- linear (freeform) layout accessors ----
+    function linearLayout(edge) {
+        const arr = edge === "bottom" ? Settings.barLayoutBottom : Settings.barLayoutTop;
+        return Array.isArray(arr) ? arr.slice() : [];
+    }
+
+    function setLinearLayout(edge, arr) {
+        Settings.updateSetting(edge === "bottom" ? "bar.layout.bottom" : "bar.layout.top", (arr || []).slice());
+    }
+
+    // Index at which to insert given the current ordered cell rects and
+    // pointer x (edge axis). Returns [0, cells.length].
+    function insertionIndex(px, cells) {
+        if (!cells || cells.length === 0)
+            return 0;
+        for (let i = 0; i < cells.length; i++) {
+            const c = cells[i];
+            if (px < c.x + c.w / 2)
+                return i;
+        }
+        return cells.length;
+    }
+
+    function beginLinearDrag(id, index, edge, px, py) {
+        root.active = true;
+        root.draggingId = id;
+        root.dragFromZone = edge;
+        root.dragEdge = edge;
+        root.dragIndex = index;
+        root.dropIndex = index;
+        root.axis = "x";
+        root.dragX = px;
+        root.dragY = py;
+    }
+
+    function moveLinear(px, py, cells) {
+        root.dragX = px;
+        root.dragY = py;
+        root.dropIndex = root.insertionIndex(px, cells);
+    }
+
+    function commitLinear(cells) {
+        if (!root.draggingId || root.dragIndex < 0)
+            return;
+        if (cells)
+            root.dropIndex = root.insertionIndex(root.dragX, cells);
+        const edge = root.dragEdge;
+        const arr = root.linearLayout(edge);
+        const from = arr.indexOf(root.draggingId);
+        if (from !== -1)
+            arr.splice(from, 1);
+        let di = root.dropIndex;
+        if (di < 0)
+            di = arr.length;
+        if (from !== -1 && from < di)
+            di--;
+        di = Math.max(0, Math.min(arr.length, di));
+        arr.splice(di, 0, root.draggingId);
+        root.setLinearLayout(edge, arr);
+        root.clearLinearDrag();
+    }
+
+    function clearLinearDrag() {
+        root.draggingId = "";
+        root.dragFromZone = "";
+        root.dragIndex = -1;
+        root.dropIndex = -1;
+        root.dragEdge = "top";
+        root.dragX = 0;
+        root.dragY = 0;
     }
 
     function _zones(style) {
