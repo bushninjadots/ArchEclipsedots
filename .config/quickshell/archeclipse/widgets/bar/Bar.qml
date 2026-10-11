@@ -261,6 +261,45 @@ PanelWindow {
         right: root._frameSide(rightPill, rightClip)
     })
 
+    // Freeform frame bodies: the legacy pill/side-panel bodies first (so the
+    // centre pill and unfolded side panels keep their fillets exactly as
+    // before), then one body per visible cell of the current linear layout —
+    // the band grows around every placed component wherever it sits. In
+    // detached mode the main pill is not the painted face, so only the
+    // detached pills' cells (which layoutSurface.editCells() reports) are used;
+    // if nothing can be measured, the list is empty and FrameField falls back
+    // to the legacy `bodies`.
+    function _computeFrameBodiesList() {
+        const out = [];
+        if (!root.detached) {
+            const b = root.frameBodies;
+            if (b.pill)
+                out.push({ x: b.pill.x, y: b.pill.y, w: b.pill.w, h: b.pill.h, on: b.pill.on });
+            out.push({ x: b.left.x, y: b.left.y, w: b.left.w, h: b.left.h, on: b.left.on });
+            out.push({ x: b.right.x, y: b.right.y, w: b.right.w, h: b.right.h, on: b.right.on });
+        }
+        const edge = Settings.barOrientation ? "top" : "bottom";
+        const ids = BarWidgets.layoutLinear(Settings.barStyle, edge);
+        const surf = root.layoutSurface;
+        const cells = (surf && typeof surf.editCells === "function") ? surf.editCells() : [];
+        const seen = {};
+        for (const id of ids) {
+            if (seen[id])
+                continue;
+            seen[id] = true;
+            for (let i = 0; i < cells.length; i++) {
+                const c = cells[i];
+                if (!c || c.id !== id)
+                    continue;
+                if (c.w > 0 && c.h > 0)
+                    out.push({ x: c.x, y: c.y, w: c.w, h: c.h, on: true });
+                break;
+            }
+        }
+        return out;
+    }
+    readonly property var frameBodiesList: root._computeFrameBodiesList()
+
     Component.onDestruction: Registry.unregister("capture-bar-" + root.monitorName)
     Component.onCompleted: {
         Registry.register("capture-bar-" + root.monitorName, root);
@@ -387,6 +426,7 @@ PanelWindow {
         FrameField {
             anchors.fill: parent
             bodies: root.frameBodies
+            bodiesList: root.frameBodiesList
             topBar: Settings.barOrientation
         }
 
