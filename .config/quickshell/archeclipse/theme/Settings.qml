@@ -56,6 +56,10 @@ Singleton {
     })
     property var barLayoutIslands: root.defaultBarLayoutIslands
     property var barLayoutPill: root.defaultBarLayoutPill
+    // Freeform linear layout (top/bottom edges) — ordered left-to-right.
+    property var barLayoutTop: []
+    property var barLayoutBottom: []
+    property string barLayoutMode: "linear"
     // Islands-only: break the bar into one floating pill per section.
     property bool barIslandsDetached: false
     // Per-section absolute top-left in logical px (-1 = use the default anchor).
@@ -562,7 +566,10 @@ Singleton {
                     },
                     layout: {
                         islands: root.barLayoutIslands,
-                        pill: root.barLayoutPill
+                        pill: root.barLayoutPill,
+                        top: root.barLayoutTop,
+                        bottom: root.barLayoutBottom,
+                        mode: root.barLayoutMode
                     },
                     islands: {
                         detached: root.barIslandsDetached,
@@ -788,6 +795,13 @@ Singleton {
                 // Bar layout model + detached islands state.
                 root.barLayoutIslands = root._adoptLayout(s.bar?.layout?.islands, root.defaultBarLayoutIslands);
                 root.barLayoutPill = root._adoptLayout(s.bar?.layout?.pill, root.defaultBarLayoutPill);
+                // Linear layout (freeform) — adopt from disk if present, else leave empty for migration
+                const _lt = s.bar?.layout?.top;
+                const _lb = s.bar?.layout?.bottom;
+                if (Array.isArray(_lt)) root.barLayoutTop = _lt.slice();
+                if (Array.isArray(_lb)) root.barLayoutBottom = _lb.slice();
+                const _lm = s.bar?.layout?.mode;
+                root.barLayoutMode = (typeof _lm === "string" && _lm) ? _lm : (root.barLayoutTop.length>0||root.barLayoutBottom.length>0 ? "linear" : "linear");
                 const _bid = s.bar?.islands?.detached;
                 root.barIslandsDetached = ((typeof _bid === "object" && _bid !== null ? _bid.value : _bid) ?? false);
                 root.barIslandsPos = root._adoptPos(s.bar?.islands?.pos, root.defaultBarIslandsPos);
@@ -912,12 +926,63 @@ Singleton {
         }
     }
 
+    function _deriveLinearFromZones(style, edge) {
+        const res = [];
+        if (style === "islands") {
+            if (edge === "top") {
+                const l = root.barLayoutIslands.left || [];
+                const c = root.barLayoutIslands.center || [];
+                const r = root.barLayoutIslands.right || [];
+                for (let i = 0; i < l.length; i++) res.push(l[i]);
+                for (let i = 0; i < c.length; i++) res.push(c[i]);
+                for (let i = 0; i < r.length; i++) res.push(r[i]);
+            } else if (edge === "bottom") {
+                const b = root.barLayoutIslands.bottom || [];
+                for (let i = 0; i < b.length; i++) res.push(b[i]);
+            }
+        } else if (style === "pill") {
+            if (edge === "top") {
+                const rest = root.barLayoutPill.rest || [];
+                const core = root.barLayoutPill.core || [];
+                const detail = root.barLayoutPill.detail || [];
+                for (let i = 0; i < rest.length; i++) res.push(rest[i]);
+                for (let i = 0; i < core.length; i++) res.push(core[i]);
+                for (let i = 0; i < detail.length; i++) res.push(detail[i]);
+            } else if (edge === "bottom") {
+                // no bottom zone in pill today
+            }
+        }
+        return res;
+    }
+
+    function _migrateLinearLayouts() {
+        const needsTop = (!Array.isArray(root.barLayoutTop) || root.barLayoutTop.length === 0);
+        const needsBottom = (!Array.isArray(root.barLayoutBottom) || root.barLayoutBottom.length === 0);
+        if (needsTop || needsBottom) {
+            const style = root.barStyle || "islands";
+            if (needsTop) {
+                root.barLayoutTop = root._deriveLinearFromZones(style, "top");
+                root.updateSetting("bar.layout.top", root.barLayoutTop);
+            }
+            if (needsBottom) {
+                root.barLayoutBottom = root._deriveLinearFromZones(style, "bottom");
+                root.updateSetting("bar.layout.bottom", root.barLayoutBottom);
+            }
+            root.barLayoutMode = "linear";
+            root.updateSetting("bar.layout.mode", root.barLayoutMode);
+        } else {
+            root.barLayoutMode = "linear";
+        }
+    }
+
     Component.onCompleted: {
         root.reload();
         root._readyTimer.start();
         Qt.callLater(function () {
             if (root.gameModeEnabled)
                 root.applyGameMode(true);
+            // migrate after initial load
+            root._migrateLinearLayouts();
         });
     }
 
