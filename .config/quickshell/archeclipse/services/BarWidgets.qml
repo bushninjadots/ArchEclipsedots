@@ -175,12 +175,21 @@ Singleton {
     }
 
     // ---- layout model ----
-    function allowed(id, style, zone) {
+    function allowed(id, style, zoneOrEdge) {
         const e = entry(id);
         if (!e)
             return false;
         const z = e.zones ? e.zones[style] : null;
-        return Array.isArray(z) && z.indexOf(zone) !== -1;
+        if (typeof zoneOrEdge === "string" && (zoneOrEdge === "top" || zoneOrEdge === "bottom")) {
+            if (style === "islands" && zoneOrEdge === "bottom")
+                return id === "workspaces";
+            return true;
+        }
+        return Array.isArray(z) && z.indexOf(zoneOrEdge) !== -1;
+    }
+
+    function allowedByEdge(id, style, edge) {
+        return allowed(id, style, edge);
     }
 
     function _model(style) {
@@ -202,6 +211,18 @@ Singleton {
             out.push(id);
         }
         return out;
+    }
+
+    function layoutLinear(style, edge) {
+        if (edge === "top") {
+            const arr = Settings.barLayoutTop;
+            return Array.isArray(arr) ? arr.slice() : [];
+        }
+        if (edge === "bottom") {
+            const arr = Settings.barLayoutBottom;
+            return Array.isArray(arr) ? arr.slice() : [];
+        }
+        return [];
     }
 
     // ---- component factory ----
