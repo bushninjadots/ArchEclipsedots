@@ -22,11 +22,11 @@ layout(std140, binding = 0) uniform buf {
     // (left, top, right, bottom), and x of waveClock: the travelling phase.
     vec4 edgeWave;
     vec4 waveClock;
-    // Up to three bodies: centre.xy, half.xy in px; their corner radii
+    // Bodies: centre.xy, half.xy in px; their corner radii
     // (top-left, top-right, bottom-right, bottom-left); fillet depth in x of fuse.
-    vec4 shape0; vec4 radii0;
-    vec4 shape1; vec4 radii1;
-    vec4 shape2; vec4 radii2;
+    int bodyCount;
+    vec4 shape[64];
+    vec4 radii[64];
     vec4 fuse;
     // x: music level, y: light opacity, z: light width px.
     vec4 light;
@@ -92,8 +92,8 @@ void main() {
     // The top band rises toward the pill: its swell is strongest under the
     // pill's shoulders and falls off along the edge.
     float pillPull = 0.0;
-    if (u.shape0.z > 0.0) {
-        float dx = (p.x - u.shape0.x) / (u.shape0.z + 260.0);
+    if (u.bodyCount > 0 && u.shape[0].z > 0.0) {
+        float dx = (p.x - u.shape[0].x) / (u.shape[0].z + 260.0);
         pillPull = exp(-dx * dx);
     }
     float topWave = u.edgeWave.y + u.organic.y * pillPull;
@@ -102,9 +102,9 @@ void main() {
     float r = u.field.w;
     float frame = -roundedBox(p, (lo + hi) * 0.5, max((hi - lo) * 0.5, vec2(0.0)), vec4(r));
 
-    float b0 = body(p, u.shape0, u.radii0);
-    float b1 = body(p, u.shape1, u.radii1);
-    float b2 = body(p, u.shape2, u.radii2);
+    float b0 = body(p, u.shape[0], u.radii[0]);
+    float b1 = body(p, u.shape[1], u.radii[1]);
+    float b2 = body(p, u.shape[2], u.radii[2]);
     // The bodies as laid out ...
     // ... and as the music swells them: lobes travel along their edges, and the
     // fillet into the frame deepens with the level, so the pill and panels read
@@ -112,9 +112,10 @@ void main() {
     float swell = u.organic.x * ripple(p, t);
     float k = u.fuse.x + u.organic.x * 1.4;
     float united = frame;
-    if (b0 < FAR) united = min(united, smoothUnion(frame, b0 - swell, k));
-    if (b1 < FAR) united = min(united, smoothUnion(frame, b1 - swell, k));
-    if (b2 < FAR) united = min(united, smoothUnion(frame, b2 - swell, k));
+    for (int i = 0; i < u.bodyCount; i++) {
+        float b = body(p, u.shape[i], u.radii[i]);
+        if (b < FAR) united = min(united, smoothUnion(frame, b - swell, k));
+    }
 
     // One silhouette, one edge: the band, the fillets and the bodies are all
     // painted here (Bar.qml's pill backgrounds go transparent in frame mode),

@@ -12,7 +12,23 @@ Item {
 
     // { pill, left, right }, each { x, y, w, h, on } in this item's px.
     property var bodies: ({})
+    // Freeform body list — array of { x, y, w, h, on, tl, tr, br, bl, radius }.
+    // Preferred over `bodies`; when empty, bodies.pill/left/right are used.
+    property var bodiesList: []
     property bool topBar: true
+
+    // Resolved body list (bodiesList when non-empty, else legacy bodies).
+    readonly property var bodyItems: {
+        if (root.bodiesList && root.bodiesList.length > 0)
+            return root.bodiesList;
+        const l = [];
+        for (const key of ["pill", "left", "right"]) {
+            const b = root.bodies[key];
+            if (b) l.push(b);
+        }
+        return l;
+    }
+    readonly property int bodyCount: Math.min(root.bodyItems.length, 64)
 
     visible: ShellFrame.enabled
     enabled: false
@@ -27,6 +43,45 @@ Item {
         return Qt.vector4d(b.x + b.w / 2, b.y + b.h / 2, b.w / 2, b.h / 2);
     }
 
+    // Per-body radii: prefer the body's own tl/tr/br/bl (or radius); the edges
+    // away from the bar round only when the body asks for them, else the
+    // global topBar-aware radii apply.
+    function radiiOf(b) {
+        if (b && (b.tl !== undefined || b.br !== undefined || b.radius !== undefined)) {
+            const r = (b.radius !== undefined) ? b.radius : Theme.radius;
+            const tl = (b.tl !== undefined) ? b.tl : (root.topBar ? 0 : r);
+            const tr = (b.tr !== undefined) ? b.tr : (root.topBar ? 0 : r);
+            const br = (b.br !== undefined) ? b.br : (root.topBar ? r : 0);
+            const bl = (b.bl !== undefined) ? b.bl : (root.topBar ? r : 0);
+            return Qt.vector4d(tl, tr, br, bl);
+        }
+        return root.radii;
+    }
+
+    // The shader's array uniforms are fixed at 64 slots; pad with empties so
+    // the size always matches bodyCount <= 64.
+    readonly property var shapeArr: {
+        const out = [];
+        const list = root.bodyItems;
+        for (let i = 0; i < 64; i++) {
+            const b = i < root.bodyCount ? list[i] : null;
+            if (!b || b.on === false || b.w <= 0 || b.h <= 0)
+                out.push(Qt.vector4d(0, 0, 0, 0));
+            else
+                out.push(Qt.vector4d(b.x + b.w / 2, b.y + b.h / 2, b.w / 2, b.h / 2));
+        }
+        return out;
+    }
+    readonly property var radiiArr: {
+        const out = [];
+        const list = root.bodyItems;
+        for (let i = 0; i < 64; i++) {
+            const b = (i < root.bodyCount && typeof list[i] === "object") ? list[i] : null;
+            out.push(b ? root.radiiOf(b) : Qt.vector4d(0, 0, 0, 0));
+        }
+        return out;
+    }
+
     // The interior nothing reaches, so a moving swell redraws the edges only.
     readonly property vector4d quietRect: {
         const a = ShellFrame.amplitudes;
@@ -34,7 +89,7 @@ Item {
         const edge = ShellFrame.band + wave + ShellFrame.fuse + ShellFrame.radius + ShellFrame.borderWidth + 8;
         let l = edge, t = edge, r = root.width - edge, b = root.height - edge;
         const m = ShellFrame.fuse + ShellFrame.bodySwell * 2.5 + 16;
-        for (const s of [root.bodies.pill, root.bodies.left, root.bodies.right]) {
+        for (const s of root.bodyItems) {
             if (!s || !s.on) continue;
             const x0 = s.x - m, y0 = s.y - m, x1 = s.x + s.w + m, y1 = s.y + s.h + m;
             if (x1 <= l || x0 >= r || y1 <= t || y0 >= b) continue;
@@ -59,12 +114,9 @@ Item {
         property color tint: ShellFrame.fill
         property vector4d edgeWave: ShellFrame.amplitudes
         property vector4d waveClock: Qt.vector4d(ShellFrame.phase, 0, 0, 0)
-        property vector4d shape0: root.shapeOf(root.bodies.pill)
-        property vector4d radii0: root.radii
-        property vector4d shape1: root.shapeOf(root.bodies.left)
-        property vector4d radii1: root.radii
-        property vector4d shape2: root.shapeOf(root.bodies.right)
-        property vector4d radii2: root.radii
+        property int bodyCount: root.bodyCount
+        property var shape: root.shapeArr
+        property var radii: root.radiiArr
         property vector4d fuse: Qt.vector4d(ShellFrame.fuse, 0, 0, 0)
         property vector4d light: Qt.vector4d(ShellFrame.level, 0.45, 2, 0)
         property color ink: Theme.accent
