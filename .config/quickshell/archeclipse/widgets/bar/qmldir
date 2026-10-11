@@ -1,15 +1,20 @@
 module qs.widgets.bar
 
 Bandwidth 1.0 Bandwidth.qml
+BandwidthText 1.0 BandwidthText.qml
 Bar 1.0 Bar.qml
+BarEditOverlay 1.0 BarEditOverlay.qml
 BarHoverWindow 1.0 BarHoverWindow.qml
 Battery 1.0 Battery.qml
 Brightness 1.0 Brightness.qml
 Clock 1.0 Clock.qml
 ControlPanelButton 1.0 ControlPanelButton.qml
 DefaultBar 1.0 DefaultBar.qml
+DetachedBar 1.0 DetachedBar.qml
+DetachedPill 1.0 DetachedPill.qml
 HotZone 1.0 HotZone.qml
 KeyboardLayoutWidget 1.0 KeyboardLayoutWidget.qml
+MediaCell 1.0 MediaCell.qml
 MprisWidget 1.0 MprisWidget.qml
 NetworkWidget 1.0 NetworkWidget.qml
 ResourceMonitor 1.0 ResourceMonitor.qml

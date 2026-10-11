@@ -15,6 +15,9 @@ Rectangle {
     // surface (e.g. the DefaultBar center pill) so the revealed date never
     // paints a mismatched block behind it.
     property string hoverColor: Theme.surfaceHover
+    // Opt-out for hosts that drive their own hover expansion (the pill bar
+    // reveals a whole row on hover) — the date reveal would overlap it.
+    property bool revealDate: true
     color: hover.hovered ? hoverColor : "transparent"
 
     property string timeText: Settings.fmt(new Date(), Settings.dateFormat)
@@ -47,7 +50,7 @@ Rectangle {
         Item {
             id: dateClip
             anchors.verticalCenter: parent.verticalCenter
-            width: hover.hovered ? dateText.implicitWidth : 0
+            width: (root.revealDate && hover.hovered) ? dateText.implicitWidth : 0
             height: dateText.implicitHeight
             clip: true
             visible: width > 0

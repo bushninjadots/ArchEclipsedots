@@ -1,4 +1,6 @@
 singleton BarState 1.0 BarState.qml
+singleton BarEditState 1.0 BarEditState.qml
+singleton BarWidgets 1.0 BarWidgets.qml
 singleton WorkspaceIcons 1.0 WorkspaceIcons.qml
 singleton SysInfo 1.0 SysInfo.qml
 singleton VolumeWatcher 1.0 VolumeWatcher.qml

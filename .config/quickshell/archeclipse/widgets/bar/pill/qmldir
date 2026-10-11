@@ -1,0 +1,6 @@
+module qs.widgets.bar.pill
+PillBar 1.0 PillBar.qml
+PillChip 1.0 PillChip.qml
+PillDots 1.0 PillDots.qml
+PillMusic 1.0 PillMusic.qml
+PillSpectrum 1.0 PillSpectrum.qml

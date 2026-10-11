@@ -7,6 +7,7 @@ import qs.theme
 import qs.services
 import qs.widgets.bar
 import qs.widgets.bar.islands
+import qs.widgets.bar.pill
 import qs.widgets.launcher
 import qs.widgets.notifications
 import qs.widgets.shared
@@ -89,9 +90,41 @@ PanelWindow {
         Region {
             item: rightHot
         }
+        // Detached islands: each floating pill is its own input region, so the
+        // desktop between them stays clickable (the surface itself is not).
+        Region {
+            item: (stripRoot.detachedBar && stripRoot.detachedBar.pillLeft.visible) ? stripRoot.detachedBar.pillLeft : null
+        }
+        Region {
+            item: (stripRoot.detachedBar && stripRoot.detachedBar.pillCenter.visible) ? stripRoot.detachedBar.pillCenter : null
+        }
+        Region {
+            item: (stripRoot.detachedBar && stripRoot.detachedBar.pillRight.visible) ? stripRoot.detachedBar.pillRight : null
+        }
+        Region {
+            item: (stripRoot.detachedBar && stripRoot.detachedBar.pillBottom.visible) ? stripRoot.detachedBar.pillBottom : null
+        }
+        // Layout editor (Task 7): while editing, the whole surface is
+        // interactive so dashed zones, the tray and drags all receive input.
+        Region {
+            item: editOverlay.visible ? editOverlay : null
+        }
     }
 
     readonly property int barHeight: 32
+    // Pill bar style (Settings.barStyle === "pill"): the main pill becomes a
+    // floating island — all four corners rounded and inset from the bar edge.
+    readonly property bool pillStyle: Settings.barStyle === "pill"
+    // Detached islands (islands-only option): the sections break apart into
+    // one floating pill each (DetachedBar) and the main pill stops showing the
+    // default face. It still surfaces transient islands (search/control/…) so
+    // popups keep working.
+    readonly property bool detached: Settings.barStyle === "islands" && Settings.barIslandsDetached
+    // Transient (non-default) island states still use the centred main pill.
+    readonly property bool mainTransient: BarState.state !== "default" && BarState.state !== "recording"
+    // The face the edit overlay reads geometry from: the detached pills when
+    // detached, else the attached default face (currentPageLoader.item).
+    readonly property var layoutSurface: root.detached ? stripRoot.detachedBar : currentPageLoader.item
     // Snap the layer surface to content (no Behavior here — animating the
     // PanelWindow renegotiates with the compositor every frame and stutters).
     // Inner content (pill width transition + island expand transition) carries motion.
@@ -111,6 +144,8 @@ PanelWindow {
     readonly property bool roomCheckLive: BarState.hyprlandTick >= 0
 
     readonly property bool barVisible: {
+        if (BarEditState.active)
+            return true;
         if (BarState.state === "search" || BarState.state === "control" || BarState.state === "overview" || BarState.leftOpen || BarState.rightOpen)
             return true;
         const override = (BarState.barShown || {})[monitorName];
@@ -360,7 +395,11 @@ PanelWindow {
             id: pill
             // In frame mode the surface stays up for the band, so the pill
             // conceals itself; otherwise the window's own visibility does it.
-            visible: !ShellFrame.enabled || root.barVisible
+            // Detached: the default face lives in DetachedBar, so the main
+            // pill only appears for transient islands (search/control/…).
+            visible: root.detached
+                ? (root.barVisible && root.mainTransient)
+                : (!ShellFrame.enabled || root.barVisible)
             // Pushed-center: side pills dock to the screen edges and the
             // main pill centers in the remaining space — never fixed-center,
             // never overlapping. `x` itself carries NO Behavior: it tracks
@@ -384,7 +423,7 @@ PanelWindow {
                 return leftPush + Math.max(0, (rightStart - leftPush - pill.width) / 2);
             }
             x: pillX
-            y: Settings.barOrientation ? 0 : parent.height - height
+            y: Settings.barOrientation ? (root.pillStyle ? 6 : 0) : parent.height - height - (root.pillStyle ? 6 : 0)
             // Grows with content: 32 for normal states, tall when the
             // search island (input + launcher) is shown.
             height: Math.max(root.barHeight, stack.height + 10)
@@ -411,10 +450,10 @@ PanelWindow {
                     type: Anim.DefaultSpatial
                 }
             }
-            bottomRightRadius: Settings.barOrientation ? Theme.radius : 0
-            bottomLeftRadius: Settings.barOrientation ? Theme.radius : 0
-            topRightRadius: Settings.barOrientation ? 0 : Theme.radius
-            topLeftRadius: Settings.barOrientation ? 0 : Theme.radius
+            bottomRightRadius: (Settings.barOrientation || root.pillStyle) ? Theme.radius : 0
+            bottomLeftRadius: (Settings.barOrientation || root.pillStyle) ? Theme.radius : 0
+            topRightRadius: (!Settings.barOrientation || root.pillStyle) ? Theme.radius : 0
+            topLeftRadius: (!Settings.barOrientation || root.pillStyle) ? Theme.radius : 0
             // In frame mode FrameField paints this body as part of the frame.
             color: ShellFrame.enabled ? "transparent" : Theme.surface
 
@@ -435,6 +474,13 @@ PanelWindow {
             // spilling past it. Settled content fits with 5px to spare,
             // so this is a no-op outside transitions.
             clip: true
+
+            // Music-reactive spectrum behind the content — rises from the
+            // pill's inner edge while a track plays (see PillSpectrum.qml).
+            // Pill-only and a no-op unless playback is live.
+            PillSpectrum {
+                anchors.fill: parent
+            }
 
             // ---- state stack (one beat) ----
             // Content swaps the same frame the state resolves; the pill
@@ -483,7 +529,7 @@ PanelWindow {
                 // placed there silently never executes — root-caused via
                 // probe 2026-09-24. All swap logic lives in onCurrentChanged
                 // + bindings below.)
-                property string displayed: BarState.state
+                property string displayed: BarEditState.active ? "default" : BarState.state
 
                 // The live item for a shown state (transient islands via
                 // currentPageLoader).
@@ -573,6 +619,21 @@ PanelWindow {
                 }
             }
         }
+
+        // ---- detached islands (Task 8) ----
+        // One floating pill per section, rendered only while detached. The
+        // edit overlay reads its geometry instead of the attached face's.
+        Loader {
+            id: detachedLoader
+            anchors.fill: parent
+            active: root.detached
+            sourceComponent: detachedComponent
+        }
+        Component {
+            id: detachedComponent
+            DetachedBar {}
+        }
+        readonly property var detachedBar: detachedLoader.item
 
         Component {
             id: leftPage
@@ -839,6 +900,14 @@ PanelWindow {
             size: Settings.rightPanelHotZoneSize
             enabled: Settings.rightPanelHotZone
             panelLock: Settings.rightPanelLock
+        }
+
+        // ---- layout editor (Task 7) ----
+        BarEditOverlay {
+            id: editOverlay
+            anchors.fill: parent
+            // Detached mode publishes geometry from the floating pills.
+            source: root.layoutSurface
         }
     }
 

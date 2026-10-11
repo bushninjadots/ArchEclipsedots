@@ -157,6 +157,30 @@ Item {
                                 spacing: 8
                                 Label {
                                     font.pixelSize: Theme.fontSize
+                                    text: "Bar Style"
+                                    color: Theme.fg
+                                    Layout.fillWidth: true
+                                }
+                                AppComboBox {
+                                    model: ["Islands", "Pill"]
+                                    currentIndex: ["islands", "pill"].indexOf(Settings.barStyle)
+                                    onActivated: Settings.barStyle = ["islands", "pill"][index]
+                                    Layout.preferredWidth: 160
+                                }
+                            }
+                            Label {
+                                width: parent.width
+                                text: "General"
+                                font.pixelSize: Theme.fontSize
+                                font.bold: true
+                                color: Theme.accent
+                                topPadding: 4
+                            }
+                            RowLayout {
+                                width: parent.width
+                                spacing: 8
+                                Label {
+                                    font.pixelSize: Theme.fontSize
                                     text: "Orientation"
                                     color: Theme.fg
                                     Layout.fillWidth: true
@@ -253,6 +277,114 @@ Item {
                                     onActivated: Settings.visualizerStyle = ["bars", "wave", "off"][index]
                                     Layout.preferredWidth: 160
                                 }
+                            }
+                            // Per-style layout sections — only the active
+                            // style's controls are shown.
+                            Label {
+                                width: parent.width
+                                visible: Settings.barStyle === "islands"
+                                text: "Islands"
+                                font.pixelSize: Theme.fontSize
+                                font.bold: true
+                                color: Theme.accent
+                                topPadding: 6
+                            }
+                            RowLayout {
+                                width: parent.width
+                                spacing: 8
+                                visible: Settings.barStyle === "islands"
+                                Label {
+                                    font.pixelSize: Theme.fontSize
+                                    text: "Detached Sections"
+                                    color: Theme.fg
+                                    Layout.fillWidth: true
+                                }
+                                AppCheckBox {
+                                    checked: Settings.barIslandsDetached
+                                    onToggled: Settings.updateSetting("bar.islands.detached", checked)
+                                }
+                            }
+                            RowLayout {
+                                width: parent.width
+                                spacing: 8
+                                visible: Settings.barStyle === "islands"
+                                Label {
+                                    font.pixelSize: Theme.fontSize
+                                    text: "Layout"
+                                    color: Theme.fg
+                                    Layout.fillWidth: true
+                                }
+                                Rectangle {
+                                    Layout.preferredWidth: 160
+                                    implicitHeight: 26
+                                    radius: Theme.radius
+                                    color: editIslandsMouse.containsMouse ? Theme.surfaceHover : Theme.surfaceActive
+                                    border.color: Theme.accent
+                                    border.width: 1
+                                    Label {
+                                        anchors.centerIn: parent
+                                        text: "Edit layout"
+                                        color: Theme.accent
+                                        font.pixelSize: Theme.fontSize
+                                    }
+                                    MouseArea {
+                                        id: editIslandsMouse
+                                        anchors.fill: parent
+                                        hoverEnabled: true
+                                        cursorShape: Qt.PointingHandCursor
+                                        onClicked: BarEditState.begin("islands")
+                                    }
+                                }
+                            }
+                            Label {
+                                width: parent.width
+                                visible: Settings.barStyle === "pill"
+                                text: "Pill"
+                                font.pixelSize: Theme.fontSize
+                                font.bold: true
+                                color: Theme.accent
+                                topPadding: 6
+                            }
+                            RowLayout {
+                                width: parent.width
+                                spacing: 8
+                                visible: Settings.barStyle === "pill"
+                                Label {
+                                    font.pixelSize: Theme.fontSize
+                                    text: "Layout"
+                                    color: Theme.fg
+                                    Layout.fillWidth: true
+                                }
+                                Rectangle {
+                                    Layout.preferredWidth: 160
+                                    implicitHeight: 26
+                                    radius: Theme.radius
+                                    color: editPillMouse.containsMouse ? Theme.surfaceHover : Theme.surfaceActive
+                                    border.color: Theme.accent
+                                    border.width: 1
+                                    Label {
+                                        anchors.centerIn: parent
+                                        text: "Edit layout"
+                                        color: Theme.accent
+                                        font.pixelSize: Theme.fontSize
+                                    }
+                                    MouseArea {
+                                        id: editPillMouse
+                                        anchors.fill: parent
+                                        hoverEnabled: true
+                                        cursorShape: Qt.PointingHandCursor
+                                        onClicked: BarEditState.begin("pill")
+                                    }
+                                }
+                            }
+
+                            Label {
+                                width: parent.width
+                                text: "Frame"
+                                font.pixelSize: Theme.fontSize
+                                font.bold: true
+                                color: Theme.accent
+                                topPadding: 6
                             }
                             // Shell frame (iNiR Iris surround): the band round
                             // the screen the pill and panels melt into.

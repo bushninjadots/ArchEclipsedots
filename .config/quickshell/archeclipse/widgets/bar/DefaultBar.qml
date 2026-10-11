@@ -2,74 +2,97 @@ import QtQuick
 import QtQuick.Controls
 import QtQuick.Layouts
 import Quickshell
-import Quickshell.Services.Mpris
 import qs.theme
 import qs.services
-import qs.widgets.bar
-import qs.widgets.shared
-import qs.widgets.weather
+import qs.widgets.bar.pill
 
-// Center section (ex-Information) is inlined here directly:
-// weather + resources on the left; center rectangle with
-// bandwidth | control panel | clock; player pill first on the right,
-// then battery/brightness/volume/tray.
-// Top row holds all content; the workspace strip sits at the very bottom,
-// stretched across the full bar width.
+// Islands bar face (Settings.barStyle !== "pill").
+//
+// The visual chrome is unchanged: a coloured centre pill (bandwidth |
+// control | clock), fixed-width left/right zones so the pill keeps symmetric
+// clearance, and a full-width workspace strip at the bottom. What changed is
+// that each zone's membership and order now come from the BarWidgets registry
+// (Settings.barLayoutIslands) instead of being hard-coded.
 Column {
     id: root
     spacing: 4
 
-    // media player state (ex-Information firstPlayable logic) — visibility
-    // gate only now: title/EQ/transport live in MprisWidget.qml
-    readonly property var firstPlayable: {
-        Mpris.players.values;   // reactive dep
-        for (const p of Mpris.players.values) {
-            // touch reactive props so title / play-state changes re-fire
-            const _t = p.trackTitle;
-            const _s = p.playbackState;
-            if ((_t ?? "").trim() !== "" || _s === MprisPlaybackState.Playing)
-                return p;
+    // ---- edit-mode geometry (Task 7) ----
+    // The overlay walks our live Loaders and maps them into window (scene)
+    // coordinates so it can hit-test drags without owning the widget tree.
+    function _collectCells(rep, ids, zone, out) {
+        for (let i = 0; i < rep.count; i++) {
+            const d = rep.itemAt(i);
+            if (!d)
+                continue;
+            // The delegate may be a plain Loader (left/right/bottom) or an
+            // Item wrapper whose child is a Loader (center's equal-width
+            // cells). Resolve to that Loader and use the delegate's geometry.
+            let ldr = d;
+            if (typeof d.item === "undefined") {
+                ldr = null;
+                const kids = d.children;
+                for (let k = 0; k < kids.length; k++) {
+                    if (kids[k] && typeof kids[k].item !== "undefined") {
+                        ldr = kids[k];
+                        break;
+                    }
+                }
+            }
+            if (!ldr || !ldr.item)
+                continue;
+            const p = d.mapToItem(null, 0, 0);
+            out.push({ id: ids[i], zone: zone, x: p.x, y: p.y, w: d.width, h: d.height });
         }
-        return null;
+    }
+    function _zoneRect(item, zone) {
+        const p = item.mapToItem(null, 0, 0);
+        return { zone: zone, x: p.x, y: p.y, w: item.width, h: item.height };
+    }
+    function editCells() {
+        if (Settings.barStyle === "pill")
+            return pillLoader.item && pillLoader.item.editCells ? pillLoader.item.editCells() : [];
+        const out = [];
+        _collectCells(centerRep, root.centerIds, "center", out);
+        _collectCells(leftRep, root.leftIds, "left", out);
+        _collectCells(rightRep, root.rightIds, "right", out);
+        _collectCells(bottomRep, root.bottomIds, "bottom", out);
+        return out;
+    }
+    function editZones() {
+        if (Settings.barStyle === "pill")
+            return pillLoader.item && pillLoader.item.editZones ? pillLoader.item.editZones() : [];
+        return [
+            _zoneRect(leftZone, "left"),
+            _zoneRect(centerPill, "center"),
+            _zoneRect(rightZone, "right"),
+            _zoneRect(bottomRow, "bottom")
+        ];
     }
 
-    // Fixed-width dynamic speed: always 4 chars (3-char numeric + 1-char
-    // unit that scales B/K/M/G), so the bandwidth cell never shifts width
-    // as speeds change. Monospace font keeps every string the same width.
-    function fmtSpeed(bps) {
-        if (bps < 1000)
-            return String(Math.round(bps)).padStart(3, " ") + "B";
-        const kb = bps / 1024;
-        if (kb < 10)
-            return kb.toFixed(1) + "K";
-        if (kb < 1000)
-            return String(Math.round(kb)).padStart(3, " ") + "K";
-        const mb = kb / 1024;
-        if (mb < 10)
-            return mb.toFixed(1) + "M";
-        if (mb < 1000)
-            return String(Math.round(mb)).padStart(3, " ") + "M";
-        const gb = mb / 1024;
-        if (gb < 10)
-            return gb.toFixed(1) + "G";
-        return String(Math.round(gb)).padStart(3, " ") + "G";
-    }
+    readonly property var leftIds: BarWidgets.layout("islands", "left")
+    readonly property var centerIds: BarWidgets.layout("islands", "center")
+    readonly property var rightIds: BarWidgets.layout("islands", "right")
+    readonly property var bottomIds: BarWidgets.layout("islands", "bottom")
 
     Item {
         id: topRow
-        // Both side sections count as wide as the wider one, so the
-        // centered pill always keeps at least Theme.spacing clearance
-        // from either side instead of clipping into the wider section.
-        // The weather button stretches to absorb any slack on the left.
-        readonly property real leftMinWidth: weatherButton.implicitWidth + Theme.spacing + resourceMonitor.implicitWidth
+        visible: Settings.barStyle !== "pill"
+        // Both side sections count as wide as the wider one, so the centered
+        // pill always keeps at least Theme.spacing clearance from either side
+        // instead of clipping into the wider section. The weather button
+        // stretches to absorb any slack on the left.
+        readonly property real leftMinWidth: leftRow.implicitWidth
         readonly property real rightMinWidth: utilities.implicitWidth
         readonly property real sideWidth: Math.max(leftMinWidth, rightMinWidth)
         implicitWidth: 2 * sideWidth + centerPill.width + Theme.spacing * 2
         width: implicitWidth
         height: Theme.barContentHeight
 
-        // Center rectangle — bandwidth on the left, control panel
-        // button dead-center, clock on the right.
+        // Center rectangle — bandwidth on the left, control panel button
+        // dead-center, clock on the right. The model drives the children; the
+        // two end cells are equalised so the control button stays dead-center
+        // relative to the whole bar even when the end widgets differ in width.
         Rectangle {
             id: centerPill
             anchors.horizontalCenter: parent.horizontalCenter
@@ -84,70 +107,50 @@ Column {
                 anchors.centerIn: parent
                 spacing: Theme.spacing
                 height: parent.height
-                // Equal-width side cells so the control button stays
-                // dead-center relative to the whole bar even when
-                // bandwidth and clock text widths differ.
-                readonly property real sideCellWidth: Math.max(bandwidthRow.implicitWidth, clockItem.width)
-
-                // bandwidth compact (up/down from SysInfo loop) — left
-                Item {
-                    width: centerRow.sideCellWidth
-                    height: parent.height
-                    Row {
-                        id: bandwidthRow
-                        spacing: 4
-                        anchors.centerIn: parent
-                        Text {
-                            anchors.verticalCenter: parent.verticalCenter
-                            text: root.fmtSpeed(SysInfo.bandwidth[0] * 1024)
-                            color: Theme.fg
-                            font.family: Theme.fontFamily
-                            font.pixelSize: Theme.fontSize
-                        }
-                        Text {
-                            anchors.verticalCenter: parent.verticalCenter
-                            text: ""
-                            color: Theme.muted
-                            font.family: Theme.fontFamily
-                            font.pixelSize: Theme.fontSize - 2
-                        }
-                        Text {
-                            anchors.verticalCenter: parent.verticalCenter
-                            text: root.fmtSpeed(SysInfo.bandwidth[1] * 1024)
-                            color: Theme.fg
-                            font.family: Theme.fontFamily
-                            font.pixelSize: Theme.fontSize
-                        }
-                        Text {
-                            anchors.verticalCenter: parent.verticalCenter
-                            text: ""
-                            color: Theme.muted
-                            font.family: Theme.fontFamily
-                            font.pixelSize: Theme.fontSize - 2
-                        }
-                    }
+                // Equal-width side cells so the control button stays dead-
+                // center relative to the whole bar even when the end widgets
+                // (bandwidth, clock) differ in width. Each delegate is an Item
+                // wrapper that keeps its widget at its natural size and pads
+                // the two end cells out to the shared width — a bare Loader
+                // with an explicit width would instead stretch (or zero) the
+                // widget, which breaks widgets that only declare `width`.
+                readonly property real sideCellWidth: {
+                    const n = root.centerIds.length;
+                    if (n < 2)
+                        return 0;
+                    const f = centerRep.itemAt(0);
+                    const l = centerRep.itemAt(n - 1);
+                    return Math.max(f ? f.naturalWidth : 0, l ? l.naturalWidth : 0);
                 }
 
-                // control panel toggle — center
-                ControlPanelButton {
-                    id: centerButton
-                    anchors.verticalCenter: parent.verticalCenter
-                }
+                Repeater {
+                    id: centerRep
+                    model: root.centerIds
+                    delegate: Item {
+                        id: cell
+                        required property int index
+                        required property string modelData
 
-                // clock — right, same cell width as bandwidth side
-                Item {
-                    width: centerRow.sideCellWidth
-                    height: parent.height
-                    Clock {
-                        id: clockItem
-                        anchors.centerIn: parent
-                        hoverColor: "transparent"
+                        readonly property bool isEnd: root.centerIds.length >= 2
+                            && (index === 0 || index === root.centerIds.length - 1)
+                        // The Loader auto-sizes to the widget's natural size
+                        // (its `width` when the widget declares no
+                        // `implicitWidth`).
+                        readonly property real naturalWidth: widget.implicitWidth
+                        width: isEnd ? centerRow.sideCellWidth : naturalWidth
+                        height: parent.height
+
+                        Loader {
+                            id: widget
+                            anchors.centerIn: parent
+                            sourceComponent: BarWidgets.component(cell.modelData, "islands", "center")
+                        }
                     }
                 }
             }
         }
 
-        // left zone — fixed sideWidth; weather stretches into the slack
+        // left zone — fixed sideWidth; children stretch into the slack
         Item {
             id: leftZone
             anchors.left: parent.left
@@ -156,22 +159,24 @@ Column {
             height: parent.height
 
             RowLayout {
+                id: leftRow
                 anchors.fill: parent
                 spacing: Theme.spacing
 
-                ResourceMonitor {
-                    id: resourceMonitor
-                    Layout.fillWidth: true
-                }
-                WeatherButton {
-                    id: weatherButton
-                    Layout.fillWidth: true
+                Repeater {
+                    id: leftRep
+                    model: root.leftIds
+                    delegate: Loader {
+                        required property string modelData
+                        sourceComponent: BarWidgets.component(modelData, "islands", "left")
+                        Layout.fillWidth: true
+                    }
                 }
             }
         }
 
-        // right zone — fixed sideWidth like the left, content right-aligned
-        // so the center pill keeps symmetric spacing on both sides
+        // right zone — fixed sideWidth like the left, content right-aligned so
+        // the center pill keeps symmetric spacing on both sides
         Item {
             id: rightZone
             anchors.right: parent.right
@@ -186,91 +191,46 @@ Column {
                 anchors.right: parent.right
                 anchors.verticalCenter: parent.verticalCenter
 
-                // media pill (ryoku-style MPRIS widget: transport buttons,
-                // marquee title, animated EQ - ported standalone into
-                // MprisWidget.qml) - first on the right
-                Rectangle {
-                    id: playerPill
-                    visible: root.firstPlayable !== null
-                    width: visible ? mprisWidget.implicitWidth + 16 : 0
-                    height: Theme.barContentHeight
-                    radius: Theme.radius
-                    color: "transparent"
-                    anchors.verticalCenter: parent.verticalCenter
-
-                    // Smooth width morph (visualizer toggle, track changes) on
-                    // the shell's shared spatial motion token.
-                    Behavior on width {
-                        Anim {
-                            type: Anim.DefaultSpatial
-                        }
-                    }
-
-                    Behavior on color {
-                        ColorAnimation {
-                            duration: 150
-                        }
-                    }
-
-                    // Visualizer mode is user-toggled (right click on the
-                    // pill, persisted), not hover-driven.
-                    MprisWidget {
-                        id: mprisWidget
-                        anchors.centerIn: parent
-                        fullMode: Settings.mprisVisualizer
-                    }
-
-                    // No hover behavior by design: hovering changes nothing
-                    // visually and opens nothing. The MprisWidget's inner
-                    // MouseAreas take the transport glyphs' left clicks; this
-                    // wrapper catches left click (open/close the now-playing
-                    // island), right click (toggle visualizer mode),
-                    // middle-click (toggle play/pause) and the wheel (skip).
-                    MouseArea {
-                        anchors.fill: parent
-                        acceptedButtons: Qt.LeftButton | Qt.RightButton | Qt.MiddleButton
-                        hoverEnabled: true
-                        cursorShape: Qt.PointingHandCursor
-                        onClicked: mouse => {
-                            if (!root.firstPlayable)
-                                return;
-                            if (mouse.button === Qt.RightButton) {
-                                Settings.mprisVisualizer = !Settings.mprisVisualizer;
-                                Settings.persist();
-                                return;
-                            }
-                            if (mouse.button === Qt.MiddleButton) {
-                                root.firstPlayable.togglePlaying();
-                                return;
-                            }
-                            if (BarState.state === "player")
-                                BarState.deactivate("player");
-                            else
-                                BarState.activate("player");
-                        }
-                        onWheel: wheel => {
-                            const p = root.firstPlayable;
-                            if (!p || wheel.angleDelta.y === 0)
-                                return;
-                            if (wheel.angleDelta.y > 0 && p.canGoNext)
-                                p.next();
-                            else if (wheel.angleDelta.y < 0 && p.canGoPrevious)
-                                p.previous();
-                            wheel.accepted = true;
-                        }
+                Repeater {
+                    id: rightRep
+                    model: root.rightIds
+                    delegate: Loader {
+                        required property string modelData
+                        sourceComponent: BarWidgets.component(modelData, "islands", "right")
+                        anchors.verticalCenter: parent.verticalCenter
                     }
                 }
-
-                Battery {}
-                Brightness {}
-                Volume {}
-                Tray {}
             }
         }
     } // topRow
 
-    // bottom workspace strip — full width of the bar content
-    Workspaces {
+    // Pill bar style face (Settings.barStyle === "pill"). The outer pill in
+    // Bar.qml stays the surface; this is only the morphing content face.
+    Loader {
+        id: pillLoader
+        active: Settings.barStyle === "pill"
+        sourceComponent: pillComponent
+    }
+    Component {
+        id: pillComponent
+        PillBar {}
+    }
+
+    // bottom zone — full width of the bar content
+    Row {
+        id: bottomRow
+        visible: Settings.barStyle !== "pill"
         width: topRow.implicitWidth
+        spacing: Theme.spacing
+
+        Repeater {
+            id: bottomRep
+            model: root.bottomIds
+            delegate: Loader {
+                required property string modelData
+                sourceComponent: BarWidgets.component(modelData, "islands", "bottom")
+                width: bottomRow.width
+            }
+        }
     }
 }

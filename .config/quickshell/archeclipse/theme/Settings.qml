@@ -19,6 +19,47 @@ Singleton {
     property real revealOutPressure: 1000
     property bool mprisVisualizer: false
     property bool barOrientation: true        // true = top
+    property string barStyle: "islands"      // "islands" | "pill"
+
+    // --- bar layout model (per-style, user-rearrangeable) ---
+    // Zone membership/order is data, not code. A widget id may appear once
+    // per zone; unknown/disallowed ids are dropped at render time by
+    // BarWidgets.allowed(). Defaults reproduce the pre-model arrangement.
+    readonly property var defaultBarLayoutIslands: ({
+        left: ["resources", "weather"],
+        center: ["bandwidth", "control", "clock"],
+        right: ["media", "battery", "brightness", "volume", "tray"],
+        bottom: ["workspaces"]
+    })
+    readonly property var defaultBarLayoutPill: ({
+        rest: ["workspaces", "clock", "chip"],
+        core: ["media", "bandwidth", "control", "clock"],
+        detail: ["weather", "resources", "battery", "brightness", "volume", "network", "tray"]
+    })
+    readonly property var defaultBarIslandsPos: ({
+        left: ({
+            x: -1,
+            y: -1
+        }),
+        center: ({
+            x: -1,
+            y: -1
+        }),
+        right: ({
+            x: -1,
+            y: -1
+        }),
+        bottom: ({
+            x: -1,
+            y: -1
+        })
+    })
+    property var barLayoutIslands: root.defaultBarLayoutIslands
+    property var barLayoutPill: root.defaultBarLayoutPill
+    // Islands-only: break the bar into one floating pill per section.
+    property bool barIslandsDetached: false
+    // Per-section absolute top-left in logical px (-1 = use the default anchor).
+    property var barIslandsPos: root.defaultBarIslandsPos
 
     // Navbar MPRIS widget style (persisted): false = compact player
     // (transport + marquee + EQ), true = visualizer-only (vinyl + cava
@@ -339,6 +380,44 @@ Singleton {
         return `${p(d.getHours())}:${p(d.getMinutes())}`;
     }
 
+    // Layout-decode helpers. Tolerant of a hand-edited / stale settings.json:
+    // keep only known zones and non-empty string ids (deduped); a missing or
+    // malformed zone falls back to its code default. Unknown ids are left in
+    // place for BarWidgets.allowed() to drop at render time.
+    function _dupFreeStrings(v) {
+        const out = [];
+        if (Array.isArray(v)) {
+            for (const x of v) {
+                if (typeof x === "string" && x.length > 0 && out.indexOf(x) === -1)
+                    out.push(x);
+            }
+        }
+        return out;
+    }
+
+    function _adoptLayout(raw, defaults) {
+        const out = {};
+        for (const zone in defaults) {
+            const v = (raw && typeof raw === "object" && Array.isArray(raw[zone])) ? raw[zone] : defaults[zone];
+            out[zone] = root._dupFreeStrings(v);
+        }
+        return out;
+    }
+
+    function _adoptPos(raw, defaults) {
+        const out = {};
+        for (const section in defaults) {
+            const p = (raw && typeof raw === "object" && raw[section]) ? raw[section] : null;
+            const x = Number(p?.x);
+            const y = Number(p?.y);
+            out[section] = {
+                x: Number.isFinite(x) ? Math.round(x) : -1,
+                y: Number.isFinite(y) ? Math.round(y) : -1
+            };
+        }
+        return out;
+    }
+
     // Update a setting by dotted path and persist to settings.json
     function updateSetting(path, value) {
         // Dotted paths that map to flat QS properties (Singleton cannot
@@ -353,6 +432,11 @@ Singleton {
             "bar.revealInPressure": "revealInPressure",
             "bar.revealOutPressure": "revealOutPressure",
             "bar.orientation": "barOrientation",
+            "bar.style": "barStyle",
+            "bar.layout.islands": "barLayoutIslands",
+            "bar.layout.pill": "barLayoutPill",
+            "bar.islands.detached": "barIslandsDetached",
+            "bar.islands.pos": "barIslandsPos",
             "mpris.visualizer": "mprisVisualizer",
             "visualizer.style": "visualizerStyle",
             "frame.enable": "shellFrame",
@@ -464,6 +548,9 @@ Singleton {
                     orientation: {
                         value: root.barOrientation
                     },
+                    style: {
+                        value: root.barStyle
+                    },
                     blur: {
                         value: root.barBlur
                     },
@@ -472,6 +559,14 @@ Singleton {
                     },
                     blurPasses: {
                         value: root.barBlurPasses
+                    },
+                    layout: {
+                        islands: root.barLayoutIslands,
+                        pill: root.barLayoutPill
+                    },
+                    islands: {
+                        detached: root.barIslandsDetached,
+                        pos: root.barIslandsPos
                     }
                 },
                 mpris: {
@@ -687,6 +782,15 @@ Singleton {
                 root.revealInPressure = s.bar?.revealInPressure?.value ?? s.bar?.revealPressure?.value ?? 250;
                 root.revealOutPressure = s.bar?.revealOutPressure?.value ?? s.bar?.revealPressure?.value ?? 1000;
                 root.barOrientation = s.bar?.orientation?.value ?? true;
+                const _bs = s.bar?.style?.value;
+                root.barStyle = ["islands", "pill"].includes(_bs) ? _bs : "islands";
+
+                // Bar layout model + detached islands state.
+                root.barLayoutIslands = root._adoptLayout(s.bar?.layout?.islands, root.defaultBarLayoutIslands);
+                root.barLayoutPill = root._adoptLayout(s.bar?.layout?.pill, root.defaultBarLayoutPill);
+                const _bid = s.bar?.islands?.detached;
+                root.barIslandsDetached = ((typeof _bid === "object" && _bid !== null ? _bid.value : _bid) ?? false);
+                root.barIslandsPos = root._adoptPos(s.bar?.islands?.pos, root.defaultBarIslandsPos);
                 root.mprisVisualizer = s.mpris?.visualizer?.value ?? false;
 
                 // iNiR visualizer import: validate the enum so a stale or
