@@ -214,15 +214,23 @@ Singleton {
     }
 
     function layoutLinear(style, edge) {
-        if (edge === "top") {
-            const arr = Settings.barLayoutTop;
-            return Array.isArray(arr) ? arr.slice() : [];
+        const arr = edge === "top"
+            ? (Array.isArray(Settings.barLayoutTop) ? Settings.barLayoutTop : [])
+            : edge === "bottom"
+                ? (Array.isArray(Settings.barLayoutBottom) ? Settings.barLayoutBottom : [])
+                : [];
+        // The pill migration concatenates rest+core+detail, so an id can
+        // appear twice (e.g. clock in rest and core). Collapse keep-first so
+        // every render/editing consumer sees a clean sequence.
+        const out = [];
+        for (const id of arr) {
+            if (typeof id !== "string")
+                continue;
+            if (out.indexOf(id) !== -1)
+                continue;
+            out.push(id);
         }
-        if (edge === "bottom") {
-            const arr = Settings.barLayoutBottom;
-            return Array.isArray(arr) ? arr.slice() : [];
-        }
-        return [];
+        return out;
     }
 
     // ---- component factory ----

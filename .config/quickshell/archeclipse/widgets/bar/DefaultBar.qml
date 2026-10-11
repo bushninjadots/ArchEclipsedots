@@ -25,8 +25,9 @@ Column {
     spacing: 4
 
     // ---- linear sequence access (Settings bar layout model, Task 1) ----
-    readonly property var linearTopIds: Array.isArray(Settings.barLayoutTop) ? Settings.barLayoutTop : []
-    readonly property var linearBottomIds: Array.isArray(Settings.barLayoutBottom) ? Settings.barLayoutBottom : []
+    // Deduplicated via BarWidgets.layoutLinear so reorders/renders stay clean.
+    readonly property var linearTopIds: BarWidgets.layoutLinear("islands", "top")
+    readonly property var linearBottomIds: BarWidgets.layoutLinear("islands", "bottom")
 
     // ---- edit-mode geometry (scene coords) ----
     function _collectCells(rep, ids, zone, out) {
