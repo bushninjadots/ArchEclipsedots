@@ -54,6 +54,10 @@ Item {
     readonly property string curColor: menu.isWidget ? (Config[menu.scope + "Color"] || "") : ""
     readonly property bool curGradient: menu.isWidget ? (Config[menu.scope + "Gradient"] === true) : false
     readonly property string colorMode: menu.curColor === "" ? "auto" : (menu.curGradient ? "gradient" : "solid")
+    // Gradients only render on card-less widgets (WidgetSlot.inkMaskOn), and a
+    // clock with a card/glass backing ignores its ink colour entirely.
+    readonly property bool gradientOk: !(menu.isCalendar || menu.isMusic || menu.isAio)
+    readonly property bool colorOk: !(menu.isClock && Config.clockBg !== "none")
 
     readonly property var zones: [
         { "zone": "top-left", "glyph": "\u2196" }, { "zone": "top", "glyph": "\u2191" }, { "zone": "top-right", "glyph": "\u2197" },
@@ -316,10 +320,19 @@ Item {
         // an A->B gradient -- the same model the visualiser wears. Solid/Gradient
         // reveal a compact picker; edits scrub live and persist on release.
         MenuSection { visible: menu.isWidget; label: I18n.tr("Colour"); gloss: "" }
-        Item {
-            visible: menu.isWidget
+        Text {
+            visible: menu.isWidget && !menu.colorOk
             width: parent.width
-            implicitHeight: menu.isWidget ? colorCol.implicitHeight : 0
+            wrapMode: Text.WordWrap
+            text: I18n.tr("The clock's colour applies with no background — set its background to None in the widget editor.")
+            color: Theme.inkDim
+            font.family: Theme.display
+            font.pixelSize: Theme.fSmall
+        }
+        Item {
+            visible: menu.isWidget && menu.colorOk
+            width: parent.width
+            implicitHeight: visible ? colorCol.implicitHeight : 0
             Column {
                 id: colorCol
                 width: parent.width
@@ -328,7 +341,8 @@ Item {
                     id: modeRow
                     width: parent.width
                     spacing: Theme.s1
-                    readonly property real cw: (width - 2 * Theme.s1) / 3
+                    readonly property int n: menu.gradientOk ? 3 : 2
+                    readonly property real cw: (width - (n - 1) * Theme.s1) / n
                     MenuChip {
                         width: modeRow.cw; height: Theme.ctlH
                         label: I18n.tr("Auto"); selected: menu.colorMode === "auto"
@@ -340,6 +354,7 @@ Item {
                         onClicked: menu.setColorMode("solid")
                     }
                     MenuChip {
+                        visible: menu.gradientOk
                         width: modeRow.cw; height: Theme.ctlH
                         label: I18n.tr("Gradient"); selected: menu.colorMode === "gradient"
                         onClicked: menu.setColorMode("gradient")
@@ -349,7 +364,7 @@ Item {
                     width: parent.width
                     visible: menu.colorMode !== "auto"
                     scope: menu.scope
-                    gradient: menu.colorMode === "gradient"
+                    gradient: menu.colorMode === "gradient" && menu.gradientOk
                 }
             }
         }

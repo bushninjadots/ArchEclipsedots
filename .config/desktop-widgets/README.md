@@ -30,7 +30,14 @@ Ryoku's widgets talk to its `ryoku-shell` daemon. ArchEclipse has no daemon, so:
   fetch (Open-Meteo, no key; place from Ryoku's weather setting, else your IP),
   run every 15 minutes by `qml/shell/services/Weather.qml`.
 - **Music:** cover art falls back to the player's own (MPRIS); synced lyrics
-  and Spotify Canvas need the daemon and are not available.
+  come from lrclib.net (`bin/lyrics`, cached). Spotify Canvas needs the daemon
+  and is not available.
+- **Holidays:** the calendar's public holidays come from date.nager.at for its
+  region (blank = your locale's country), cached a week in
+  `~/.cache/desktop-widgets/holidays`.
+- **Colours:** a widget's colour can pin a wallpaper role (`@primary`,
+  `@secondary`, `@tertiary`, `@onSurface`) instead of a hex, so it re-follows
+  every new wallpaper; pick them in the right-click menu's Colour section.
 - **Wallpaper:** the host never paints one (`paintWallpaper: false` in
   `qml/shell/modules/desktop/Desktop.qml`); qs-wallpaperpicker does.
 - The editor is the Ryoku Hub's *Desktop Widgets* page in its own window

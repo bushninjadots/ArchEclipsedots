@@ -33,6 +33,20 @@ Singleton {
     // colors.json (mid-write) or a scheme missing a role never paints black.
     function usable(v) { return typeof v === "string" && v.length > 0; }
 
+    // Widget ink value -> colour string. "@role" pins a wallpaper role
+    // (primary / secondary / tertiary / onSurface), resolved live so it
+    // follows every new wallpaper; a hex passes through; "" stays "" (auto).
+    function resolveInk(v) {
+        if (typeof v !== "string" || v.length === 0)
+            return "";
+        if (v.charAt(0) !== "@")
+            return v;
+        const k = v.slice(1);
+        const c = k === "onSurface" ? root.onSurface : k === "secondary" ? root.accent2
+            : k === "tertiary" ? root.role("tertiary", "#83c092") : root.accent;
+        return c.toString();
+    }
+
     // Resolve one role through the layer chain: a selected named scheme wins,
     // then the live wallpaper palette while Match wallpaper is on, then the base.
     function role(key, base) {

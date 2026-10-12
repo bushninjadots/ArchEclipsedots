@@ -51,8 +51,16 @@ Item {
     }
     function seedFromKey() {
         const v = Config[pick.activeKey];
-        pick.seed((v && v.length > 0) ? Qt.color(v) : pick.accent);
+        pick.seed((v && v.length > 0) ? Qt.color(Scheme.resolveInk(v)) : pick.accent);
     }
+    // Wallpaper roles: stored as "@role" so the colour re-follows every new
+    // wallpaper (a hex pin goes stale the moment the wallpaper changes).
+    readonly property var roles: [
+        { id: "@primary", label: "Primary" },
+        { id: "@secondary", label: "Secondary" },
+        { id: "@tertiary", label: "Tertiary" },
+        { id: "@onSurface", label: "Text" }
+    ]
     function selectStop(which) { pick.editing = which; pick.seedFromKey(); }
     function live() { Config.setLive(pick.activeKey, pick.curHex); }
     function commit() { Config.set(pick.activeKey, pick.curHex); }
@@ -216,7 +224,61 @@ Item {
             }
         }
 
-        // preset swatches, the wallpaper accent first.
+        // wallpaper roles (dynamic), then fixed presets.
+        Flow {
+            width: parent.width
+            spacing: Theme.s1
+            Repeater {
+                model: pick.roles
+                Rectangle {
+                    id: role
+                    required property var modelData
+                    readonly property bool chosen: Config[pick.activeKey] === role.modelData.id
+                    width: roleRow.implicitWidth + 14
+                    height: 22
+                    radius: 11
+                    color: role.chosen ? Qt.rgba(roleDot.color.r, roleDot.color.g, roleDot.color.b, 0.25) : "transparent"
+                    border.width: 1
+                    border.color: role.chosen ? roleDot.color : Theme.line
+                    Row {
+                        id: roleRow
+                        anchors.centerIn: parent
+                        spacing: 5
+                        Rectangle {
+                            id: roleDot
+                            anchors.verticalCenter: parent.verticalCenter
+                            width: 10
+                            height: 10
+                            radius: 5
+                            color: Scheme.resolveInk(role.modelData.id)
+                        }
+                        Text {
+                            anchors.verticalCenter: parent.verticalCenter
+                            text: role.modelData.label
+                            color: Theme.ink
+                            font.family: Theme.display
+                            font.pixelSize: Theme.fSmall
+                        }
+                    }
+                    MouseArea {
+                        anchors.fill: parent
+                        cursorShape: Qt.PointingHandCursor
+                        onClicked: {
+                            Config.set(pick.activeKey, role.modelData.id);
+                            pick.seed(Qt.color(Scheme.resolveInk(role.modelData.id)));
+                        }
+                    }
+                }
+            }
+        }
+        Text {
+            width: parent.width
+            text: "Role colours follow the wallpaper"
+            color: Theme.inkDim
+            opacity: 0.6
+            font.family: Theme.display
+            font.pixelSize: Theme.fSmall
+        }
         Flow {
             width: parent.width
             spacing: Theme.s2

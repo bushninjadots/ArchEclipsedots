@@ -79,7 +79,8 @@ var rows = [
         "label": "Show seconds",
         "desc": "Adds seconds to the readout; the face ticks each second",
         "ctl": "sw",
-        "src": "widgets.json"
+        "src": "widgets.json",
+        "when": { "clockDesign": ["digital", "minimal", "grand", "column", "flip", "rings", "bighour"] }
     },
     {
         "tab": "clock",
@@ -102,7 +103,8 @@ var rows = [
             "inline",
             "badge",
             "stacked"
-        ]
+        ],
+        "when": { "dateShow": [true] }
     },
     {
         "tab": "clock",
@@ -257,7 +259,7 @@ var rows = [
         "group": "CALENDAR",
         "key": "calendarHolidayRegion",
         "label": "Holiday region",
-        "desc": "Blank uses your locale; else a code like US or US-CA",
+        "desc": "Blank uses your locale's country; else a code like ES, US or US-CA (public holidays from date.nager.at)",
         "ctl": "text",
         "src": "widgets.json"
     },

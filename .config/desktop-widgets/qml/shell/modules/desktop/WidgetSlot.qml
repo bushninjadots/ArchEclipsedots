@@ -57,8 +57,9 @@ Item {
     // paints only the ink (text/marks), never a card; a gradient is layered on top
     // via the mask, but only for card-less widgets (calendar/music/aio keep their
     // card, so they take the solid colour, never the mask). Empty = adaptive.
-    readonly property string inkColorA: slot.bg === "none" ? (Config[slot.widget + "Color"] || "") : ""
-    readonly property string inkColorB: Config[slot.widget + "Color2"] || ""
+    // "@role" values resolve against the live wallpaper scheme.
+    readonly property string inkColorA: slot.bg === "none" ? Scheme.resolveInk(Config[slot.widget + "Color"] || "") : ""
+    readonly property string inkColorB: Scheme.resolveInk(Config[slot.widget + "Color2"] || "")
     readonly property bool cardWidget: slot.widget === "calendar" || slot.widget === "music" || slot.widget === "aio"
     readonly property bool inkGradient: slot.inkColorA !== "" && (Config[slot.widget + "Gradient"] === true) && slot.inkColorB !== ""
     readonly property bool inkMaskOn: slot.inkGradient && !slot.cardWidget
