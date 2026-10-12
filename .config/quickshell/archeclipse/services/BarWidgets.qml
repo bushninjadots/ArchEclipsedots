@@ -10,7 +10,10 @@ import qs.widgets.weather
 // Bar widget registry (bar layout system, Task 2).
 //
 // Single source of truth for:
-//   - the widget catalog and which zones each widget may live in per bar style
+//   - the widget catalog (label/icon, which styles a widget can live in, and
+//     its original "home" section per style — used by the defaults and as the
+//     editor's "send home" target);
+//   - the section list per style (zones(style)) with editor labels;
 //   - the layout model read (Settings.barLayoutIslands / barLayoutPill),
 //     filtered to legal (id, style, zone) combos and de-duplicated;
 //   - a Component factory for every (id, style, zone) the bar styles render;
@@ -22,13 +25,20 @@ Singleton {
     id: root
 
     // ---------------------------------------------------------------- catalog
-    // zones = { islands: [...], pill: [...] }; an empty list means the widget
+    // zones = { islands: [...], pill: [...] } is the widget's HOME section(s)
+    // per style (where the original layout puts it). Any widget may be placed
+    // in ANY section of a style it supports; an empty list means the widget
     // cannot live in that style at all (e.g. chip is pill-only).
+    //   stretch  — absorbs the slack of a fixed-width section (the original
+    //              islands weather button fills the left zone).
+    //   minWidth — per style: natural width for widgets that otherwise size
+    //              from their parent (the islands workspace strip).
     readonly property var catalog: [
         {
             id: "workspaces",
             label: "Workspaces",
             icon: "\uF00A",
+            minWidth: { islands: 260 },
             zones: { islands: ["bottom"], pill: ["rest"] }
         },
         {
@@ -59,12 +69,13 @@ Singleton {
             id: "chip",
             label: "Chip",
             icon: "\uF2DB",
-            zones: { islands: [], pill: ["rest"] }
+            zones: { islands: ["center"], pill: ["rest"] }
         },
         {
             id: "weather",
             label: "Weather",
             icon: "\uF0C2",
+            stretch: true,
             zones: { islands: ["left"], pill: ["detail"] }
         },
         {
@@ -101,6 +112,61 @@ Singleton {
             id: "tray",
             label: "Tray",
             icon: "\uF0C9",
+            zones: { islands: ["right"], pill: ["detail"] }
+        },
+        // ---- extras (not in the original layouts; start on the shelf) ----
+        {
+            id: "window",
+            label: "Window",
+            icon: "\uF2D0",
+            zones: { islands: ["left"], pill: ["core"] }
+        },
+        {
+            id: "notifications",
+            label: "Notifications",
+            icon: "\uF0F3",
+            zones: { islands: ["right"], pill: ["detail"] }
+        },
+        {
+            id: "mic",
+            label: "Microphone",
+            icon: "\uF130",
+            zones: { islands: ["right"], pill: ["detail"] }
+        },
+        {
+            id: "caffeine",
+            label: "Caffeine",
+            icon: "\uF0F4",
+            zones: { islands: ["right"], pill: ["detail"] }
+        },
+        {
+            id: "recorder",
+            label: "Recorder",
+            icon: "\uF03D",
+            zones: { islands: ["right"], pill: ["detail"] }
+        },
+        {
+            id: "keyboard",
+            label: "Keyboard",
+            icon: "\uF11C",
+            zones: { islands: ["right"], pill: ["detail"] }
+        },
+        {
+            id: "screenshot",
+            label: "Screenshot",
+            icon: "\uF030",
+            zones: { islands: ["right"], pill: ["detail"] }
+        },
+        {
+            id: "clipboard",
+            label: "Clipboard",
+            icon: "\uF0EA",
+            zones: { islands: ["right"], pill: ["detail"] }
+        },
+        {
+            id: "power",
+            label: "Power",
+            icon: "\uF011",
             zones: { islands: ["right"], pill: ["detail"] }
         }
     ]
@@ -174,31 +240,108 @@ Singleton {
         return String(Math.round(gb)).padStart(3, " ") + "G";
     }
 
-    // ---- layout model ----
-    function allowed(id, style, zoneOrEdge) {
-        const e = entry(id);
-        if (!e)
-            return false;
-        const z = e.zones ? e.zones[style] : null;
-        if (typeof zoneOrEdge === "string" && (zoneOrEdge === "top" || zoneOrEdge === "bottom")) {
-            if (style === "islands" && zoneOrEdge === "bottom")
-                return id === "workspaces";
-            return true;
-        }
-        return Array.isArray(z) && z.indexOf(zoneOrEdge) !== -1;
+    // ---- sections ----
+    // Ordered sections per style, with the labels/hints the editor shows.
+    //   islands: left / center / right share the bar edge row; bottom is the
+    //            row beneath it (the opposite screen edge when detached).
+    //   pill:    rest is the resting face; core + detail are the two rows the
+    //            pill morphs into on hover.
+    readonly property var sections: ({
+        islands: [
+            { id: "left", label: "Left", hint: "edge row, start" },
+            { id: "center", label: "Center", hint: "accent capsule" },
+            { id: "right", label: "Right", hint: "edge row, end" },
+            { id: "bottom", label: "Bottom", hint: "full-width row" }
+        ],
+        pill: [
+            { id: "rest", label: "Resting", hint: "always visible" },
+            { id: "core", label: "Expanded", hint: "hover · top row" },
+            { id: "detail", label: "Details", hint: "hover · bottom row" }
+        ]
+    })
+
+    function zones(style) {
+        return (root.sections[style] || []).map(z => z.id);
     }
 
-    function allowedByEdge(id, style, edge) {
-        return allowed(id, style, edge);
+    function zoneLabel(style, zone) {
+        for (const z of (root.sections[style] || [])) {
+            if (z.id === zone)
+                return z.label;
+        }
+        return zone;
+    }
+
+    function zoneHint(style, zone) {
+        for (const z of (root.sections[style] || [])) {
+            if (z.id === zone)
+                return z.hint;
+        }
+        return "";
+    }
+
+    // Original home section of a widget for a style ("" when unsupported).
+    function home(id, style) {
+        const e = entry(id);
+        const z = e && e.zones ? e.zones[style] : null;
+        return Array.isArray(z) && z.length > 0 ? z[0] : "";
+    }
+
+    // Can `id` live in the given style at all?
+    function supports(id, style) {
+        return root.home(id, style) !== "";
+    }
+
+    // Natural-width fallback for widgets that size from their parent.
+    function minWidth(id, style) {
+        const e = entry(id);
+        return e && e.minWidth && e.minWidth[style] ? e.minWidth[style] : 0;
+    }
+
+    // Widgets that draw their own hover/press feedback (BarIconButton based
+    // and the control button): the strip skips its shared hover glow.
+    readonly property var _selfHover: ["network", "window", "notifications", "mic", "caffeine", "recorder", "power", "screenshot", "clipboard"]
+    function selfHover(id) {
+        return root._selfHover.indexOf(id) !== -1;
+    }
+
+    function stretches(id) {
+        const e = entry(id);
+        return !!(e && e.stretch);
+    }
+
+    // ---- layout model ----
+    // Any widget the style supports may sit in any of its sections.
+    function allowed(id, style, zone) {
+        return root.supports(id, style) && root.zones(style).indexOf(zone) !== -1;
+    }
+
+    // Pill faces are distinct surfaces, so the same id may appear once per
+    // face (clock in rest AND core). Islands is one surface: one of each.
+    function multiPlace(style) {
+        return style === "pill";
     }
 
     function _model(style) {
         return style === "pill" ? Settings.barLayoutPill : Settings.barLayoutIslands;
     }
 
-    // Ordered, deduped, filtered ids for a (style, zone).
+    // Ordered, deduped, filtered ids for a (style, zone). For islands an id
+    // claimed by an earlier section is dropped here too, so a hand-edited
+    // settings file can never render the same widget twice.
     function layout(style, zone) {
         const m = _model(style);
+        const zs = root.zones(style);
+        const claimed = ({});
+        if (!root.multiPlace(style)) {
+            for (const z of zs) {
+                if (z === zone)
+                    break;
+                const raw = (m && Array.isArray(m[z])) ? m[z] : [];
+                for (const id of raw)
+                    claimed[id] = true;
+            }
+        }
         const raw = (m && Array.isArray(m[zone])) ? m[zone] : [];
         const out = [];
         for (const id of raw) {
@@ -206,27 +349,7 @@ Singleton {
                 continue;
             if (!allowed(id, style, zone))
                 continue;
-            if (out.indexOf(id) !== -1)
-                continue;
-            out.push(id);
-        }
-        return out;
-    }
-
-    function layoutLinear(style, edge) {
-        const arr = edge === "top"
-            ? (Array.isArray(Settings.barLayoutTop) ? Settings.barLayoutTop : [])
-            : edge === "bottom"
-                ? (Array.isArray(Settings.barLayoutBottom) ? Settings.barLayoutBottom : [])
-                : [];
-        // The pill migration concatenates rest+core+detail, so an id can
-        // appear twice (e.g. clock in rest and core). Collapse keep-first so
-        // every render/editing consumer sees a clean sequence.
-        const out = [];
-        for (const id of arr) {
-            if (typeof id !== "string")
-                continue;
-            if (out.indexOf(id) !== -1)
+            if (claimed[id] || out.indexOf(id) !== -1)
                 continue;
             out.push(id);
         }
@@ -268,6 +391,31 @@ Singleton {
             return c_network;
         if (id === "tray")
             return c_tray;
+        if (id === "chip")
+            return c_chip;
+        return root._extraComponent(id);
+    }
+
+    // Extras look the same in both styles.
+    function _extraComponent(id) {
+        if (id === "window")
+            return c_window;
+        if (id === "notifications")
+            return c_notifications;
+        if (id === "mic")
+            return c_mic;
+        if (id === "caffeine")
+            return c_caffeine;
+        if (id === "recorder")
+            return c_recorder;
+        if (id === "keyboard")
+            return c_keyboard;
+        if (id === "power")
+            return c_power;
+        if (id === "screenshot")
+            return c_screenshot;
+        if (id === "clipboard")
+            return c_clipboard;
         return null;
     }
 
@@ -298,7 +446,7 @@ Singleton {
             return c_network;
         if (id === "tray")
             return c_tray;
-        return null;
+        return root._extraComponent(id);
     }
 
     // --- islands components ---
@@ -359,11 +507,15 @@ Singleton {
     // --- shared components (identical in both styles) ---
     Component {
         id: c_control
-        ControlPanelButton {}
+        ControlPanelButton {
+            flat: true
+        }
     }
     Component {
         id: c_weather
-        WeatherButton {}
+        WeatherButton {
+            flat: true
+        }
     }
     Component {
         id: c_resources
@@ -371,7 +523,9 @@ Singleton {
     }
     Component {
         id: c_battery
-        Battery {}
+        Battery {
+            flat: true
+        }
     }
     Component {
         id: c_brightness
@@ -383,10 +537,46 @@ Singleton {
     }
     Component {
         id: c_network
-        NetworkWidget {}
+        NetworkButton {}
     }
     Component {
         id: c_tray
         Tray {}
+    }
+    Component {
+        id: c_window
+        WindowTitle {}
+    }
+    Component {
+        id: c_notifications
+        NotificationsButton {}
+    }
+    Component {
+        id: c_mic
+        MicButton {}
+    }
+    Component {
+        id: c_caffeine
+        CaffeineButton {}
+    }
+    Component {
+        id: c_recorder
+        RecorderButton {}
+    }
+    Component {
+        id: c_keyboard
+        KeyboardLayoutWidget {}
+    }
+    Component {
+        id: c_power
+        PowerButton {}
+    }
+    Component {
+        id: c_screenshot
+        ScreenshotButton {}
+    }
+    Component {
+        id: c_clipboard
+        ClipboardButton {}
     }
 }

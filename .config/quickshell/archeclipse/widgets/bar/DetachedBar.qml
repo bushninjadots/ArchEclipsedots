@@ -83,16 +83,29 @@ Item {
     function editCells() {
         return [].concat(leftPill.cells(), centerPill.cells(), rightPill.cells(), bottomPill.cells());
     }
-    function _rect(item, zone) {
-        const p = item.mapToItem(null, 0, 0);
-        return { zone: zone, x: p.x, y: p.y, w: item.width, h: item.height };
+    // Rendered widget item (the delegate Loader's `item`) for a placed id
+    // across the four section pills, or null when not placed. Mirrors
+    // editCells(); BarEditOverlay grabs it for the real-widget drag proxy.
+    function cellItem(id) {
+        const sections = [leftPill, centerPill, rightPill, bottomPill];
+        for (let i = 0; i < sections.length; i++) {
+            const item = sections[i].cellItem(id);
+            if (item)
+                return item;
+        }
+        return null;
     }
     function editZones() {
-        return [
-            root._rect(leftPill, "left"),
-            root._rect(centerPill, "center"),
-            root._rect(rightPill, "right"),
-            root._rect(bottomPill, "bottom")
-        ];
+        return [leftPill.zoneRect(), centerPill.zoneRect(), rightPill.zoneRect(), bottomPill.zoneRect()];
+    }
+    // Section bodies for the shell frame (non-empty sections only).
+    function frameSections() {
+        const out = [];
+        for (const p of [leftPill, centerPill, rightPill, bottomPill]) {
+            if (!p.visible || !p.hasContent)
+                continue;
+            out.push({ zone: p.section, x: p.x, y: p.y, w: p.width, h: p.height });
+        }
+        return out;
     }
 }

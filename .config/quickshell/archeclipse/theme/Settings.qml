@@ -56,10 +56,26 @@ Singleton {
     })
     property var barLayoutIslands: root.defaultBarLayoutIslands
     property var barLayoutPill: root.defaultBarLayoutPill
-    // Freeform linear layout (top/bottom edges) — ordered left-to-right.
-    property var barLayoutTop: []
-    property var barLayoutBottom: []
-    property string barLayoutMode: "linear"
+    // Per-widget frame personalization: { [widgetId]: { shape, radius } }.
+    // shape "frame" = melt into the band with its section (default), "pill"
+    // = own capsule, "square" = square tab, "detach" = free-floating body.
+    // radius = -1 (frame default) or a px override.
+    property var barLayoutFrame: ({})
+    // Widget decoration defaults for every bar widget (each widget can
+    // override them from the layout editor's inspector):
+    //   deco    — "none" | "outline" (border pill) | "filled" (tinted pill)
+    //   border  — pill border width px (1..3)
+    //   opacity — widget opacity percent (20..100)
+    // Hyprland window border colour (thickness lives in hyprland.general):
+    //   "default" = leave Hyprland's own config alone, else follow
+    //   "accent" | "wallpaper" | "dynamic" (album art) | "custom".
+    property string windowBorderColor: "default"
+    property string windowBorderCustom: "#fd8b06"
+    property bool windowBorderGradient: true
+    property int windowBorderInactive: 30      // inactive border opacity %
+    property string barWidgetDeco: "none"
+    property int barWidgetBorder: 1
+    property int barWidgetOpacity: 100
     // Islands-only: break the bar into one floating pill per section.
     property bool barIslandsDetached: false
     // Per-section absolute top-left in logical px (-1 = use the default anchor).
@@ -100,6 +116,12 @@ Singleton {
     property string frameBorderColor: "dynamic"
     property string frameBorderCustom: "#ffffff"
     property int frameBorderWidth: 2
+    // How frame bodies follow the bar when sections move/resize:
+    // "spring" (soft overshoot), "smooth" (eased), "instant".
+    property string frameMorph: "spring"
+    // How far apart two bar sections can be and still melt into one another
+    // (px of smooth-union between bodies; 0 = they only touch the band).
+    property int frameMerge: 12
 
     property string dateFormat: "%H:%M"
     readonly property var dateFormats: ["%H:%M", "%I:%M %p"]
@@ -408,6 +430,31 @@ Singleton {
         return out;
     }
 
+    // Tolerant adopt for the per-widget frame map: only "frame" | "detach"
+    // | "square" | "pill" shapes and finite radii (-1 = theme default) survive.
+    function _adoptWidgetFrames(raw) {
+        const out = {};
+        if (!raw || typeof raw !== "object")
+            return out;
+        for (const id in raw) {
+            const v = raw[id];
+            if (!v || typeof v !== "object")
+                continue;
+            const e = {};
+            if (["frame", "detach", "square", "pill"].includes(v.shape))
+                e.shape = v.shape;
+            if (Number.isFinite(Number(v.radius)))
+                e.radius = Math.max(-1, Math.min(48, Math.round(Number(v.radius))));
+            if (["none", "outline", "filled"].includes(v.deco))
+                e.deco = v.deco;
+            if (Number.isFinite(Number(v.opacity)))
+                e.opacity = Math.max(20, Math.min(100, Math.round(Number(v.opacity))));
+            if (Object.keys(e).length > 0)
+                out[id] = e;
+        }
+        return out;
+    }
+
     function _adoptPos(raw, defaults) {
         const out = {};
         for (const section in defaults) {
@@ -439,6 +486,17 @@ Singleton {
             "bar.style": "barStyle",
             "bar.layout.islands": "barLayoutIslands",
             "bar.layout.pill": "barLayoutPill",
+            // Per-widget frame personalization (shape/radius), edited from
+            // the bar layout editor (BarEditOverlay). Raw map, aliases to a
+            // flat var like the layout arrays above.
+            "bar.layout.frame": "barLayoutFrame",
+            "bar.widgets.deco": "barWidgetDeco",
+            "windowBorder.color": "windowBorderColor",
+            "windowBorder.custom": "windowBorderCustom",
+            "windowBorder.gradient": "windowBorderGradient",
+            "windowBorder.inactive": "windowBorderInactive",
+            "bar.widgets.border": "barWidgetBorder",
+            "bar.widgets.opacity": "barWidgetOpacity",
             "bar.islands.detached": "barIslandsDetached",
             "bar.islands.pos": "barIslandsPos",
             "mpris.visualizer": "mprisVisualizer",
@@ -457,6 +515,8 @@ Singleton {
             "frame.borderColor": "frameBorderColor",
             "frame.borderCustom": "frameBorderCustom",
             "frame.borderWidth": "frameBorderWidth",
+            "frame.morph": "frameMorph",
+            "frame.merge": "frameMerge",
             "bar.blur": "barBlur",
             "bar.blurSize": "barBlurSize",
             "bar.blurPasses": "barBlurPasses",
@@ -527,6 +587,12 @@ Singleton {
             return;
         try {
             const s = {
+                windowBorder: {
+                    color: { value: root.windowBorderColor },
+                    custom: { value: root.windowBorderCustom },
+                    gradient: { value: root.windowBorderGradient },
+                    inactive: { value: root.windowBorderInactive }
+                },
                 bar: {
                     lock: {
                         value: root.barLock
@@ -567,9 +633,12 @@ Singleton {
                     layout: {
                         islands: root.barLayoutIslands,
                         pill: root.barLayoutPill,
-                        top: root.barLayoutTop,
-                        bottom: root.barLayoutBottom,
-                        mode: root.barLayoutMode
+                        frame: root.barLayoutFrame
+                    },
+                    widgets: {
+                        deco: { value: root.barWidgetDeco },
+                        border: { value: root.barWidgetBorder },
+                        opacity: { value: root.barWidgetOpacity }
                     },
                     islands: {
                         detached: root.barIslandsDetached,
@@ -600,7 +669,9 @@ Singleton {
                     border: { value: root.frameBorder },
                     borderColor: { value: root.frameBorderColor },
                     borderCustom: { value: root.frameBorderCustom },
-                    borderWidth: { value: root.frameBorderWidth }
+                    borderWidth: { value: root.frameBorderWidth },
+                    morph: { value: root.frameMorph },
+                    merge: { value: root.frameMerge }
                 },
                 dateFormat: root.dateFormat,
                 crypto: {
@@ -795,13 +866,21 @@ Singleton {
                 // Bar layout model + detached islands state.
                 root.barLayoutIslands = root._adoptLayout(s.bar?.layout?.islands, root.defaultBarLayoutIslands);
                 root.barLayoutPill = root._adoptLayout(s.bar?.layout?.pill, root.defaultBarLayoutPill);
-                // Linear layout (freeform) — adopt from disk if present, else leave empty for migration
-                const _lt = s.bar?.layout?.top;
-                const _lb = s.bar?.layout?.bottom;
-                if (Array.isArray(_lt)) root.barLayoutTop = _lt.slice();
-                if (Array.isArray(_lb)) root.barLayoutBottom = _lb.slice();
-                const _lm = s.bar?.layout?.mode;
-                root.barLayoutMode = (typeof _lm === "string" && _lm) ? _lm : (root.barLayoutTop.length>0||root.barLayoutBottom.length>0 ? "linear" : "linear");
+                // Per-widget frame personalization (tolerant adopt: keep only
+                // known shapes and finite radii).
+                root.barLayoutFrame = root._adoptWidgetFrames(s.bar?.layout?.frame);
+                const _wbc = s.windowBorder?.color?.value;
+                root.windowBorderColor = ["default", "accent", "wallpaper", "dynamic", "custom"].includes(_wbc) ? _wbc : "default";
+                const _wbx = s.windowBorder?.custom?.value;
+                root.windowBorderCustom = (typeof _wbx === "string" && /^#[0-9a-fA-F]{6,8}$/.test(_wbx)) ? _wbx : "#fd8b06";
+                root.windowBorderGradient = s.windowBorder?.gradient?.value ?? true;
+                const _wbi = Number(s.windowBorder?.inactive?.value);
+                root.windowBorderInactive = Number.isFinite(_wbi) ? Math.max(0, Math.min(100, Math.round(_wbi))) : 30;
+                const _wd = s.bar?.widgets?.deco?.value;
+                root.barWidgetDeco = ["none", "outline", "filled"].includes(_wd) ? _wd : "none";
+                const _wn = (v, lo, hi, d) => Number.isFinite(Number(v)) ? Math.max(lo, Math.min(hi, Math.round(Number(v)))) : d;
+                root.barWidgetBorder = _wn(s.bar?.widgets?.border?.value, 1, 3, 1);
+                root.barWidgetOpacity = _wn(s.bar?.widgets?.opacity?.value, 20, 100, 100);
                 const _bid = s.bar?.islands?.detached;
                 root.barIslandsDetached = ((typeof _bid === "object" && _bid !== null ? _bid.value : _bid) ?? false);
                 root.barIslandsPos = root._adoptPos(s.bar?.islands?.pos, root.defaultBarIslandsPos);
@@ -833,6 +912,9 @@ Singleton {
                 root.frameBorderColor = ["subtle", "accent", "dynamic", "wallpaper", "custom"].includes(_bc) ? _bc : "dynamic";
                 root.frameBorderCustom = _hex(s.frame?.borderCustom?.value, "#ffffff");
                 root.frameBorderWidth = _clampN(s.frame?.borderWidth?.value, 1, 6, 2);
+                const _fm = s.frame?.morph?.value;
+                root.frameMorph = ["spring", "smooth", "instant"].includes(_fm) ? _fm : "spring";
+                root.frameMerge = _clampN(s.frame?.merge?.value, 0, 30, 12);
 
                 root.dateFormat = s.dateFormat ?? "%H:%M";
                 root.cryptoFavorite = s.crypto?.favorite ?? {
@@ -926,63 +1008,12 @@ Singleton {
         }
     }
 
-    function _deriveLinearFromZones(style, edge) {
-        const res = [];
-        if (style === "islands") {
-            if (edge === "top") {
-                const l = root.barLayoutIslands.left || [];
-                const c = root.barLayoutIslands.center || [];
-                const r = root.barLayoutIslands.right || [];
-                for (let i = 0; i < l.length; i++) res.push(l[i]);
-                for (let i = 0; i < c.length; i++) res.push(c[i]);
-                for (let i = 0; i < r.length; i++) res.push(r[i]);
-            } else if (edge === "bottom") {
-                const b = root.barLayoutIslands.bottom || [];
-                for (let i = 0; i < b.length; i++) res.push(b[i]);
-            }
-        } else if (style === "pill") {
-            if (edge === "top") {
-                const rest = root.barLayoutPill.rest || [];
-                const core = root.barLayoutPill.core || [];
-                const detail = root.barLayoutPill.detail || [];
-                for (let i = 0; i < rest.length; i++) res.push(rest[i]);
-                for (let i = 0; i < core.length; i++) res.push(core[i]);
-                for (let i = 0; i < detail.length; i++) res.push(detail[i]);
-            } else if (edge === "bottom") {
-                // no bottom zone in pill today
-            }
-        }
-        return res;
-    }
-
-    function _migrateLinearLayouts() {
-        const needsTop = (!Array.isArray(root.barLayoutTop) || root.barLayoutTop.length === 0);
-        const needsBottom = (!Array.isArray(root.barLayoutBottom) || root.barLayoutBottom.length === 0);
-        if (needsTop || needsBottom) {
-            const style = root.barStyle || "islands";
-            if (needsTop) {
-                root.barLayoutTop = root._deriveLinearFromZones(style, "top");
-                root.updateSetting("bar.layout.top", root.barLayoutTop);
-            }
-            if (needsBottom) {
-                root.barLayoutBottom = root._deriveLinearFromZones(style, "bottom");
-                root.updateSetting("bar.layout.bottom", root.barLayoutBottom);
-            }
-            root.barLayoutMode = "linear";
-            root.updateSetting("bar.layout.mode", root.barLayoutMode);
-        } else {
-            root.barLayoutMode = "linear";
-        }
-    }
-
     Component.onCompleted: {
         root.reload();
         root._readyTimer.start();
         Qt.callLater(function () {
             if (root.gameModeEnabled)
                 root.applyGameMode(true);
-            // migrate after initial load
-            root._migrateLinearLayouts();
         });
     }
 

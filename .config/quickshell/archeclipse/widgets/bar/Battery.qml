@@ -14,7 +14,9 @@ Rectangle {
     width: visible ? content.width + 8 : 0
     height: Theme.barContentHeight
     radius: Theme.radius
-    color: hover.hovered || batteryPop.visible ? Theme.surfaceHover : "transparent"
+    // flat: the bar's shared hover/pill styles it.
+    property bool flat: false
+    color: !root.flat && (hover.hovered || batteryPop.visible) ? Theme.surfaceHover : "transparent"
 
     readonly property real pct: UPower.displayDevice?.percentage ?? 1
     readonly property bool present: UPower.displayDevice?.isLaptopBattery ?? false

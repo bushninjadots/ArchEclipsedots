@@ -24,7 +24,7 @@ Rectangle {
     width: implicitWidth
     height: implicitHeight
     radius: height / 2
-    color: mouse.containsMouse ? Theme.surfaceHover : (root.hasMedia ? Qt.rgba(Theme.accent.r, Theme.accent.g, Theme.accent.b, 0.16) : "transparent")
+    color: mouse.containsMouse ? Theme.surfaceHover : (root.hasMedia ? Theme.rgba(Theme.accent, 0.16) : "transparent")
     Behavior on color {
         CAnim {}
     }

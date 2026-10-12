@@ -6,11 +6,21 @@ import qs.services
 
 // Shared edit-mode state for the configurable bar layout.
 //
-// The Settings panel calls begin(style) from its "Edit layout" control; the
-// bar (DefaultBar / PillBar / BarEditOverlay) reacts to `active` by locking
-// open, outlining its zones and exposing its tray. Dragging a widget raises
-// draggingId/dragFromZone for the floating proxy; a drop calls place() or
-// remove(), which splice the model and persist it live through Settings.
+// Model: each bar style has fixed SECTIONS (BarWidgets.sections) holding an
+// ordered list of widget ids — islands: left / center / right / bottom, pill:
+// rest / core / detail. Any widget the style supports can be placed in any
+// section; the defaults (Settings.defaultBarLayout*) are the original bars.
+//
+// Interaction:
+//   - press + move on a placed widget (or a tray chip) starts a drag; while it
+//     is live `preview` holds the layout as it would be if dropped now, and the
+//     faces render from ids(style, zone) so neighbours slide aside and the
+//     dragged widget shows as a faded ghost at its landing slot (the shell
+//     frame follows the ghost, since it is a real rendered cell);
+//   - click selects a widget (inspector popover + keyboard: arrows move it,
+//     Up/Down hop sections, Delete hides it);
+//   - every commit persists live through Settings.updateSetting; begin()
+//     snapshots the layout so cancel() can restore it.
 Singleton {
     id: root
 
@@ -20,23 +30,27 @@ Singleton {
     // Which layout is being edited: "islands" | "pill".
     property string style: "islands"
 
-    // Current drag payload (set by the overlay/proxy while a drag is live).
-    property string draggingId: ""
-    property string dragFromZone: ""
+    // Persisted layout captured on begin(style), held so cancel() can restore
+    // it verbatim. Null while no edit session is open.
+    property var _snapshot: null
+    readonly property bool canCancel: root._snapshot !== null
 
-    // Pointer position of the floating proxy, in bar-surface coordinates.
+    // ---- selection (click a widget) ----
+    property string selectedId: ""
+    property string selectedZone: ""
+
+    // ---- live widget drag ----
+    property string draggingId: ""
+    property string dragFromZone: ""     // "" = from the tray
     property real dragX: 0
     property real dragY: 0
+    // Live drop target: zone "" = hide (back to the tray).
+    property string targetZone: ""
+    property int targetIndex: -1
+    // Full zone map for the edited style while a drag is live.
+    property var preview: ({})
 
-    // Linear drag state (freeform). `draggingId`/`dragFromZone` above carry
-    // the payload; these add the linear insert index and edge.
-    property int dragIndex: -1
-    property int dropIndex: -1
-    property string dragEdge: "top"
-    property string axis: "x"
-
-    // Whole-section drag (detached islands). While dragSection is non-empty,
-    // the matching DetachedPill follows dragSectionX/Y instead of its anchor.
+    // ---- whole-section drag (detached islands) ----
     property string dragSection: ""
     property real dragSectionX: 0
     property real dragSectionY: 0
@@ -45,112 +59,115 @@ Singleton {
     property real dragSectionW: 0
     property real dragSectionH: 0
 
+    // ---- geometry published by the faces (scene coords) ----
+    property var cells: []      // [{ id, zone, x, y, w, h }]
+    property var dropZones: []  // [{ zone, x, y, w, h, spacing }]
+    // Tray rect drawn by the overlay ({x,y,w,h}); drops there hide a widget.
+    property var trayRect: null
+
+    function setCells(list) {
+        const v = list || [];
+        if (JSON.stringify(v) !== JSON.stringify(root.cells))
+            root.cells = v;
+    }
+    function setDropZones(list) {
+        const v = list || [];
+        if (JSON.stringify(v) !== JSON.stringify(root.dropZones))
+            root.dropZones = v;
+    }
+
+    // ------------------------------------------------------------ session
     function begin(style) {
-        root.style = (style === "pill" || style === "islands") ? style : Settings.barStyle;
+        root._captureSnapshot();
+        // Only the visible style can be edited on the bar; a request for the
+        // other style switches the bar to it first.
+        if ((style === "pill" || style === "islands") && style !== Settings.barStyle)
+            Settings.updateSetting("bar.style", style);
+        root.style = Settings.barStyle;
         root.cells = [];
         root.dropZones = [];
+        root.selectedId = "";
+        root.selectedZone = "";
         root.active = true;
     }
 
     function end() {
+        root._snapshot = null;
+        root._teardown();
+    }
+
+    // Restore the layout captured at begin() and leave edit mode.
+    function cancel() {
+        if (root._snapshot) {
+            const s = root._snapshot;
+            Settings.updateSetting("bar.layout.islands", root._deep(s.islands));
+            Settings.updateSetting("bar.layout.pill", root._deep(s.pill));
+            Settings.updateSetting("bar.layout.frame", root._deep(s.frame));
+            Settings.updateSetting("bar.islands.pos", root._deep(s.pos));
+            Settings.updateSetting("bar.style", s.barStyle);
+            Settings.updateSetting("bar.islands.detached", s.detached);
+        }
+        root._snapshot = null;
+        root._teardown();
+    }
+
+    // Undo everything since begin() but stay in edit mode.
+    function revert() {
+        if (!root._snapshot)
+            return;
+        const s = root._snapshot;
+        root.abortDrag();
+        Settings.updateSetting("bar.layout.islands", root._deep(s.islands));
+        Settings.updateSetting("bar.layout.pill", root._deep(s.pill));
+        Settings.updateSetting("bar.layout.frame", root._deep(s.frame));
+        Settings.updateSetting("bar.islands.pos", root._deep(s.pos));
+    }
+
+    // Switch the edited (and shown) bar style without leaving edit mode.
+    function switchStyle(style) {
+        if (style !== "pill" && style !== "islands")
+            return;
+        root.abortDrag();
+        root.select("", "");
+        Settings.updateSetting("bar.style", style);
+        root.style = style;
+    }
+
+    function _deep(v) {
+        return JSON.parse(JSON.stringify(v || {}));
+    }
+
+    function _captureSnapshot() {
+        root._snapshot = {
+            islands: root._deep(Settings.barLayoutIslands),
+            pill: root._deep(Settings.barLayoutPill),
+            frame: root._deep(Settings.barLayoutFrame),
+            pos: root._deep(Settings.barIslandsPos),
+            barStyle: Settings.barStyle,
+            detached: Settings.barIslandsDetached
+        };
+    }
+
+    function _teardown() {
         root.active = false;
-        root.draggingId = "";
-        root.dragFromZone = "";
-        root.dragX = 0;
-        root.dragY = 0;
-        root.dragIndex = -1;
-        root.dropIndex = -1;
-        root.dragEdge = "top";
+        root.abortDrag();
         root.dragSection = "";
+        root.selectedId = "";
+        root.selectedZone = "";
         root.cells = [];
         root.dropZones = [];
     }
 
-    // ---- linear (freeform) layout accessors ----
-    function linearLayout(edge) {
-        const arr = edge === "bottom" ? Settings.barLayoutBottom : Settings.barLayoutTop;
-        return Array.isArray(arr) ? arr.slice() : [];
-    }
-
-    function setLinearLayout(edge, arr) {
-        Settings.updateSetting(edge === "bottom" ? "bar.layout.bottom" : "bar.layout.top", (arr || []).slice());
-    }
-
-    // Index at which to insert given the current ordered cell rects and
-    // pointer x (edge axis). Returns [0, cells.length].
-    function insertionIndex(px, cells) {
-        if (!cells || cells.length === 0)
-            return 0;
-        for (let i = 0; i < cells.length; i++) {
-            const c = cells[i];
-            if (px < c.x + c.w / 2)
-                return i;
-        }
-        return cells.length;
-    }
-
-    function beginLinearDrag(id, index, edge, px, py) {
-        root.active = true;
-        root.draggingId = id;
-        root.dragFromZone = edge;
-        root.dragEdge = edge;
-        root.dragIndex = index;
-        root.dropIndex = index;
-        root.axis = "x";
-        root.dragX = px;
-        root.dragY = py;
-    }
-
-    function moveLinear(px, py, cells) {
-        root.dragX = px;
-        root.dragY = py;
-        root.dropIndex = root.insertionIndex(px, cells);
-    }
-
-    function commitLinear(cells) {
-        if (!root.draggingId || root.dragIndex < 0)
-            return;
-        if (cells)
-            root.dropIndex = root.insertionIndex(root.dragX, cells);
-        const edge = root.dragEdge;
-        const arr = root.linearLayout(edge);
-        const from = arr.indexOf(root.draggingId);
-        if (from !== -1)
-            arr.splice(from, 1);
-        let di = root.dropIndex;
-        if (di < 0)
-            di = arr.length;
-        if (from !== -1 && from < di)
-            di--;
-        di = Math.max(0, Math.min(arr.length, di));
-        arr.splice(di, 0, root.draggingId);
-        root.setLinearLayout(edge, arr);
-        root.clearLinearDrag();
-    }
-
-    function clearLinearDrag() {
-        root.draggingId = "";
-        root.dragFromZone = "";
-        root.dragIndex = -1;
-        root.dropIndex = -1;
-        root.dragEdge = "top";
-        root.dragX = 0;
-        root.dragY = 0;
-    }
-
+    // ------------------------------------------------------------ model io
     function _zones(style) {
-        return style === "pill" ? ["rest", "core", "detail"] : ["left", "center", "right", "bottom"];
+        return BarWidgets.zones(style);
     }
 
-    function _read(style) {
-        return style === "pill" ? Settings.barLayoutPill : Settings.barLayoutIslands;
-    }
-
+    // Clean clone of the committed layout: { zone: [ids] } for every zone.
     function _clone(style) {
-        const src = root._read(style) || {};
         const next = {};
         for (const z of root._zones(style))
-            next[z] = Array.isArray(src[z]) ? src[z].slice() : [];
+            next[z] = BarWidgets.layout(style, z).slice();
         return next;
     }
 
@@ -158,84 +175,281 @@ Singleton {
         Settings.updateSetting(style === "pill" ? "bar.layout.pill" : "bar.layout.islands", obj);
     }
 
-    // Insert `id` into `zone` at `index` (or append). When `fromZone` is given
-    // and differs, the widget is moved out of it. Dedupes within the target
-    // zone only, so a pill widget may live in both rest and core as designed.
-    function place(id, zone, index, fromZone) {
-        if (!id || !zone)
-            return;
-        const style = root.style;
-        if (!BarWidgets.allowed(id, style, zone))
-            return;
-        const next = root._clone(style);
-        if (fromZone && fromZone !== zone && Array.isArray(next[fromZone])) {
-            const fi = next[fromZone].indexOf(id);
-            if (fi >= 0)
-                next[fromZone].splice(fi, 1);
+    // Ids to RENDER for a section: the live preview while a drag is in flight
+    // for that style, else the committed layout.
+    function ids(style, zone) {
+        if (root.draggingId !== "" && style === root.style) {
+            const p = root.preview[zone];
+            if (Array.isArray(p))
+                return p;
         }
-        const arr = next[zone];
-        const existing = arr.indexOf(id);
-        if (existing >= 0)
-            arr.splice(existing, 1);
-        let at = (index === undefined || index === null || index < 0) ? arr.length : Math.floor(index);
-        at = Math.max(0, Math.min(at, arr.length));
-        next[zone].splice(at, 0, id);
-        root._write(style, next);
+        return BarWidgets.layout(style, zone);
     }
 
-    // Remove `id` from `zone` (drag back to the tray).
-    function remove(id, zone) {
-        if (!id || !zone)
-            return;
-        const style = root.style;
-        const next = root._clone(style);
-        const arr = next[zone];
-        const i = arr ? arr.indexOf(id) : -1;
-        if (i >= 0) {
-            arr.splice(i, 1);
-            root._write(style, next);
+    // Zone the id currently sits in (first match), or "".
+    function zoneOf(id, style) {
+        const st = style || root.style;
+        for (const z of root._zones(st)) {
+            if (BarWidgets.layout(st, z).indexOf(id) !== -1)
+                return z;
         }
+        return "";
     }
 
-    // ---- Geometry registration (window/scene coordinates) ----------------
-    //
-    // The bar faces publish where each placed widget and each empty zone
-    // currently sits so the full-window overlay can hit-test drops without
-    // reaching into the bar's item tree.
-    property var cells: []      // [{ id, zone, x, y, w, h }]
-    property var dropZones: []  // [{ zone, x, y, w, h }]
+    // Layout `base` with `id` taken out of `fromZone` (islands: out of every
+    // section) and inserted into `toZone` at `index` ("" = hidden).
+    function _apply(base, id, fromZone, toZone, index) {
+        const next = {};
+        for (const z in base)
+            next[z] = base[z].slice();
+        if (!BarWidgets.multiPlace(root.style)) {
+            for (const z in next) {
+                const i = next[z].indexOf(id);
+                if (i !== -1)
+                    next[z].splice(i, 1);
+            }
+        } else if (fromZone && next[fromZone]) {
+            const i = next[fromZone].indexOf(id);
+            if (i !== -1)
+                next[fromZone].splice(i, 1);
+        }
+        if (toZone && next[toZone]) {
+            const arr = next[toZone];
+            const e = arr.indexOf(id);
+            if (e !== -1)
+                arr.splice(e, 1);
+            let at = (index === undefined || index === null || index < 0) ? arr.length : Math.floor(index);
+            at = Math.max(0, Math.min(at, arr.length));
+            arr.splice(at, 0, id);
+        }
+        return next;
+    }
 
-    function setCells(list) {
-        const v = list || [];
-        if (JSON.stringify(v) === JSON.stringify(root.cells))
+    // ------------------------------------------------------------ commands
+    // Move `id` (from `fromZone`, "" = tray) to `toZone` at `index`
+    // (-1 = end); toZone "" hides it. Persists immediately.
+    function moveTo(id, fromZone, toZone, index) {
+        if (!id)
             return;
-        root.cells = v;
-    }
-
-    function setDropZones(list) {
-        const v = list || [];
-        if (JSON.stringify(v) === JSON.stringify(root.dropZones))
+        if (toZone && !BarWidgets.allowed(id, root.style, toZone))
             return;
-        root.dropZones = v;
+        root._write(root.style, root._apply(root._clone(root.style), id, fromZone, toZone, index));
+        if (root.selectedId === id)
+            root.selectedZone = toZone;
+        if (!toZone && root.selectedId === id)
+            root.selectedId = "";
     }
 
-    // Commit the live drag at a scene point: move into a zone when over one,
-    // remove when dropped outside every zone from a placed zone, else cancel.
-    function dropAt(px, py) {
+    function hide(id, zone) {
+        root.moveTo(id, zone, "", -1);
+    }
+
+    // Shift `id` one slot within its section; past either end it hops into
+    // the neighbouring section (left end of the next / right end of the
+    // previous), so arrows alone can walk a widget across the whole bar.
+    function nudge(id, zone, delta) {
+        const zs = root._zones(root.style);
+        const arr = BarWidgets.layout(root.style, zone);
+        const i = arr.indexOf(id);
+        if (i === -1)
+            return;
+        const j = i + delta;
+        if (j >= 0 && j < arr.length) {
+            root.moveTo(id, zone, zone, j);
+            return;
+        }
+        const zi = zs.indexOf(zone) + (delta < 0 ? -1 : 1);
+        if (zi < 0 || zi >= zs.length)
+            return;
+        root.moveTo(id, zone, zs[zi], delta < 0 ? -1 : 0);
+    }
+
+    // Move to the previous/next section (keeps it at the near end).
+    function hop(id, zone, delta) {
+        const zs = root._zones(root.style);
+        const zi = zs.indexOf(zone) + delta;
+        if (zi < 0 || zi >= zs.length)
+            return;
+        root.moveTo(id, zone, zs[zi], -1);
+    }
+
+    function select(id, zone) {
+        root.selectedId = id || "";
+        root.selectedZone = zone || "";
+    }
+
+    // Catalog ids the edited style supports but has placed nowhere.
+    function unplacedIds() {
+        const style = root.style;
+        const placed = ({});
+        for (const z of root._zones(style)) {
+            for (const id of BarWidgets.layout(style, z))
+                placed[id] = true;
+        }
+        const out = [];
+        for (const e of BarWidgets.catalog) {
+            if (!placed[e.id] && BarWidgets.supports(e.id, style))
+                out.push(e.id);
+        }
+        return out;
+    }
+
+    // ------------------------------------------------------------ live drag
+    function startDrag(id, fromZone, px, py) {
+        if (!id)
+            return;
+        root.draggingId = id;
+        root.dragFromZone = fromZone || "";
+        root.dragX = px;
+        root.dragY = py;
+        const base = root._clone(root.style);
+        if (fromZone && base[fromZone]) {
+            root.targetZone = fromZone;
+            root.targetIndex = base[fromZone].indexOf(id);
+        } else {
+            root.targetZone = "";
+            root.targetIndex = -1;
+        }
+        root.preview = root._apply(base, id, root.dragFromZone, root.targetZone, root.targetIndex);
+    }
+
+    function _inRect(r, px, py, m) {
+        return r && px >= r.x - m && px <= r.x + r.w + m && py >= r.y - m && py <= r.y + r.h + m;
+    }
+
+    function _distRect(r, px, py) {
+        const dx = Math.max(r.x - px, 0, px - (r.x + r.w));
+        const dy = Math.max(r.y - py, 0, py - (r.y + r.h));
+        return Math.sqrt(dx * dx + dy * dy);
+    }
+
+    // Insertion index in `zone` for pointer x. Midpoints are taken from the
+    // zone's cells with the ghost removed (cells right of it shift back by
+    // the ghost's width + gap), so the answer depends only on the pointer —
+    // not on where the ghost currently sits — and live reorder never
+    // oscillates.
+    function _indexIn(zone, px) {
+        const zc = root.cells.filter(c => c.zone === zone).sort((a, b) => a.x - b.x);
+        let ghost = null;
+        for (const c of zc) {
+            if (c.id === root.draggingId)
+                ghost = c;
+        }
+        let gap = Theme.spacing;
+        for (const z of root.dropZones) {
+            if (z.zone === zone && z.spacing !== undefined)
+                gap = z.spacing;
+        }
+        let idx = 0;
+        for (const c of zc) {
+            if (c === ghost)
+                continue;
+            let x = c.x;
+            if (ghost && c.x > ghost.x)
+                x -= ghost.w + gap;
+            if (px > x + c.w / 2)
+                idx++;
+        }
+        return idx;
+    }
+
+    function updateDrag(px, py) {
+        if (!root.draggingId)
+            return;
+        root.dragX = px;
+        root.dragY = py;
+        let zone = "";
+        if (root.trayRect && root._inRect(root.trayRect, px, py, 6)) {
+            zone = "";
+        } else {
+            // Zone under the pointer (with a grab margin); nearest wins.
+            let best = null, bestD = 1e9;
+            for (const z of root.dropZones) {
+                if (!root._inRect(z, px, py, 14))
+                    continue;
+                const d = root._distRect(z, px, py);
+                if (d < bestD) {
+                    best = z;
+                    bestD = d;
+                }
+            }
+            if (best) {
+                zone = best.zone;
+            } else {
+                // Between sections: stay sticky to the current target unless
+                // the pointer wandered well away from every section.
+                let near = 1e9;
+                for (const z of root.dropZones)
+                    near = Math.min(near, root._distRect(z, px, py));
+                zone = near < 72 ? root.targetZone : "";
+            }
+        }
+        if (zone && !BarWidgets.allowed(root.draggingId, root.style, zone))
+            zone = "";
+        const index = zone ? root._indexIn(zone, px) : -1;
+        if (zone === root.targetZone && index === root.targetIndex)
+            return;
+        root.targetZone = zone;
+        root.targetIndex = index;
+        root.preview = root._apply(root._clone(root.style), root.draggingId, root.dragFromZone, zone, index);
+    }
+
+    function finishDrag() {
         if (!root.draggingId)
             return;
         const id = root.draggingId;
-        const from = root.dragFromZone;
-        const zone = root.zoneAt(px, py);
-        if (zone)
-            root.place(id, zone, root.indexForZone(zone, px), from);
-        else if (from)
-            root.remove(id, from);
-        root.draggingId = "";
-        root.dragFromZone = "";
+        const changed = !(root.targetZone === root.dragFromZone
+            && root.targetIndex === BarWidgets.layout(root.style, root.dragFromZone).indexOf(id));
+        if (changed && (root.targetZone || root.dragFromZone))
+            root._write(root.style, root.preview);
+        if (root.targetZone)
+            root.select(id, root.targetZone);
+        else if (root.selectedId === id)
+            root.select("", "");
+        root.abortDrag();
     }
 
-    // ---- Whole-section (detached pill) drag -------------------------------
+    function abortDrag() {
+        root.draggingId = "";
+        root.dragFromZone = "";
+        root.targetZone = "";
+        root.targetIndex = -1;
+        root.preview = ({});
+    }
+
+    // ------------------------------------------------------------ hit tests
+    function cellAt(px, py, margin) {
+        const m = margin || 0;
+        let best = null, bestD = 1e9;
+        for (const c of root.cells) {
+            if (!root._inRect(c, px, py, m))
+                continue;
+            const d = Math.abs(px - (c.x + c.w / 2)) + Math.abs(py - (c.y + c.h / 2));
+            if (d < bestD) {
+                best = c;
+                bestD = d;
+            }
+        }
+        return best;
+    }
+
+    function zoneRectAt(px, py) {
+        for (const z of root.dropZones) {
+            if (root._inRect(z, px, py, 0))
+                return z;
+        }
+        return null;
+    }
+
+    function cellRect(id) {
+        for (const c of root.cells) {
+            if (c.id === id)
+                return c;
+        }
+        return null;
+    }
+
+    // ------------------------------------------------------------ sections
     function beginSectionDrag(section, px, py, rect) {
         root.dragSection = section;
         root.dragSectionW = rect.w;
@@ -246,19 +460,24 @@ Singleton {
         root.dragSectionY = rect.y;
     }
 
-    // Move the dragged pill, clamped to the surface (maxX/maxY = surface size).
+    // Move the dragged section pill, clamped to the surface and snapped to
+    // the screen centre line and edges (8px margin) within 10px.
     function moveSection(px, py, maxX, maxY) {
         if (root.dragSection === "")
             return;
-        let nx = px - root.dragGrabX;
-        let ny = py - root.dragGrabY;
-        nx = Math.max(0, Math.min(nx, maxX - root.dragSectionW));
-        ny = Math.max(0, Math.min(ny, maxY - root.dragSectionH));
+        const w = root.dragSectionW, h = root.dragSectionH, m = 8, snap = 10;
+        let nx = Math.max(0, Math.min(px - root.dragGrabX, maxX - w));
+        let ny = Math.max(0, Math.min(py - root.dragGrabY, maxY - h));
+        const cx = (maxX - w) / 2;
+        if (Math.abs(nx - cx) < snap) nx = cx;
+        if (Math.abs(nx - m) < snap) nx = m;
+        if (Math.abs(nx - (maxX - w - m)) < snap) nx = maxX - w - m;
+        if (Math.abs(ny - 6) < snap) ny = 6;
+        if (Math.abs(ny - (maxY - h - m)) < snap) ny = maxY - h - m;
         root.dragSectionX = nx;
         root.dragSectionY = ny;
     }
 
-    // Persist the dragged pill's new top-left as bar.islands.pos[section].
     function commitSection() {
         if (root.dragSection === "")
             return;
@@ -268,75 +487,110 @@ Singleton {
         root.dragSection = "";
     }
 
-    // Rect (with w/h) of the zone under a scene point, or null.
-    function zoneRectAt(px, py) {
-        for (const z of root.dropZones) {
-            if (px >= z.x && px <= z.x + z.w && py >= z.y && py <= z.y + z.h)
-                return z;
-        }
-        return null;
+    // Snap one detached section back to its default anchor.
+    function resetSection(section) {
+        const next = Object.assign({}, Settings.barIslandsPos);
+        next[section] = { x: -1, y: -1 };
+        Settings.updateSetting("bar.islands.pos", next);
     }
 
-    // Zone under a scene point, or "" when the drop lands outside every zone.
-    function zoneAt(px, py) {
-        for (const z of root.dropZones) {
-            if (px >= z.x && px <= z.x + z.w && py >= z.y && py <= z.y + z.h)
-                return z.zone;
-        }
-        return "";
+    // ------------------------------------------------------------ frames
+    // Per-widget frame fit, persisted under bar.layout.frame: { [id]: { shape, radius } }.
+    //   "frame"  — melts into the band as part of its section's body (default);
+    //   "pill"   — own capsule, split out of the section body;
+    //   "square" — square-cornered tab;
+    //   "detach" — free-floating body with a gap round it.
+    readonly property var widgetFrames: {
+        const f = Settings.barLayoutFrame;
+        return (f && typeof f === "object") ? f : {};
     }
 
-    // Placed cell under a scene point, or null.
-    function cellAt(px, py) {
-        for (const c of root.cells) {
-            if (px >= c.x && px <= c.x + c.w && py >= c.y && py <= c.y + c.h)
-                return c;
-        }
-        return null;
+    // Resolved per-widget look: frame fit + decoration + opacity, with the
+    // global defaults (Settings.barWidget*) filled in. `own*` flags say
+    // whether the widget overrides the default.
+    function frameFor(id) {
+        const f = root.widgetFrames[id] || {};
+        const ownDeco = ["none", "outline", "filled"].includes(f.deco);
+        const ownOpacity = Number.isFinite(Number(f.opacity));
+        return {
+            shape: f.shape ? f.shape : "frame",
+            radius: Number.isFinite(Number(f.radius)) ? Number(f.radius) : -1,
+            deco: ownDeco ? f.deco : Settings.barWidgetDeco,
+            opacity: (ownOpacity ? Number(f.opacity) : Settings.barWidgetOpacity) / 100,
+            ownDeco: ownDeco,
+            ownOpacity: ownOpacity
+        };
     }
 
-    // Insertion index for a drop at `px` inside `zone`, derived from the
-    // horizontal midpoints of the widgets currently placed in that zone.
-    function indexForZone(zone, px) {
-        let idx = 0;
-        for (const c of root.cells) {
-            if (c.zone !== zone)
-                continue;
-            if (px > c.x + c.w / 2)
-                idx++;
-        }
-        return idx;
+    function _writeEntry(id, mutate) {
+        if (!id)
+            return;
+        const next = Object.assign({}, root.widgetFrames);
+        const e = Object.assign({}, next[id] || {});
+        mutate(e);
+        if (Object.keys(e).length === 0)
+            delete next[id];
+        else
+            next[id] = e;
+        Settings.updateSetting("bar.layout.frame", next);
     }
 
-    // Catalog ids valid for the active style but not placed in any zone
-    // (the tray contents).
-    function unplacedIds() {
-        const style = root.style;
-        const model = root._read(style);
-        const zones = root._zones(style);
-        const placed = ({});
-        for (const zone of zones) {
-            for (const id of (model[zone] || []))
-                placed[id] = true;
-        }
-        const out = [];
-        for (const e of BarWidgets.catalog) {
-            if (placed[e.id])
-                continue;
-            for (const zone of zones) {
-                if (BarWidgets.allowed(e.id, style, zone)) {
-                    out.push(e.id);
-                    break;
-                }
+    function setFrame(id, shape, radius) {
+        root._writeEntry(id, e => {
+            if (shape !== undefined) {
+                if (["detach", "square", "pill"].includes(shape))
+                    e.shape = shape;
+                else
+                    delete e.shape;
             }
-        }
-        return out;
+            if (radius !== undefined) {
+                if (radius === null || radius < 0)
+                    delete e.radius;
+                else
+                    e.radius = Math.max(0, Math.min(48, Math.round(radius)));
+            }
+        });
     }
 
-    // Tray test: is (px,py) inside the tray band drawn by the overlay?
-    property real trayTop: 0
-    property real trayBottom: 0
-    function inTray(py) {
-        return root.trayBottom > root.trayTop && py >= root.trayTop && py <= root.trayBottom;
+    // Decoration override: "none" | "outline" | "filled", or null = default.
+    function setDeco(id, deco) {
+        root._writeEntry(id, e => {
+            if (["none", "outline", "filled"].includes(deco))
+                e.deco = deco;
+            else
+                delete e.deco;
+        });
+    }
+
+    // Opacity override in percent (20..100), or null = default.
+    function setOpacity(id, pct) {
+        root._writeEntry(id, e => {
+            if (pct === null || pct === undefined || !Number.isFinite(Number(pct)))
+                delete e.opacity;
+            else
+                e.opacity = Math.max(20, Math.min(100, Math.round(Number(pct))));
+        });
+    }
+
+    // Drop every per-widget override (shape, radius, decoration, opacity).
+    function clearWidgetOverrides() {
+        Settings.updateSetting("bar.layout.frame", {});
+    }
+
+    // ------------------------------------------------------------ reset
+    // Reinstall the original (code-default) layout for `style` (default: the
+    // edited style); the other style is untouched. Islands also returns the
+    // detached sections to their anchors. Per-widget frame fits are cleared.
+    function resetLayout(style) {
+        const st = style || root.style;
+        root.abortDrag();
+        root.dragSection = "";
+        if (st === "pill") {
+            Settings.updateSetting("bar.layout.pill", root._deep(Settings.defaultBarLayoutPill));
+        } else {
+            Settings.updateSetting("bar.layout.islands", root._deep(Settings.defaultBarLayoutIslands));
+            Settings.updateSetting("bar.islands.pos", root._deep(Settings.defaultBarIslandsPos));
+        }
+        Settings.updateSetting("bar.layout.frame", {});
     }
 }

@@ -11,7 +11,9 @@ Rectangle {
     width: 32
     height: Theme.barContentHeight
     radius: Theme.radius
-    color: mouse.containsMouse ? Theme.surfaceHover : "transparent"
+    // flat: the bar's shared hover/pill styles it.
+    property bool flat: false
+    color: !root.flat && mouse.containsMouse ? Theme.surfaceHover : "transparent"
 
     Text {
         anchors.centerIn: parent

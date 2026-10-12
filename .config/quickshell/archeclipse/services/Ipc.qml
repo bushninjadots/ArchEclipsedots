@@ -118,6 +118,77 @@ Item {
             }
         }
 
+        // Edit-mode entry/exit for the bar-layout editor header.
+        //   edit <mode>  — mode "" | "islands" | "pill"; toggles edit mode.
+        //   editCancel   — restore the entry snapshot and leave edit mode.
+        //   editDone     — keep the current layout and leave edit mode.
+        //   editDiag <q> — QA probe ("active" | "style" | "canCancel" | "reset"
+        //                 | "drag:<id>" | "drop" | "preview" | "move:<px>").
+        function edit(mode: string): string {
+            if (BarEditState.active) {
+                BarEditState.end();
+                return "editing off";
+            }
+            BarEditState.begin(mode || Settings.barStyle);
+            return "editing " + BarEditState.style;
+        }
+
+        function editCancel(): string {
+            BarEditState.cancel();
+            return "cancelled";
+        }
+
+        function editDone(): string {
+            BarEditState.end();
+            return "done";
+        }
+
+        // QA probes for the layout editor:
+        //   active | style | canCancel | reset | layout | cells | zones
+        //   drag:<id>:<zone|-> | move:<x>,<y> | drop | abort
+        //   select:<id> | nudge:<-1|1> | hop:<-1|1> | hide
+        //   frame:<id>:<shape> | bodies
+        function editDiag(query: string): string {
+            try {
+                const S = BarEditState;
+                if (query === "active") return "" + S.active;
+                if (query === "style") return S.style;
+                if (query === "canCancel") return "" + S.canCancel;
+                if (query === "reset") { S.resetLayout(); return "reset"; }
+                if (query === "layout") {
+                    const o = {};
+                    for (const z of BarWidgets.zones(S.style)) o[z] = S.ids(S.style, z);
+                    return JSON.stringify(o);
+                }
+                if (query === "cells") return JSON.stringify(S.cells.map(c => [c.id, c.zone, Math.round(c.x), Math.round(c.y), Math.round(c.w), Math.round(c.h)]));
+                if (query === "zones") return JSON.stringify(S.dropZones.map(z => [z.zone, Math.round(z.x), Math.round(z.y), Math.round(z.w), Math.round(z.h)]));
+                if (query.startsWith("drag:")) {
+                    const parts = query.split(":");
+                    const from = parts[2] === "-" ? "" : (parts[2] || S.zoneOf(parts[1]));
+                    const c = S.cellRect(parts[1]);
+                    S.startDrag(parts[1], from, c ? c.x + c.w / 2 : 960, c ? c.y + c.h / 2 : 700);
+                    return "dragging " + parts[1] + " from " + from;
+                }
+                if (query.startsWith("move:")) {
+                    const xy = query.substring(5).split(",").map(Number);
+                    S.updateDrag(xy[0], xy[1]);
+                    return "target " + S.targetZone + "@" + S.targetIndex;
+                }
+                if (query === "drop") { S.finishDrag(); return "dropped"; }
+                if (query === "abort") { S.abortDrag(); return "aborted"; }
+                if (query.startsWith("detach:")) { Settings.updateSetting("bar.islands.detached", query.endsWith("1")); return "" + Settings.barIslandsDetached; }
+                if (query.startsWith("select:")) { const id = query.substring(7); S.select(id, S.zoneOf(id)); return S.selectedZone; }
+                if (query.startsWith("nudge:")) { S.nudge(S.selectedId, S.selectedZone, Number(query.substring(6))); return S.zoneOf(S.selectedId); }
+                if (query.startsWith("hop:")) { S.hop(S.selectedId, S.selectedZone, Number(query.substring(4))); return S.zoneOf(S.selectedId); }
+                if (query.startsWith("place:")) { const p = query.split(":"); S.moveTo(p[1], S.zoneOf(p[1]), p[2], p[3] !== undefined ? Number(p[3]) : -1); return JSON.stringify(S.ids(S.style, p[2])); }
+                if (query === "hide") { S.hide(S.selectedId, S.selectedZone); return "hidden"; }
+                if (query.startsWith("frame:")) { const p = query.split(":"); S.setFrame(p[1], p[2], undefined); return JSON.stringify(S.frameFor(p[1])); }
+                return "unknown query";
+            } catch (e) {
+                return "EX: " + e;
+            }
+        }
+
         // Player probe for MPRIS QA: returns active title|artist|isPlaying
         // using the same playable-player rule as PlayerWidget.
         function playerDiag(): string {

@@ -11,7 +11,9 @@ Rectangle {
     // Row layouts but can stretch via anchors when there is empty space.
     implicitWidth: content.implicitWidth + 14
     radius: Theme.radius
-    // color set by weatherBg binding below
+    // flat: no own background (the bar's pill system styles it); the weather
+    // colour moves to the glyph instead.
+    property bool flat: false
 
     // Reactive weather data
     readonly property var wx: Weather.data
@@ -21,7 +23,7 @@ Rectangle {
 
     // Dynamic background color based on weather code
     readonly property string weatherBg: hasData ? Weather.background(cur.weather_code) : "transparent"
-    color: hover.hovered ? (hasData ? root.weatherBg : Theme.surfaceHover) : (hasData ? root.weatherBg : "transparent")
+    color: root.flat ? "transparent" : (hover.hovered ? (hasData ? root.weatherBg : Theme.surfaceHover) : (hasData ? root.weatherBg : "transparent"))
 
     Behavior on color { ColorAnimation { duration: 200 } }
 
@@ -36,7 +38,7 @@ Rectangle {
             visible: root.hasData
             anchors.verticalCenter: parent.verticalCenter
             text: Weather.icon(root.cur.weather_code)
-            color: "white"
+            color: root.flat ? Theme.accent : "white"
             font.family: Theme.fontFamily
             font.pixelSize: Theme.fontSize + 1
         }
@@ -61,7 +63,7 @@ Rectangle {
                     return Math.min(implicitWidth, 120);
                 return Math.min(implicitWidth, avail);
             }
-            color: "white"
+            color: root.flat ? Theme.fg : "white"
             font.family: Theme.fontFamily
             font.pixelSize: Theme.fontSize
         }

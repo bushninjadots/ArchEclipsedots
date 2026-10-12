@@ -10,6 +10,10 @@ Item {
     id: root
 
     property real widthRequest: 0
+    // Size from the content (the island page previously had no size, so the
+    // bar pill collapsed around it and squeezed the text).
+    implicitWidth: netRow.implicitWidth + 18
+    implicitHeight: Theme.barContentHeight
 
     // Derive the primary (most relevant) device: first connected, else first available.
     readonly property var device: {
@@ -81,9 +85,11 @@ Item {
         border.color: Theme.color8
 
         Row {
-            anchors.fill: parent
+            id: netRow
+            anchors.verticalCenter: parent.verticalCenter
+            anchors.left: parent.left
+            anchors.leftMargin: 9
             spacing: 6
-            anchors.margins: 8
 
             Text {
                 id: netIcon

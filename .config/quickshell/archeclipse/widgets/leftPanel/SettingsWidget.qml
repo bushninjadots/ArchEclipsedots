@@ -13,6 +13,57 @@ import qs.services
 // Apply/Reset buttons
 Item {
     id: root
+
+    // Section heading with a one-line explanation under it.
+    component SectionHead: Column {
+        property string title: ""
+        property string hint: ""
+        width: parent ? parent.width : 0
+        topPadding: 8
+        spacing: 1
+        Label {
+            text: parent.title
+            font.pixelSize: Theme.fontSize
+            font.bold: true
+            color: Theme.accent
+        }
+        Label {
+            width: parent.width
+            visible: parent.hint !== ""
+            text: parent.hint
+            wrapMode: Text.WordWrap
+            font.pixelSize: Math.max(Theme.fontSize - 2, 9)
+            color: Theme.muted
+        }
+    }
+    // Small text button used across the bar rows.
+    component MiniButton: Rectangle {
+        id: mb
+        property string text: ""
+        property bool accent: false
+        signal clicked
+        implicitWidth: mbLabel.implicitWidth + 20
+        implicitHeight: 26
+        radius: Theme.radius
+        color: mbMouse.containsMouse ? Theme.surfaceHover : Theme.surfaceActive
+        border.color: mb.accent ? Theme.accent : Theme.border
+        border.width: 1
+        Label {
+            id: mbLabel
+            anchors.centerIn: parent
+            text: mb.text
+            color: mb.accent ? Theme.accent : (mbMouse.containsMouse ? Theme.fg : Theme.muted)
+            font.pixelSize: Theme.fontSize
+        }
+        MouseArea {
+            id: mbMouse
+            anchors.fill: parent
+            hoverEnabled: true
+            cursorShape: Qt.PointingHandCursor
+            onClicked: mb.clicked()
+        }
+    }
+
     property int widgetWidth: parent.width
     property string className: ""
 
@@ -152,6 +203,10 @@ Item {
                         Column {
                             width: parent.width
                             spacing: 4
+                            SectionHead {
+                                title: "Style"
+                                hint: "Islands = sections along the edge (left · centre · right + workspace row). Pill = one floating island that expands on hover."
+                            }
                             RowLayout {
                                 width: parent.width
                                 spacing: 8
@@ -164,17 +219,9 @@ Item {
                                 AppComboBox {
                                     model: ["Islands", "Pill"]
                                     currentIndex: ["islands", "pill"].indexOf(Settings.barStyle)
-                                    onActivated: Settings.barStyle = ["islands", "pill"][index]
+                                    onActivated: Settings.updateSetting("bar.style", ["islands", "pill"][index])
                                     Layout.preferredWidth: 160
                                 }
-                            }
-                            Label {
-                                width: parent.width
-                                text: "General"
-                                font.pixelSize: Theme.fontSize
-                                font.bold: true
-                                color: Theme.accent
-                                topPadding: 4
                             }
                             RowLayout {
                                 width: parent.width
@@ -191,6 +238,126 @@ Item {
                                     onActivated: Settings.barOrientation = (index === 0)
                                     Layout.preferredWidth: 160
                                 }
+                            }
+                            RowLayout {
+                                visible: Settings.barStyle === "islands"
+                                width: parent.width
+                                spacing: 8
+                                Label {
+                                    font.pixelSize: Theme.fontSize
+                                    text: "Detached Sections"
+                                    color: Theme.fg
+                                    Layout.fillWidth: true
+                                }
+                                AppCheckBox {
+                                    checked: Settings.barIslandsDetached
+                                    enabled: Settings.barStyle === "islands"
+                                    onToggled: Settings.updateSetting("bar.islands.detached", checked)
+                                }
+                            }
+
+                            SectionHead {
+                                title: "Layout"
+                                hint: "Open the editor on the bar: drag widgets between sections, click one to set its section, frame shape, pill and opacity. Esc cancels, Enter saves."
+                            }
+                            RowLayout {
+                                width: parent.width
+                                spacing: 8
+                                MiniButton {
+                                    Layout.fillWidth: true
+                                    accent: true
+                                    text: "\uF040  Edit " + (Settings.barStyle === "pill" ? "pill" : "islands") + " layout"
+                                    onClicked: BarEditState.begin(Settings.barStyle)
+                                }
+                                MiniButton {
+                                    text: "\uF2EA  Original layout"
+                                    onClicked: BarEditState.resetLayout(Settings.barStyle)
+                                    AppTooltip {
+                                        text: "Restore the original " + Settings.barStyle + " layout (positions + per-widget looks)"
+                                    }
+                                }
+                            }
+
+                            SectionHead {
+                                title: "Widgets"
+                                hint: "Defaults for every bar widget. Any widget can override these from the layout editor."
+                            }
+                            RowLayout {
+                                width: parent.width
+                                spacing: 8
+                                Label {
+                                    font.pixelSize: Theme.fontSize
+                                    text: "Widget Pill"
+                                    color: Theme.fg
+                                    Layout.fillWidth: true
+                                }
+                                AppComboBox {
+                                    model: ["None", "Border", "Filled"]
+                                    currentIndex: ["none", "outline", "filled"].indexOf(Settings.barWidgetDeco)
+                                    onActivated: Settings.updateSetting("bar.widgets.deco", ["none", "outline", "filled"][index])
+                                    Layout.preferredWidth: 160
+                                }
+                            }
+                            RowLayout {
+                                width: parent.width
+                                spacing: 8
+                                Label {
+                                    font.pixelSize: Theme.fontSize
+                                    text: "Pill Border Width"
+                                    color: Theme.fg
+                                    Layout.fillWidth: true
+                                }
+                                AppSpinBox {
+                                    from: 1
+                                    to: 3
+                                    value: Settings.barWidgetBorder
+                                    enabled: Settings.barWidgetDeco !== "none"
+                                    Layout.preferredWidth: 160
+                                    onValueChanged: {
+                                        if (value !== Settings.barWidgetBorder)
+                                            Settings.updateSetting("bar.widgets.border", value);
+                                    }
+                                }
+                            }
+                            RowLayout {
+                                width: parent.width
+                                spacing: 8
+                                Label {
+                                    font.pixelSize: Theme.fontSize
+                                    text: "Widget Opacity %"
+                                    color: Theme.fg
+                                    Layout.fillWidth: true
+                                }
+                                AppSpinBox {
+                                    from: 20
+                                    to: 100
+                                    stepSize: 5
+                                    value: Settings.barWidgetOpacity
+                                    Layout.preferredWidth: 160
+                                    onValueChanged: {
+                                        if (value !== Settings.barWidgetOpacity)
+                                            Settings.updateSetting("bar.widgets.opacity", value);
+                                    }
+                                }
+                            }
+                            RowLayout {
+                                width: parent.width
+                                spacing: 8
+                                Label {
+                                    font.pixelSize: Theme.fontSize
+                                    text: "Per-widget Overrides"
+                                    color: Theme.fg
+                                    Layout.fillWidth: true
+                                }
+                                MiniButton {
+                                    text: Object.keys(Settings.barLayoutFrame || {}).length + " set · clear"
+                                    onClicked: BarEditState.clearWidgetOverrides()
+                                }
+                            }
+
+                            SectionHead {
+                                title: "Behaviour"
+                                hint: "When the bar shows, hides and expands."
                             }
                             RowLayout {
                                 width: parent.width
@@ -278,114 +445,12 @@ Item {
                                     Layout.preferredWidth: 160
                                 }
                             }
-                            // Per-style layout sections — only the active
-                            // style's controls are shown.
-                            Label {
-                                width: parent.width
-                                visible: Settings.barStyle === "islands"
-                                text: "Islands"
-                                font.pixelSize: Theme.fontSize
-                                font.bold: true
-                                color: Theme.accent
-                                topPadding: 6
-                            }
-                            RowLayout {
-                                width: parent.width
-                                spacing: 8
-                                visible: Settings.barStyle === "islands"
-                                Label {
-                                    font.pixelSize: Theme.fontSize
-                                    text: "Detached Sections"
-                                    color: Theme.fg
-                                    Layout.fillWidth: true
-                                }
-                                AppCheckBox {
-                                    checked: Settings.barIslandsDetached
-                                    onToggled: Settings.updateSetting("bar.islands.detached", checked)
-                                }
-                            }
-                            RowLayout {
-                                width: parent.width
-                                spacing: 8
-                                visible: Settings.barStyle === "islands"
-                                Label {
-                                    font.pixelSize: Theme.fontSize
-                                    text: "Layout"
-                                    color: Theme.fg
-                                    Layout.fillWidth: true
-                                }
-                                Rectangle {
-                                    Layout.preferredWidth: 160
-                                    implicitHeight: 26
-                                    radius: Theme.radius
-                                    color: editIslandsMouse.containsMouse ? Theme.surfaceHover : Theme.surfaceActive
-                                    border.color: Theme.accent
-                                    border.width: 1
-                                    Label {
-                                        anchors.centerIn: parent
-                                        text: "Edit layout"
-                                        color: Theme.accent
-                                        font.pixelSize: Theme.fontSize
-                                    }
-                                    MouseArea {
-                                        id: editIslandsMouse
-                                        anchors.fill: parent
-                                        hoverEnabled: true
-                                        cursorShape: Qt.PointingHandCursor
-                                        onClicked: BarEditState.begin("islands")
-                                    }
-                                }
-                            }
-                            Label {
-                                width: parent.width
-                                visible: Settings.barStyle === "pill"
-                                text: "Pill"
-                                font.pixelSize: Theme.fontSize
-                                font.bold: true
-                                color: Theme.accent
-                                topPadding: 6
-                            }
-                            RowLayout {
-                                width: parent.width
-                                spacing: 8
-                                visible: Settings.barStyle === "pill"
-                                Label {
-                                    font.pixelSize: Theme.fontSize
-                                    text: "Layout"
-                                    color: Theme.fg
-                                    Layout.fillWidth: true
-                                }
-                                Rectangle {
-                                    Layout.preferredWidth: 160
-                                    implicitHeight: 26
-                                    radius: Theme.radius
-                                    color: editPillMouse.containsMouse ? Theme.surfaceHover : Theme.surfaceActive
-                                    border.color: Theme.accent
-                                    border.width: 1
-                                    Label {
-                                        anchors.centerIn: parent
-                                        text: "Edit layout"
-                                        color: Theme.accent
-                                        font.pixelSize: Theme.fontSize
-                                    }
-                                    MouseArea {
-                                        id: editPillMouse
-                                        anchors.fill: parent
-                                        hoverEnabled: true
-                                        cursorShape: Qt.PointingHandCursor
-                                        onClicked: BarEditState.begin("pill")
-                                    }
-                                }
+
+                            SectionHead {
+                                title: "Frame"
+                                hint: "The band round the screen that the bar sections and side panels grow out of. Each bar section gets its own body; shapes per widget are set in the layout editor."
                             }
 
-                            Label {
-                                width: parent.width
-                                text: "Frame"
-                                font.pixelSize: Theme.fontSize
-                                font.bold: true
-                                color: Theme.accent
-                                topPadding: 6
-                            }
                             // Shell frame (iNiR Iris surround): the band round
                             // the screen the pill and panels melt into.
                             RowLayout {
@@ -628,6 +693,51 @@ Item {
                                         if (value === Settings.frameBorderWidth)
                                             return;
                                         Settings.frameBorderWidth = value;
+                                    }
+                                }
+                            }
+                            // Motion: how bodies follow the bar as sections move,
+                            // and how readily neighbouring sections melt together.
+                            RowLayout {
+                                width: parent.width
+                                spacing: 8
+                                visible: Settings.shellFrame
+                                Label {
+                                    font.pixelSize: Theme.fontSize
+                                    text: "Frame Motion"
+                                    color: Theme.fg
+                                    Layout.fillWidth: true
+                                }
+                                AppComboBox {
+                                    model: ["Spring", "Smooth", "Instant"]
+                                    currentIndex: ["spring", "smooth", "instant"].indexOf(Settings.frameMorph)
+                                    onActivated: Settings.updateSetting("frame.morph", ["spring", "smooth", "instant"][index])
+                                    Layout.preferredWidth: 160
+                                }
+                            }
+                            RowLayout {
+                                width: parent.width
+                                spacing: 8
+                                visible: Settings.shellFrame
+                                Label {
+                                    font.pixelSize: Theme.fontSize
+                                    text: "Section Merge"
+                                    color: Theme.fg
+                                    Layout.fillWidth: true
+                                    AppTooltip {
+                                        visible: mergeHover.hovered
+                                        text: "How close two bar sections must be to melt into one shape (0 = never)"
+                                    }
+                                    HoverHandler { id: mergeHover }
+                                }
+                                AppSpinBox {
+                                    from: 0
+                                    to: 30
+                                    value: Settings.frameMerge
+                                    Layout.preferredWidth: 160
+                                    onValueChanged: {
+                                        if (value !== Settings.frameMerge)
+                                            Settings.updateSetting("frame.merge", value);
                                     }
                                 }
                             }
@@ -1636,6 +1746,76 @@ Item {
                                     text: root.hyprGet("general.border_size")
                                     Layout.preferredWidth: 30
                                     color: Theme.fgDim
+                                }
+                            }
+                            // Window border colour (WindowBorder service): follows
+                            // the accent / wallpaper / album art like the frame.
+                            RowLayout {
+                                width: parent.width
+                                spacing: 8
+                                Label {
+                                    font.pixelSize: Theme.fontSize
+                                    text: "Window Border Color"
+                                    color: Theme.fg
+                                    Layout.fillWidth: true
+                                }
+                                AppComboBox {
+                                    model: ["Hyprland Default", "Accent", "Dynamic (Wallpaper)", "Dynamic (Album Art)", "Custom"]
+                                    currentIndex: ["default", "accent", "wallpaper", "dynamic", "custom"].indexOf(Settings.windowBorderColor)
+                                    onActivated: Settings.updateSetting("windowBorder.color", ["default", "accent", "wallpaper", "dynamic", "custom"][index])
+                                    Layout.preferredWidth: 160
+                                }
+                            }
+                            Label {
+                                width: parent.width
+                                visible: Settings.windowBorderColor !== "default" && root.hyprGet("general.border_size") === 0
+                                text: "Border Size is 0 — raise it to see the border."
+                                wrapMode: Text.WordWrap
+                                font.pixelSize: Math.max(Theme.fontSize - 2, 9)
+                                color: Theme.muted
+                            }
+                            AppColorPicker {
+                                width: parent.width
+                                visible: Settings.windowBorderColor === "custom"
+                                label: "Window Border"
+                                value: Settings.windowBorderCustom
+                                onPicked: hex => Settings.updateSetting("windowBorder.custom", hex)
+                            }
+                            RowLayout {
+                                width: parent.width
+                                spacing: 8
+                                visible: Settings.windowBorderColor !== "default"
+                                Label {
+                                    font.pixelSize: Theme.fontSize
+                                    text: "Border Gradient"
+                                    color: Theme.fg
+                                    Layout.fillWidth: true
+                                }
+                                AppCheckBox {
+                                    checked: Settings.windowBorderGradient
+                                    onToggled: Settings.updateSetting("windowBorder.gradient", checked)
+                                }
+                            }
+                            RowLayout {
+                                width: parent.width
+                                spacing: 8
+                                visible: Settings.windowBorderColor !== "default"
+                                Label {
+                                    font.pixelSize: Theme.fontSize
+                                    text: "Inactive Border %"
+                                    color: Theme.fg
+                                    Layout.fillWidth: true
+                                }
+                                AppSpinBox {
+                                    from: 0
+                                    to: 100
+                                    stepSize: 5
+                                    value: Settings.windowBorderInactive
+                                    Layout.preferredWidth: 160
+                                    onValueChanged: {
+                                        if (value !== Settings.windowBorderInactive)
+                                            Settings.updateSetting("windowBorder.inactive", value);
+                                    }
                                 }
                             }
                             // General: Gaps In

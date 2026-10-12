@@ -122,6 +122,33 @@ PanelWindow {
     readonly property bool detached: Settings.barStyle === "islands" && Settings.barIslandsDetached
     // Transient (non-default) island states still use the centred main pill.
     readonly property bool mainTransient: BarState.state !== "default" && BarState.state !== "recording"
+
+    // ---- islands open where their widget lives ----
+    // Which bar widget each transient island belongs to. While the default
+    // face is up its widget centres are cached; when an island opens it
+    // grows out of that spot (clamped on screen) instead of the bar centre.
+    readonly property var islandOwner: ({
+        weather: "weather", network: "network", control: "control", volume: "volume",
+        brightness: "brightness", player: "media", system: "resources"
+    })
+    property var _widgetCentres: ({})
+    function _cacheWidgetCentres() {
+        if (root.mainTransient || BarEditState.active)
+            return;
+        const surface = root.layoutSurface;
+        const cells = surface && typeof surface.editCells === "function" ? surface.editCells() : [];
+        if (!cells.length)
+            return;
+        const m = {};
+        for (const c of cells)
+            m[c.id] = c.x + c.w / 2;
+        root._widgetCentres = m;
+    }
+    readonly property real islandAnchorX: {
+        const id = root.islandOwner[BarState.state];
+        const x = id ? root._widgetCentres[id] : undefined;
+        return x !== undefined ? x : -1;
+    }
     // The face the edit overlay reads geometry from: the detached pills when
     // detached, else the attached default face (currentPageLoader.item).
     readonly property var layoutSurface: root.detached ? stripRoot.detachedBar : currentPageLoader.item
@@ -261,44 +288,199 @@ PanelWindow {
         right: root._frameSide(rightPill, rightClip)
     })
 
-    // Freeform frame bodies: the legacy pill/side-panel bodies first (so the
-    // centre pill and unfolded side panels keep their fillets exactly as
-    // before), then one body per visible cell of the current linear layout —
-    // the band grows around every placed component wherever it sits. In
-    // detached mode the main pill is not the painted face, so only the
-    // detached pills' cells (which layoutSurface.editCells() reports) are used;
-    // if nothing can be measured, the list is empty and FrameField falls back
-    // to the legacy `bodies`.
-    function _computeFrameBodiesList() {
-        const out = [];
-        if (!root.detached) {
-            const b = root.frameBodies;
-            if (b.pill)
-                out.push({ x: b.pill.x, y: b.pill.y, w: b.pill.w, h: b.pill.h, on: b.pill.on });
-            out.push({ x: b.left.x, y: b.left.y, w: b.left.w, h: b.left.h, on: b.left.on });
-            out.push({ x: b.right.x, y: b.right.y, w: b.right.w, h: b.right.h, on: b.right.on });
+    // ---- section-aware frame bodies ----
+    // The frame hugs the navbar's SECTIONS, not one blob and not one nub per
+    // widget: each section (left / centre capsule / right / bottom row, or a
+    // detached section pill) becomes one body grown out of the band, so
+    // moving a widget between sections reshapes the frame around it. A widget
+    // set to its own shape (Pill / Float) is split out of its section's run
+    // and gets its own rounded body; Tab squares the run's far corners.
+    // While editing, the drag ghost is a real rendered cell, so the frame
+    // follows the drag live.
+    function _radiusFor(fit) {
+        if (fit.radius >= 0)
+            return fit.radius;
+        return Theme.radius;
+    }
+
+    // Body grown from the bar edge down/up to `r` (its far side rounded).
+    function _edgeBody(r, padX, padY, radius) {
+        const top = Settings.barOrientation;
+        const y0 = top ? 0 : r.y - padY;
+        const y1 = top ? r.y + r.h + padY : root.height;
+        return { x: r.x - padX, y: y0, w: r.w + padX * 2, h: Math.max(1, y1 - y0), on: true,
+                 tl: top ? 0 : radius, tr: top ? 0 : radius,
+                 br: top ? radius : 0, bl: top ? radius : 0 };
+    }
+
+    // Free body round a rect, every corner rounded.
+    function _floatBody(r, gap, radius) {
+        return { x: r.x - gap, y: r.y - gap, w: r.w + gap * 2, h: r.h + gap * 2, on: true,
+                 tl: radius, tr: radius, br: radius, bl: radius };
+    }
+
+    function _bbox(list) {
+        let x0 = 1e9, y0 = 1e9, x1 = -1e9, y1 = -1e9;
+        for (const c of list) {
+            x0 = Math.min(x0, c.x); y0 = Math.min(y0, c.y);
+            x1 = Math.max(x1, c.x + c.w); y1 = Math.max(y1, c.y + c.h);
         }
-        const edge = Settings.barOrientation ? "top" : "bottom";
-        const ids = BarWidgets.layoutLinear(Settings.barStyle, edge);
-        const surf = root.layoutSurface;
-        const cells = (surf && typeof surf.editCells === "function") ? surf.editCells() : [];
-        const seen = {};
-        for (const id of ids) {
-            if (seen[id])
-                continue;
-            seen[id] = true;
-            for (let i = 0; i < cells.length; i++) {
-                const c = cells[i];
-                if (!c || c.id !== id)
-                    continue;
-                if (c.w > 0 && c.h > 0)
-                    out.push({ x: c.x, y: c.y, w: c.w, h: c.h, on: true });
-                break;
+        return { x: x0, y: y0, w: x1 - x0, h: y1 - y0 };
+    }
+
+    // Split a section's cells into runs of band-melting widgets and
+    // individually-shaped ones. Returns { runs: [[cells]], own: [cells] }.
+    function _splitRuns(cells) {
+        const runs = [], own = [];
+        let cur = [];
+        for (const c of cells.slice().sort((a, b) => a.x - b.x)) {
+            const shape = BarEditState.frameFor(c.id).shape;
+            if (shape === "pill" || shape === "detach") {
+                if (cur.length) runs.push(cur);
+                cur = [];
+                own.push(c);
+            } else {
+                cur.push(c);
             }
         }
+        if (cur.length) runs.push(cur);
+        return { runs: runs, own: own };
+    }
+
+    function _ownBody(c) {
+        const fit = BarEditState.frameFor(c.id);
+        const gap = fit.shape === "detach" ? 6 : 3;
+        return root._floatBody(c, gap, root._radiusFor(fit));
+    }
+
+    function _runRadius(run) {
+        let square = true, r = -1;
+        for (const c of run) {
+            const fit = BarEditState.frameFor(c.id);
+            if (fit.shape !== "square") square = false;
+            if (fit.radius >= 0) r = Math.max(r, fit.radius);
+        }
+        return square ? 0 : (r >= 0 ? r : Theme.radius);
+    }
+
+    // Seat a body against the screen: within reach of a side or edge it is
+    // extended flush into the band there and its corners on that side go
+    // square, so a section next to the frame's side (or a corner) reads as
+    // one piece with it instead of a pinched neck beside the band's own
+    // rounded corner. A body touching the band keeps the shared fillet; a
+    // floating one gets none (fuse 0), so it never sprouts a bridge.
+    function _seat(b) {
+        const W = root.width, H = root.height;
+        const reach = ShellFrame.band + ShellFrame.fuse + 2;
+        if (b.x <= reach && b.x > -1) {
+            b.w += b.x;
+            b.x = 0;
+            b.tl = 0;
+            b.bl = 0;
+        }
+        if (W - (b.x + b.w) <= reach && b.x + b.w < W + 1) {
+            b.w = W - b.x;
+            b.tr = 0;
+            b.br = 0;
+        }
+        if (b.y <= reach && b.y > 0) {
+            b.h += b.y;
+            b.y = 0;
+            b.tl = 0;
+            b.tr = 0;
+        }
+        if (H - (b.y + b.h) <= reach && b.y + b.h < H) {
+            b.h = H - b.y;
+            b.bl = 0;
+            b.br = 0;
+        }
+        const touches = b.x <= 0 || b.y <= 0 || b.x + b.w >= W || b.y + b.h >= H;
+        if (b.fuse === undefined)
+            b.fuse = touches ? ShellFrame.fuse : 0;
+        return b;
+    }
+
+    function _computeFrameBodiesList() {
+        const out = [];
+        const b = root.frameBodies;
+        // Every body carries a stable key so FrameField can morph it.
+        const add = (body, key) => {
+            if (body && body.on !== false && body.w > 0 && body.h > 0) {
+                body.key = key;
+                // The pill style's island and Float/Pill widget bodies are
+                // meant to hover: they keep their gap (pill keeps its melt).
+                const floating = key.startsWith("own:") || (key === "pill" && root.pillStyle);
+                if (floating && body.fuse === undefined)
+                    body.fuse = key === "pill" ? ShellFrame.fuse : 0;
+                out.push(floating ? body : root._seat(body));
+            }
+        };
+        const surface = root.layoutSurface;
+        const sections = surface && typeof surface.frameSections === "function" ? surface.frameSections() : [];
+        const cells = surface && typeof surface.editCells === "function" ? surface.editCells() : [];
+        const byZone = {};
+        for (const c of cells)
+            (byZone[c.zone] = byZone[c.zone] || []).push(c);
+
+        if (root.pillStyle || (!root.detached && (root.mainTransient || sections.length === 0))) {
+            // Pill style, a transient island, or nothing placed: the whole
+            // main pill is the body (the original frame).
+            add(Object.assign({}, b.pill), "pill");
+        } else if (root.detached) {
+            // Detached: each section pill is its own floating body; shaped
+            // widgets inside add their own outline.
+            for (const sec of sections) {
+                add(root._floatBody(sec, 0, Theme.radius), "sec:" + sec.zone);
+                for (const c of root._splitRuns(byZone[sec.zone] || []).own)
+                    add(root._ownBody(c), "own:" + c.id);
+            }
+            if (root.mainTransient)
+                add(Object.assign({}, b.pill), "pill");
+        } else {
+            // Attached islands: section runs grow out of the band.
+            for (const sec of sections) {
+                const split = root._splitRuns(byZone[sec.zone] || []);
+                const whole = split.own.length === 0 && split.runs.length === 1;
+                for (const run of split.runs) {
+                    // An unsplit section uses its own rect (the centre capsule
+                    // keeps its padding); split runs hug their widgets.
+                    const r = whole ? sec : root._bbox(run);
+                    add(root._edgeBody(r, whole ? 6 : 8, 5, root._runRadius(run)),
+                        whole ? "sec:" + sec.zone : "run:" + sec.zone + ":" + run[0].id);
+                }
+                for (const c of split.own)
+                    add(root._ownBody(c), "own:" + c.id);
+            }
+        }
+        add(Object.assign({}, b.left), "side-left");
+        add(Object.assign({}, b.right), "side-right");
         return out;
     }
-    readonly property var frameBodiesList: root._computeFrameBodiesList()
+
+    // Sample body geometry every rendered frame while the shell frame is
+    // enabled. QML cannot reliably observe x/y changes behind dynamically
+    // returned editCells() arrays, so this explicit dependency keeps the
+    // shader's body outlines glued to animated/moving navbar sections.
+    property int frameGeometryTick: 0
+    FrameAnimation {
+        running: ShellFrame.enabled
+        onTriggered: root.frameGeometryTick++
+    }
+    // Keep the widget-centre cache fresh (cheap; only while the default face shows).
+    Timer {
+        interval: 400
+        repeat: true
+        running: root.barVisible && !root.mainTransient
+        triggeredOnStart: true
+        onTriggered: root._cacheWidgetCentres()
+    }
+    readonly property var frameBodiesList: {
+        root.frameGeometryTick;
+        return root._computeFrameBodiesList();
+    }
+
+    // Instantiates the (lazy) window-border colour follower.
+    readonly property bool _windowBorderFollows: WindowBorder.active
 
     Component.onDestruction: Registry.unregister("capture-bar-" + root.monitorName)
     Component.onCompleted: {
@@ -314,6 +496,7 @@ PanelWindow {
             hideTimer.restart();
         }
     }
+
     Timer {
         id: hideTimer
         interval: 250
@@ -420,14 +603,31 @@ PanelWindow {
         id: stripRoot
         anchors.fill: parent
 
+        // ---- editor focus scrim ----
+        // While the layout editor is open everything behind the bar dims, so
+        // the bar (and the editor sheet) is what you look at.
+        Rectangle {
+            anchors.fill: parent
+            color: "black"
+            opacity: BarEditState.active ? 0.42 : 0
+            visible: opacity > 0.01
+            Behavior on opacity {
+                NumberAnimation { duration: 220; easing.type: Easing.OutCubic }
+            }
+        }
+
         // ---- the shell frame (Settings -> Bar -> Shell Style "Frame") ----
         // Part of the bar's own surface, under every pill: the band borders
         // the screen and the pills grow out of it in the same frame they move.
         FrameField {
+            id: frameField
             anchors.fill: parent
             bodies: root.frameBodies
             bodiesList: root.frameBodiesList
             topBar: Settings.barOrientation
+            // The music lifts the band under the bar's own span.
+            pullX: pill.x + pill.width / 2
+            pullHalf: pill.width / 2
         }
 
         // ---- the pill ----
@@ -462,8 +662,26 @@ PanelWindow {
                 var rightStart = rightPush > 0 ? parent.width - 8 - rightPush : parent.width;
                 return leftPush + Math.max(0, (rightStart - leftPush - pill.width) / 2);
             }
-            x: pillX
-            y: Settings.barOrientation ? (root.pillStyle ? 6 : 0) : parent.height - height - (root.pillStyle ? 6 : 0)
+            // Offset from the centred slot toward the owning widget (eased,
+            // so the island glides out of the widget rather than jumping).
+            property real anchorShift: {
+                if (!root.mainTransient || root.islandAnchorX < 0)
+                    return 0;
+                const want = root.islandAnchorX - pill.width / 2;
+                const lo = leftPush + 8, hi = parent.width - pill.width - 8 - (rightPush > 0 ? rightPush + 8 : 0);
+                return Math.max(lo, Math.min(hi, want)) - pillX;
+            }
+            Behavior on anchorShift {
+                Anim {
+                    type: Anim.DefaultSpatial
+                }
+            }
+            x: pillX + anchorShift
+            // Detached islands: a transient island drops down under the
+            // section pills (a popover from its widget) instead of covering
+            // them; otherwise it sits on the bar edge as before.
+            readonly property real edgeGap: root.detached ? 6 + Theme.barContentHeight + 14 + 8 : (root.pillStyle ? 6 : 0)
+            y: Settings.barOrientation ? pill.edgeGap : parent.height - height - pill.edgeGap
             // Grows with content: 32 for normal states, tall when the
             // search island (input + launcher) is shown.
             height: Math.max(root.barHeight, stack.height + 10)

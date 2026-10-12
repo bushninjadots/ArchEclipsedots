@@ -12,6 +12,8 @@ ControlPanelButton 1.0 ControlPanelButton.qml
 DefaultBar 1.0 DefaultBar.qml
 DetachedBar 1.0 DetachedBar.qml
 DetachedPill 1.0 DetachedPill.qml
+BarEditPanels 1.0 BarEditPanels.qml
+EditStrip 1.0 EditStrip.qml
 HotZone 1.0 HotZone.qml
 KeyboardLayoutWidget 1.0 KeyboardLayoutWidget.qml
 MediaCell 1.0 MediaCell.qml
@@ -21,3 +23,13 @@ ResourceMonitor 1.0 ResourceMonitor.qml
 Tray 1.0 Tray.qml
 Volume 1.0 Volume.qml
 Workspaces 1.0 Workspaces.qml
+BarIconButton 1.0 BarIconButton.qml
+WindowTitle 1.0 WindowTitle.qml
+NotificationsButton 1.0 NotificationsButton.qml
+CaffeineButton 1.0 CaffeineButton.qml
+MicButton 1.0 MicButton.qml
+RecorderButton 1.0 RecorderButton.qml
+PowerButton 1.0 PowerButton.qml
+NetworkButton 1.0 NetworkButton.qml
+ScreenshotButton 1.0 ScreenshotButton.qml
+ClipboardButton 1.0 ClipboardButton.qml

@@ -31,8 +31,9 @@ Singleton {
             if (list[i].isPlaying) return list[i];
         return list.length > 0 ? list[0] : null;
     }
-    readonly property bool wantsAlbum: root.enabled
-        && (Settings.frameColor === "dynamic" || (Settings.frameBorder && Settings.frameBorderColor === "dynamic"))
+    readonly property bool wantsAlbum: (root.enabled
+        && (Settings.frameColor === "dynamic" || (Settings.frameBorder && Settings.frameBorderColor === "dynamic")))
+        || Settings.windowBorderColor === "dynamic"
     ColorQuantizer {
         id: albumQuantizer
         source: root.wantsAlbum && root.player ? (root.player.trackArtUrl || "") : ""
@@ -54,8 +55,9 @@ Singleton {
     // picker keeps ~/.cache/current_wallpaper as a symlink, so resolve it
     // (a new target is a new image) whenever the theme retints — that is the
     // moment a wallpaper changed — and on a slow fallback tick.
-    readonly property bool wantsWallpaper: root.enabled
-        && (Settings.frameColor === "wallpaper" || (Settings.frameBorder && Settings.frameBorderColor === "wallpaper"))
+    readonly property bool wantsWallpaper: (root.enabled
+        && (Settings.frameColor === "wallpaper" || (Settings.frameBorder && Settings.frameBorderColor === "wallpaper")))
+        || Settings.windowBorderColor === "wallpaper"
     property string wallpaperPath: ""
     Process {
         id: wallProc
@@ -160,6 +162,9 @@ Singleton {
     readonly property real strength: Math.max(0.5, Math.min(3, Settings.frameMusicStrength / 100))
     readonly property real reach: 18 * root.strength
     property real level: 0
+    // Treble energy: drives the etched light / border shimmer, so hats and
+    // vocals sparkle along the contour while the bass swells the bodies.
+    property real high: 0
     property real phase: 0
     // left, top, right, bottom — the order the shader reads.
     readonly property vector4d amplitudes: {
@@ -175,9 +180,27 @@ Singleton {
     readonly property real bodySwell: root.level * root.reach * 0.9
     readonly property real topSwell: root.level * root.reach * 1.3
 
+    // --- notification pulse ---------------------------------------------------
+    // A new notification (DND off) sends one bright sweep round the contour.
+    property real flash: 0
+    Connections {
+        target: Notifications
+        function onNotified(notification) {
+            if (!Settings.notifDnd && root.enabled && Settings.animationsEnabled)
+                flashAnim.restart();
+        }
+    }
+    SequentialAnimation {
+        id: flashAnim
+        NumberAnimation { target: root; property: "flash"; to: 1; duration: 120; easing.type: Easing.OutCubic }
+        NumberAnimation { target: root; property: "flash"; to: 0; duration: 1100; easing.type: Easing.InOutSine }
+    }
+    // Shimmer the shader reads: treble, or the notification sweep.
+    readonly property real sparkle: Math.max(root.high, root.flash)
+
     readonly property bool claims: root.musicActive && root.playing
     onClaimsChanged: AudioBars.setActive("shell-frame", root.claims)
-    onMusicActiveChanged: if (!root.musicActive) { root.level = 0; root.phase = 0; }
+    onMusicActiveChanged: if (!root.musicActive) { root.level = 0; root.high = 0; root.phase = 0; }
 
     FrameAnimation {
         running: root.musicActive && (root.claims || root.level > 0.002)
@@ -188,13 +211,26 @@ Singleton {
             for (let i = 0; i < n; i++)
                 bass += Number(pts[i] || 0);
             bass = n > 0 ? Math.min(1, Math.sqrt(bass / n) * 1.4) : 0;
-            if (!root.claims)
+            let treble = 0;
+            const t0 = Math.floor(pts.length * 0.55);
+            for (let i = t0; i < pts.length; i++)
+                treble += Number(pts[i] || 0);
+            treble = pts.length > t0 ? Math.min(1, Math.sqrt(treble / (pts.length - t0)) * 1.8) : 0;
+            if (!root.claims) {
                 bass = 0;
+                treble = 0;
+            }
             const dt = Math.min(0.05, frameTime);
-            const rate = bass > root.level ? 18 : 3.2;
+            // Fast attack, slow release; the release eases out quadratically
+            // near zero so the swell settles instead of twitching.
+            const rate = bass > root.level ? 16 : 2.6 + 3 * root.level;
             root.level += (bass - root.level) * Math.min(1, rate * dt);
+            const hr = treble > root.high ? 22 : 5;
+            root.high += (treble - root.high) * Math.min(1, hr * dt);
             if (root.level < 0.002 && !root.claims)
                 root.level = 0;
+            if (root.high < 0.002 && !root.claims)
+                root.high = 0;
             root.phase = (root.phase + dt * (0.6 + 2.4 * root.level)) % 6283.185;
         }
     }

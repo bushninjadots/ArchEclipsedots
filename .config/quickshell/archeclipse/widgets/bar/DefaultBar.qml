@@ -1,106 +1,143 @@
 import QtQuick
-import QtQuick.Controls
-import QtQuick.Layouts
 import Quickshell
 import qs.theme
 import qs.services
 import qs.widgets.bar.pill
+import qs.widgets.shared
 
-// Islands bar face (Settings.barStyle !== "pill"), freeform linear form.
-//
-// The zone chrome is gone: the visible widgets come straight from the linear
-// layout (Settings.barLayoutTop for the top edge, barLayoutBottom for the
-// bottom) and render as two centred strips (top + bottom edges of the bar's
-// pill) with each widget at its natural size. The outer pill / shell frame
-// supplies the background surface.
-//
-// VISUAL RULING (recorded in the plan ledger): the old centre accent chip
-// (surfaceActive capsule over the centre zone) is dropped because in linear
-// mode the left/center/right groups no longer exist — a widget belongs where
-// its linear position puts it. Defaults reproduce today's widget ORDER,
-// spacing and membership via the zone→linear migration (left+center+right =
-// top, bottom = bottom); only the inner capsule is gone.
+// Islands bar face (Settings.barStyle !== "pill") — the original layout:
+// fixed-width left/right sections so the centre capsule (bandwidth | control
+// | clock, accent-tinted) stays dead-centre, and a full-width workspace row
+// beneath. Every section is an EditStrip over BarEditState.ids("islands",
+// zone), so membership/order come from the layout model and a live drag
+// previews in place.
 Column {
     id: root
     spacing: 4
 
-    // ---- linear sequence access (Settings bar layout model, Task 1) ----
-    // Deduplicated via BarWidgets.layoutLinear so reorders/renders stay clean.
-    readonly property var linearTopIds: BarWidgets.layoutLinear("islands", "top")
-    readonly property var linearBottomIds: BarWidgets.layoutLinear("islands", "bottom")
-
     // ---- edit-mode geometry (scene coords) ----
-    function _collectCells(rep, ids, zone, out) {
-        for (let i = 0; i < rep.count; i++) {
-            const d = rep.itemAt(i);
-            if (!d)
-                continue;
-            // The delegate may be a plain Loader or an Item wrapper whose child
-            // is a Loader. Resolve to that Loader and use the delegate geometry.
-            let ldr = d;
-            if (typeof d.item === "undefined") {
-                ldr = null;
-                const kids = d.children;
-                for (let k = 0; k < kids.length; k++) {
-                    if (kids[k] && typeof kids[k].item !== "undefined") {
-                        ldr = kids[k];
-                        break;
-                    }
-                }
-            }
-            if (!ldr || !ldr.item)
-                continue;
-            const p = d.mapToItem(null, 0, 0);
-            out.push({ id: ids[i], zone: zone, x: p.x, y: p.y, w: d.width, h: d.height });
+    function cellItem(id) {
+        if (Settings.barStyle === "pill")
+            return pillLoader.item && pillLoader.item.cellItem ? pillLoader.item.cellItem(id) : null;
+        for (const s of [leftStrip, centerStrip, rightStrip, bottomStrip]) {
+            const it = s.cellItem(id);
+            if (it)
+                return it;
         }
+        return null;
     }
     function editCells() {
         if (Settings.barStyle === "pill")
             return pillLoader.item && pillLoader.item.editCells ? pillLoader.item.editCells() : [];
         const out = [];
-        root._collectCells(topRep, root.linearTopIds, "top", out);
-        root._collectCells(bottomRep, root.linearBottomIds, "bottom", out);
+        leftStrip.cells(out);
+        centerStrip.cells(out);
+        rightStrip.cells(out);
+        bottomStrip.cells(out);
         return out;
-    }
-    function _stripRect(row, zone) {
-        const p = row.mapToItem(null, 0, 0);
-        return { zone: zone, x: p.x, y: p.y, w: row.width, h: row.height };
     }
     function editZones() {
         if (Settings.barStyle === "pill")
             return pillLoader.item && pillLoader.item.editZones ? pillLoader.item.editZones() : [];
-        const zones = [];
-        if (topRow.visible)
-            zones.push(root._stripRect(topRow, "top"));
-        if (bottomRow.visible)
-            zones.push(root._stripRect(bottomRow, "bottom"));
-        return zones;
+        return [
+            leftStrip.zoneRect(leftZone),
+            centerStrip.zoneRect(centerPill),
+            rightStrip.zoneRect(rightZone),
+            bottomStrip.zoneRect(bottomRow)
+        ];
+    }
+    // Section bodies for the shell frame: rect of each non-empty section in
+    // scene coords ({ zone, x, y, w, h }).
+    function frameSections() {
+        if (Settings.barStyle === "pill")
+            return [];
+        const out = [];
+        const add = (it, zone, strip) => {
+            if (strip.count === 0 || it.width <= 0)
+                return;
+            const p = it.mapToItem(null, 0, 0);
+            out.push({ zone: zone, x: p.x, y: p.y, w: it.width, h: it.height });
+        };
+        add(leftStrip, "left", leftStrip);
+        add(centerPill, "center", centerStrip);
+        add(rightStrip, "right", rightStrip);
+        add(bottomStrip, "bottom", bottomStrip);
+        return out;
     }
 
-    // ---- top edge strip (barLayoutTop order) ----
     Item {
         id: topRow
         visible: Settings.barStyle !== "pill"
-        implicitWidth: topStrip.implicitWidth
+        // Both side sections count as wide as the wider one, so the centred
+        // capsule keeps Theme.spacing clearance from either side.
+        readonly property real sideWidth: Math.max(leftStrip.naturalWidthHint, rightStrip.implicitWidth)
+        implicitWidth: 2 * sideWidth + (centerPill.visible ? centerPill.width : 0) + Theme.spacing * 2
         width: implicitWidth
         height: Theme.barContentHeight
 
-        Row {
-            id: topStrip
+        // Centre capsule — equal-width end cells keep the middle widget
+        // dead-centre relative to the whole bar.
+        Rectangle {
+            id: centerPill
+            visible: centerStrip.count > 0 || BarEditState.active
             anchors.horizontalCenter: parent.horizontalCenter
             anchors.verticalCenter: parent.verticalCenter
-            spacing: Theme.spacing
+            width: centerStrip.width + 20
+            height: Theme.barContentHeight
+            radius: Theme.radius
+            // The accent capsule is the classic look; with widget pills on it
+            // would double up, so the pills take over.
+            color: centerStrip.count > 0 && Settings.barWidgetDeco === "none" ? Theme.surfaceActive : "transparent"
+            Behavior on color {
+                CAnim {}
+            }
 
-            Repeater {
-                id: topRep
-                model: root.linearTopIds
-                delegate: Loader {
-                    // No width binding: the Loader auto-sizes to the widget's
-                    // natural size (widgets lack implicitWidth).
-                    required property string modelData
-                    sourceComponent: BarWidgets.component(modelData, "islands", "top")
-                    anchors.verticalCenter: parent.verticalCenter
-                }
+            EditStrip {
+                id: centerStrip
+                anchors.centerIn: parent
+                style: "islands"
+                zone: "center"
+                equalEnds: true
+            }
+        }
+
+        // Left section — fixed sideWidth; a stretchable widget (weather)
+        // absorbs the slack, like the original bar.
+        Item {
+            id: leftZone
+            anchors.left: parent.left
+            anchors.verticalCenter: parent.verticalCenter
+            width: topRow.sideWidth
+            height: parent.height
+
+            EditStrip {
+                id: leftStrip
+                // Width the content needs before any slack is handed out.
+                readonly property real naturalWidthHint: leftStrip.naturalContentWidth > 0
+                    ? leftStrip.naturalContentWidth : (BarEditState.active ? leftStrip.emptyWidth : 0)
+                anchors.left: parent.left
+                anchors.verticalCenter: parent.verticalCenter
+                style: "islands"
+                zone: "left"
+                fillSlack: true
+                fillWidth: leftZone.width
+            }
+        }
+
+        // Right section — same fixed width, content hugging the right edge.
+        Item {
+            id: rightZone
+            anchors.right: parent.right
+            anchors.verticalCenter: parent.verticalCenter
+            width: topRow.sideWidth
+            height: parent.height
+
+            EditStrip {
+                id: rightStrip
+                anchors.right: parent.right
+                anchors.verticalCenter: parent.verticalCenter
+                style: "islands"
+                zone: "right"
             }
         }
     }
@@ -117,21 +154,21 @@ Column {
         PillBar {}
     }
 
-    // ---- bottom edge strip (barLayoutBottom order) ----
-    Row {
+    // Bottom section — full width of the bar content. A lone widget (the
+    // workspace strip) stretches across it; several widgets centre.
+    Item {
         id: bottomRow
-        visible: Settings.barStyle !== "pill"
+        visible: Settings.barStyle !== "pill" && (bottomStrip.count > 0 || BarEditState.active)
         width: topRow.width
-        spacing: Theme.spacing
+        height: bottomStrip.height
 
-        Repeater {
-            id: bottomRep
-            model: root.linearBottomIds
-            delegate: Loader {
-                required property string modelData
-                sourceComponent: BarWidgets.component(modelData, "islands", "bottom")
-                width: bottomRow.width
-            }
+        EditStrip {
+            id: bottomStrip
+            anchors.horizontalCenter: parent.horizontalCenter
+            style: "islands"
+            zone: "bottom"
+            stretchSingle: true
+            fillWidth: bottomRow.width
         }
     }
 }
