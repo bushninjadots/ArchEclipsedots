@@ -298,8 +298,11 @@ Item {
                                 id: iconSlot
                                 readonly property bool showPreview: card.toast && card.toast.previewFile !== "" && previewImg.status !== Image.Error
                                 readonly property real previewSize: Math.min(Math.max(textCol.height, 72), 120)
-                                width: showPreview ? previewSize : 28
-                                height: showPreview ? previewSize : 28
+                                // Screenshots get a wide frame (most shots are
+                                // landscape), so the preview reads at a glance.
+                                readonly property bool wide: card.toast && card.toast.appName === "Screenshot"
+                                width: showPreview ? (wide ? 168 : previewSize) : 28
+                                height: showPreview ? (wide ? 96 : previewSize) : 28
                                 Behavior on width {
                                     NumberAnimation {
                                         duration: 250
@@ -362,7 +365,7 @@ Item {
 
                             Column {
                                 id: textCol
-                                width: (card.toast && card.toast.previewFile !== "") ? parent.width - 130 : parent.width - 38
+                                width: (card.toast && card.toast.previewFile !== "") ? parent.width - (iconSlot.wide ? 178 : 130) : parent.width - 38
                                 Behavior on width {
                                     NumberAnimation {
                                         duration: 250

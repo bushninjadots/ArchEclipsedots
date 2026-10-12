@@ -44,5 +44,27 @@ fi
 # Send image to clipboard (bytes must match the declared MIME type)
 wl-copy --type image/png < "$img"
 
-# Notify user (quoted icon path so it arrives as a loadable file URL)
-notify-send -a "Screenshot" -i "$img" "Screenshot saved" "Saved and copied to clipboard"
+# Notify with the shot as a preview and what to do with it (after
+# Serpantinum / Ryoku's ryoshot). notify-send waits for the chosen action, so
+# it runs detached; the shot is already saved and on the clipboard.
+(
+    act=$(timeout 300 notify-send -a "Screenshot" -i "$img" -h "string:image-path:$img" \
+        -A edit="Edit" -A folder="Show in folder" -A delete="Delete" \
+        "Screenshot saved" "Copied to clipboard · $(basename "$img")" 2>/dev/null) || exit 0
+    case "$act" in
+        edit)
+            if command -v satty >/dev/null; then
+                satty --filename "$img" --output-filename "$img" --copy-command wl-copy --early-exit
+            elif command -v swappy >/dev/null; then
+                swappy -f "$img" -o "$img"
+            fi ;;
+        folder)
+            # Highlight the file where a file manager supports it.
+            dbus-send --session --dest=org.freedesktop.FileManager1 --type=method_call \
+                /org/freedesktop/FileManager1 org.freedesktop.FileManager1.ShowItems \
+                array:string:"file://$img" string:"" 2>/dev/null || xdg-open "$(dirname "$img")" ;;
+        delete)
+            rm -f -- "$img" && notify-send -a "Screenshot" -t 2500 "Screenshot deleted" "$(basename "$img")" ;;
+    esac
+) >/dev/null 2>&1 &
+disown
