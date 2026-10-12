@@ -58,7 +58,7 @@ PanelWindow {
     // behind (debounceResolve), which kept Exclusive held while a freshly
     // launched app mapped, stealing its focus back to the bar.
     WlrLayershell.keyboardFocus: ("search" in BarState.activeStates) ? WlrKeyboardFocus.Exclusive : WlrKeyboardFocus.OnDemand
-    WlrLayershell.exclusiveZone: Settings.barLock ? root.barHeight : -1
+    WlrLayershell.exclusiveZone: Settings.barLock ? root.barHeight + root.floatGap : -1
     color: "transparent"
     aboveWindows: true
 
@@ -110,6 +110,9 @@ PanelWindow {
         Region {
             item: (stripRoot.detachedBar && stripRoot.detachedBar.pillRightMid.visible) ? stripRoot.detachedBar.pillRightMid : null
         }
+        Region {
+            item: vinyl.visible ? vinyl : null
+        }
         // Layout editor (Task 7): while editing, the whole surface is
         // interactive so dashed zones, the tray and drags all receive input.
         Region {
@@ -118,6 +121,8 @@ PanelWindow {
     }
 
     readonly property int barHeight: 32
+    // No-frame attached bars may float off the screen edge.
+    readonly property int floatGap: !ShellFrame.enabled && !root.pillStyle && !root.detached ? Settings.barEdgeGap : 0
     // Pill bar style (Settings.barStyle === "pill"): the main pill becomes a
     // floating island — all four corners rounded and inset from the bar edge.
     readonly property bool pillStyle: Settings.barStyle === "pill"
@@ -139,6 +144,17 @@ PanelWindow {
         battery: "battery", bluetooth: "bluetooth"
     })
     property var _widgetCentres: ({})
+    property var _mediaCell: null
+    // Where the vinyl hangs from: under the music widget (its section pill
+    // when detached), else the middle of the bar / pill.
+    readonly property point vinylAnchor: {
+        const top = Settings.barOrientation;
+        const m = root._mediaCell;
+        if (root.detached && m)
+            return Qt.point(m.x, top ? m.bottom + 7 : m.top - 7);
+        const x = (!root.pillStyle && m) ? m.x : pill.x + pill.width / 2;
+        return Qt.point(x, top ? pill.y + pill.height : pill.y);
+    }
     function _cacheWidgetCentres() {
         if (root.mainTransient || BarEditState.active)
             return;
@@ -147,9 +163,14 @@ PanelWindow {
         if (!cells.length)
             return;
         const m = {};
-        for (const c of cells)
+        let media = null;
+        for (const c of cells) {
             m[c.id] = c.x + c.w / 2;
+            if (c.id === "media" && c.w > 0)
+                media = c;
+        }
         root._widgetCentres = m;
+        root._mediaCell = media ? { x: media.x + media.w / 2, w: media.w, top: media.y, bottom: media.y + media.h } : null;
     }
     readonly property real islandAnchorX: {
         const id = root.islandOwner[BarState.state];
@@ -637,6 +658,32 @@ PanelWindow {
             pullHalf: pill.width / 2
         }
 
+        // Half-cut vinyl under the music widget (Settings -> Bar -> Music).
+        // Before the pill so it reads as sliding out from under the bar.
+        BarVinyl {
+            id: vinyl
+            anchorX: root.vinylAnchor.x
+            anchorY: root.vinylAnchor.y
+            allowed: root.barVisible && !root.mainTransient && !BarEditState.active
+            // Pill style spans the pill; islands span the music widget plus
+            // its pill padding.
+            matchWidth: root.pillStyle || !root._mediaCell ? pill.width - 16 : root._mediaCell.w + 14
+        }
+
+        // No-frame surface for the main pill (Settings -> Bar -> Surface).
+        BarSurface {
+            x: pill.x
+            y: pill.y
+            width: pill.width
+            height: pill.height
+            visible: pill.visible && !ShellFrame.enabled && Settings.barSurfaceStyle !== "clear"
+            topLeftRadius: pill.topLeftRadius
+            topRightRadius: pill.topRightRadius
+            bottomLeftRadius: pill.bottomLeftRadius
+            bottomRightRadius: pill.bottomRightRadius
+            live: root.mainTransient
+        }
+
         // ---- the pill ----
         Rectangle {
             id: pill
@@ -687,7 +734,7 @@ PanelWindow {
             // Detached islands: a transient island drops down under the
             // section pills (a popover from its widget) instead of covering
             // them; otherwise it sits on the bar edge as before.
-            readonly property real edgeGap: root.detached ? 6 + Theme.barContentHeight + 14 + 8 : (root.pillStyle ? 6 : 0)
+            readonly property real edgeGap: root.detached ? 6 + Theme.barContentHeight + 14 + 8 : (root.pillStyle ? 6 : root.floatGap)
             y: Settings.barOrientation ? pill.edgeGap : parent.height - height - pill.edgeGap
             // Grows with content: 32 for normal states, tall when the
             // search island (input + launcher) is shown.
@@ -715,12 +762,17 @@ PanelWindow {
                     type: Anim.DefaultSpatial
                 }
             }
-            bottomRightRadius: (Settings.barOrientation || root.pillStyle) ? Theme.radius : 0
-            bottomLeftRadius: (Settings.barOrientation || root.pillStyle) ? Theme.radius : 0
-            topRightRadius: (!Settings.barOrientation || root.pillStyle) ? Theme.radius : 0
-            topLeftRadius: (!Settings.barOrientation || root.pillStyle) ? Theme.radius : 0
-            // In frame mode FrameField paints this body as part of the frame.
-            color: ShellFrame.enabled ? "transparent" : Theme.surface
+            // Square on the screen-edge side unless it floats (pill style,
+            // or a no-frame bar given an edge gap).
+            readonly property bool floating: root.pillStyle || root.floatGap > 0
+            bottomRightRadius: (Settings.barOrientation || pill.floating) ? Theme.radius : 0
+            bottomLeftRadius: (Settings.barOrientation || pill.floating) ? Theme.radius : 0
+            topRightRadius: (!Settings.barOrientation || pill.floating) ? Theme.radius : 0
+            topLeftRadius: (!Settings.barOrientation || pill.floating) ? Theme.radius : 0
+            // Frame mode: FrameField paints this body as part of the frame.
+            // No frame: BarSurface (behind the pill, so its shadow isn't
+            // clipped) paints it.
+            color: "transparent"
 
             // Hover detection lives on the pill itself (stable container).
             // The motion controller is on the bar pill — hot-zone

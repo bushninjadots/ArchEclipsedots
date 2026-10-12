@@ -37,6 +37,15 @@ Item {
 
     readonly property color panelColor: Theme.rgba(Theme.background, 0.97)
 
+    // Sheet page: "widgets" (library + inspector) or "look" (bar-wide looks).
+    readonly property string page: BarEditState.page
+    readonly property bool framed: Settings.shellFrame
+    readonly property var onOff: [{ value: true, label: "On" }, { value: false, label: "Off" }]
+    readonly property var wsOptions: [{ value: "strip", label: "Strip", tip: "Full-width bars" },
+                                      { value: "dots", label: "Dots" },
+                                      { value: "numbers", label: "Numbers" },
+                                      { value: "icons", label: "Apps", tip: "The app on each workspace" }]
+
     // ---------------------------------------------------------------- parts
     component Chip: Rectangle {
         id: chip
@@ -115,7 +124,7 @@ Item {
         id: sheet
         readonly property bool armed: root.dragging && BarEditState.dragFromZone !== "" && BarEditState.targetZone === ""
         anchors.horizontalCenter: parent.horizontalCenter
-        width: Math.min(root.width - 48, Math.max(760, body.implicitWidth + 36))
+        width: Math.min(root.width - 48, Math.max(760, toolbar.needW + 36))
         height: body.implicitHeight + 28
         y: root.topBar ? root.barReach : root.height - root.barReach - height
         radius: Theme.cardRadius + 4
@@ -163,9 +172,13 @@ Item {
 
             // ---- toolbar ----
             Item {
+                id: toolbar
+                // What both button rows need side by side (the sheet widens to it).
+                readonly property real needW: tbLeft.implicitWidth + tbRight.implicitWidth + 24
                 width: parent.width
                 height: 30
                 Row {
+                    id: tbLeft
                     anchors.left: parent.left
                     anchors.verticalCenter: parent.verticalCenter
                     spacing: 10
@@ -184,6 +197,19 @@ Item {
                         value: BarEditState.style
                         onPicked: v => BarEditState.switchStyle(v)
                     }
+                    Rectangle {
+                        anchors.verticalCenter: parent.verticalCenter
+                        width: 1
+                        height: 18
+                        color: Theme.rgba(Theme.foreground, 0.12)
+                    }
+                    Choice {
+                        anchors.verticalCenter: parent.verticalCenter
+                        options: [{ value: "widgets", label: "\u{F0570}  Widgets", tip: "Place, order and style widgets" },
+                                  { value: "look", label: "\u{F03D8}  Look", tip: "Frame, surface, pills, workspaces, music" }]
+                        value: root.page
+                        onPicked: v => BarEditState.page = v
+                    }
                     Chip {
                         anchors.verticalCenter: parent.verticalCenter
                         visible: BarEditState.style === "islands"
@@ -195,6 +221,7 @@ Item {
                     }
                 }
                 Row {
+                    id: tbRight
                     anchors.right: parent.right
                     anchors.verticalCenter: parent.verticalCenter
                     spacing: 6
@@ -228,6 +255,7 @@ Item {
             Column {
                 width: parent.width
                 spacing: 6
+                visible: root.page === "widgets" || root.dragging
                 Caption {
                     text: root.dragging && BarEditState.dragFromZone !== ""
                         ? (sheet.armed ? "RELEASE TO HIDE" : "DROP HERE TO HIDE")
@@ -358,7 +386,7 @@ Item {
                 id: inspector
                 width: parent.width
                 spacing: 10
-                visible: root.sel !== "" && !root.dragging
+                visible: root.sel !== "" && !root.dragging && root.page === "widgets"
 
                 Item {
                     width: parent.width
@@ -411,10 +439,12 @@ Item {
                     }
                 }
 
-                // Look: frame fit · pill · opacity on one line.
-                Row {
+                // Look: frame fit · pill · opacity (+ the widget's own options).
+                Flow {
+                    width: parent.width
                     spacing: 18
                     Column {
+                        visible: root.framed
                         spacing: 4
                         Caption { text: "FRAME" }
                         Choice {
@@ -461,6 +491,163 @@ Item {
                                 onClicked: BarEditState.setOpacity(root.sel, null)
                             }
                         }
+                    }
+                    // Widget-specific options.
+                    Column {
+                        visible: root.sel === "workspaces"
+                        spacing: 4
+                        Caption { text: "SWITCHER" }
+                        Choice {
+                            options: root.wsOptions
+                            value: BarEditState.style === "pill" ? Settings.barWorkspacesPill : Settings.barWorkspacesIslands
+                            onPicked: v => Settings.updateSetting(BarEditState.style === "pill" ? "bar.workspaces.pill" : "bar.workspaces.islands", v)
+                        }
+                    }
+                    Column {
+                        visible: root.sel === "media"
+                        spacing: 4
+                        Caption { text: "PLAYER" }
+                        Row {
+                            spacing: 8
+                            Choice {
+                                visible: BarEditState.style === "islands"
+                                options: [{ value: false, label: "Compact" }, { value: true, label: "Visualiser" }]
+                                value: Settings.mprisVisualizer
+                                onPicked: v => {
+                                    Settings.mprisVisualizer = v;
+                                    Settings.persist();
+                                }
+                            }
+                            Chip {
+                                compact: true
+                                active: Settings.barVinyl
+                                text: "\u{F075A}  Vinyl"
+                                tip: "Half record under the widget while a track plays"
+                                onClicked: Settings.updateSetting("bar.vinyl.enabled", !Settings.barVinyl)
+                            }
+                        }
+                    }
+                    Caption {
+                        visible: !root.framed
+                        text: "frame is off · frame shapes return when it's on (Look)"
+                        opacity: 0.7
+                    }
+                }
+            }
+
+            // ---- look page ----
+            Flow {
+                id: lookPage
+                visible: root.page === "look" && !root.dragging
+                width: parent.width
+                spacing: 18
+
+                Column {
+                    spacing: 4
+                    Caption { text: "FRAME" }
+                    Choice {
+                        options: root.onOff
+                        value: root.framed
+                        onPicked: v => Settings.updateSetting("frame.enable", v)
+                    }
+                }
+                Column {
+                    visible: !root.framed
+                    spacing: 4
+                    Caption { text: "SURFACE" }
+                    Choice {
+                        options: [{ value: "glass", label: "Glass" }, { value: "solid", label: "Solid" },
+                                  { value: "outline", label: "Outline" }, { value: "clear", label: "Clear" }]
+                        value: Settings.barSurfaceStyle
+                        onPicked: v => Settings.updateSetting("bar.surface.style", v)
+                    }
+                }
+                Column {
+                    visible: !root.framed
+                    spacing: 4
+                    Caption { text: "CORNERS" }
+                    Choice {
+                        options: [{ value: "rounded", label: "Round" }, { value: "sharp", label: "Sharp" }, { value: "capsule", label: "Capsule" }]
+                        value: Settings.barSurfaceCorners
+                        onPicked: v => Settings.updateSetting("bar.surface.corners", v)
+                    }
+                }
+                Column {
+                    visible: !root.framed
+                    spacing: 4
+                    Caption { text: "DEPTH" }
+                    Row {
+                        spacing: 4
+                        Chip {
+                            compact: true
+                            active: Settings.barSurfaceShadow
+                            text: "Shadow"
+                            onClicked: Settings.updateSetting("bar.surface.shadow", !Settings.barSurfaceShadow)
+                        }
+                        Chip {
+                            compact: true
+                            active: Settings.barSurfaceAccent
+                            text: "Accent line"
+                            onClicked: Settings.updateSetting("bar.surface.accent", !Settings.barSurfaceAccent)
+                        }
+                    }
+                }
+                Column {
+                    visible: !root.framed && BarEditState.style === "islands" && !Settings.barIslandsDetached
+                    spacing: 4
+                    Caption { text: "FLOAT GAP" }
+                    Choice {
+                        options: [{ value: 0, label: "Flush" }, { value: 6, label: "6" }, { value: 12, label: "12" }, { value: 18, label: "18" }]
+                        value: Settings.barEdgeGap
+                        onPicked: v => Settings.updateSetting("bar.surface.edgeGap", v)
+                    }
+                }
+                Column {
+                    spacing: 4
+                    Caption { text: "WIDGET PILLS" }
+                    Choice {
+                        options: [{ value: "none", label: "None" }, { value: "outline", label: "Border" }, { value: "filled", label: "Filled" }]
+                        value: Settings.barWidgetDeco
+                        onPicked: v => Settings.updateSetting("bar.widgets.deco", v)
+                    }
+                }
+                Column {
+                    spacing: 4
+                    Caption { text: "WORKSPACES · " + (BarEditState.style === "pill" ? "PILL" : "ISLANDS") }
+                    Choice {
+                        options: root.wsOptions
+                        value: BarEditState.style === "pill" ? Settings.barWorkspacesPill : Settings.barWorkspacesIslands
+                        onPicked: v => Settings.updateSetting(BarEditState.style === "pill" ? "bar.workspaces.pill" : "bar.workspaces.islands", v)
+                    }
+                }
+                Column {
+                    visible: BarEditState.style === "pill"
+                    spacing: 4
+                    Caption { text: "SPECTRUM" }
+                    Choice {
+                        options: [{ value: "off", label: "Off" }, { value: "bars", label: "Bars" }, { value: "mirror", label: "Mirror" },
+                                  { value: "wave", label: "Wave" }, { value: "glow", label: "Glow" }]
+                        value: Settings.barSpectrum
+                        onPicked: v => Settings.updateSetting("bar.spectrum.style", v)
+                    }
+                }
+                Column {
+                    spacing: 4
+                    Caption { text: "MUSIC VINYL" }
+                    Choice {
+                        options: root.onOff
+                        value: Settings.barVinyl
+                        onPicked: v => Settings.updateSetting("bar.vinyl.enabled", v)
+                    }
+                }
+                Column {
+                    spacing: 4
+                    Caption { text: "OPEN ISLANDS" }
+                    Choice {
+                        options: [{ value: false, label: "Click", tip: "Islands and sliders open on click" },
+                                  { value: true, label: "Hover", tip: "Open on hover after the reveal delay" }]
+                        value: Settings.barHoverReveal
+                        onPicked: v => Settings.updateSetting("bar.hoverReveal", v)
                     }
                 }
             }

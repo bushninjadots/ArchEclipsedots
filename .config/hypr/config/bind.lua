@@ -53,8 +53,10 @@ hl.bind(mainMod .. " + P", hl.dsp.exec_cmd("[workspace 5] " .. terminal .. " bto
 hl.bind(mainMod .. " + E", hl.dsp.exec_cmd("nautilus"))
 
 -- Status Bar and Panels
+--- open the default web browser
+hl.bind(mainMod .. " + B", hl.dsp.exec_cmd([[gtk-launch "$(xdg-settings get default-web-browser)" || zen-browser]]))
 --- restart status bar
-hl.bind(mainMod .. " + B", hl.dsp.exec_cmd(statusBar))
+hl.bind(mainMod .. " + SHIFT + B", hl.dsp.exec_cmd(statusBar))
 --- toggle status bar visibility
 hl.bind(mainMod .. " + ALT_L", hl.dsp.exec_cmd(qsIpc .. "toggleBar " .. monitor))
 --- toggle app launcher
@@ -189,10 +191,10 @@ for index, key_name in ipairs(numpad_keys) do
     hl.bind(mainMod .. " + SHIFT + " .. key_name, hl.dsp.window.move({ workspace = workspace_id, follow = false }))
 end
 
---- previous workspace
-hl.bind(mainMod .. " + TAB", hl.dsp.focus({ workspace = "prev" }))
 --- workspace overview (quickshell overview island)
-hl.bind(mainMod .. " + SHIFT + TAB", hl.dsp.exec_cmd(qsIpc .. "toggleOverview"))
+hl.bind(mainMod .. " + TAB", hl.dsp.exec_cmd(qsIpc .. "toggleOverview"))
+--- previous workspace
+hl.bind(mainMod .. " + SHIFT + TAB", hl.dsp.focus({ workspace = "prev" }))
 
 --- next workspace
 hl.bind(mainMod .. " + mouse_down", hl.dsp.focus({ workspace = "e+1" }))

@@ -378,7 +378,7 @@ Singleton {
 
     function _islandsComponent(id) {
         if (id === "workspaces")
-            return c_workspacesIslands;
+            return Settings.barWorkspacesIslands === "strip" ? c_workspacesIslands : c_workspacesSwitcherIslands;
         if (id === "clock")
             return c_clockIslands;
         if (id === "media")
@@ -433,7 +433,7 @@ Singleton {
 
     function _pillComponent(id) {
         if (id === "workspaces")
-            return c_workspacesPill;
+            return Settings.barWorkspacesPill === "strip" ? c_workspacesStripPill : c_workspacesSwitcherPill;
         if (id === "clock")
             return c_clockPill;
         if (id === "media")
@@ -486,8 +486,24 @@ Singleton {
 
     // --- pill components ---
     Component {
-        id: c_workspacesPill
-        PillDots {}
+        id: c_workspacesSwitcherPill
+        WorkspaceSwitcher {
+            mode: Settings.barWorkspacesPill
+        }
+    }
+    // The full strip in a pill row gets a fixed natural width (rows hug
+    // their content, so it has no width to fill).
+    Component {
+        id: c_workspacesStripPill
+        Workspaces {
+            implicitWidth: 260
+        }
+    }
+    Component {
+        id: c_workspacesSwitcherIslands
+        WorkspaceSwitcher {
+            mode: Settings.barWorkspacesIslands
+        }
     }
     Component {
         id: c_clockPill

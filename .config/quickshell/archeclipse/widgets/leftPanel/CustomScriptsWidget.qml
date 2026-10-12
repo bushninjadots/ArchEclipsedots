@@ -24,7 +24,7 @@ Item {
             name: "Restart Bar",
             icon: "󰜉",
             description: "Restart the shell bar",
-            keybind: ["SUPER", "B"],
+            keybind: ["SUPER", "SHIFT", "B"],
             command: "bash -c \"$HOME/.config/hypr/scripts/bar.sh\""
         },
         {

@@ -35,6 +35,9 @@ Singleton {
     property var _snapshot: null
     readonly property bool canCancel: root._snapshot !== null
 
+    // Editor sheet page: "widgets" | "look".
+    property string page: "widgets"
+
     // ---- selection (click a widget) ----
     property string selectedId: ""
     property string selectedZone: ""
@@ -88,6 +91,7 @@ Singleton {
         root.dropZones = [];
         root.selectedId = "";
         root.selectedZone = "";
+        root.page = "widgets";
         root.active = true;
     }
 

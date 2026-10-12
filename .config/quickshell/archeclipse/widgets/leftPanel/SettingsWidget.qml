@@ -219,7 +219,7 @@ Item {
                                 AppComboBox {
                                     model: ["Islands", "Pill"]
                                     currentIndex: ["islands", "pill"].indexOf(Settings.barStyle)
-                                    onActivated: Settings.updateSetting("bar.style", ["islands", "pill"][index])
+                                    onActivated: index => Settings.updateSetting("bar.style", ["islands", "pill"][index])
                                     Layout.preferredWidth: 160
                                 }
                             }
@@ -235,7 +235,7 @@ Item {
                                 AppComboBox {
                                     model: ["Top", "Bottom"]
                                     currentIndex: Settings.barOrientation ? 0 : 1
-                                    onActivated: Settings.barOrientation = (index === 0)
+                                    onActivated: index => Settings.barOrientation = (index === 0)
                                     Layout.preferredWidth: 160
                                 }
                             }
@@ -294,7 +294,7 @@ Item {
                                 AppComboBox {
                                     model: ["None", "Border", "Filled"]
                                     currentIndex: ["none", "outline", "filled"].indexOf(Settings.barWidgetDeco)
-                                    onActivated: Settings.updateSetting("bar.widgets.deco", ["none", "outline", "filled"][index])
+                                    onActivated: index => Settings.updateSetting("bar.widgets.deco", ["none", "outline", "filled"][index])
                                     Layout.preferredWidth: 160
                                 }
                             }
@@ -338,6 +338,38 @@ Item {
                                         if (value !== Settings.barWidgetOpacity)
                                             Settings.updateSetting("bar.widgets.opacity", value);
                                     }
+                                }
+                            }
+                            RowLayout {
+                                width: parent.width
+                                spacing: 8
+                                Label {
+                                    font.pixelSize: Theme.fontSize
+                                    text: "Workspaces · Islands"
+                                    color: Theme.fg
+                                    Layout.fillWidth: true
+                                }
+                                AppComboBox {
+                                    model: ["Strip", "Dots", "Numbers", "App icons"]
+                                    currentIndex: ["strip", "dots", "numbers", "icons"].indexOf(Settings.barWorkspacesIslands)
+                                    onActivated: index => Settings.updateSetting("bar.workspaces.islands", ["strip", "dots", "numbers", "icons"][index])
+                                    Layout.preferredWidth: 160
+                                }
+                            }
+                            RowLayout {
+                                width: parent.width
+                                spacing: 8
+                                Label {
+                                    font.pixelSize: Theme.fontSize
+                                    text: "Workspaces · Pill"
+                                    color: Theme.fg
+                                    Layout.fillWidth: true
+                                }
+                                AppComboBox {
+                                    model: ["Strip", "Dots", "Numbers", "App icons"]
+                                    currentIndex: ["strip", "dots", "numbers", "icons"].indexOf(Settings.barWorkspacesPill)
+                                    onActivated: index => Settings.updateSetting("bar.workspaces.pill", ["strip", "dots", "numbers", "icons"][index])
+                                    Layout.preferredWidth: 160
                                 }
                             }
                             RowLayout {
@@ -462,8 +494,202 @@ Item {
                                 AppComboBox {
                                     model: ["Bars", "Wave", "Off"]
                                     currentIndex: ["bars", "wave", "off"].indexOf(Settings.visualizerStyle)
-                                    onActivated: Settings.visualizerStyle = ["bars", "wave", "off"][index]
+                                    onActivated: index => Settings.visualizerStyle = ["bars", "wave", "off"][index]
                                     Layout.preferredWidth: 160
+                                }
+                            }
+                            RowLayout {
+                                width: parent.width
+                                spacing: 8
+                                Label {
+                                    font.pixelSize: Theme.fontSize
+                                    text: "Music Vinyl"
+                                    color: Theme.fg
+                                    Layout.fillWidth: true
+                                }
+                                AppCheckBox {
+                                    checked: Settings.barVinyl
+                                    onToggled: Settings.updateSetting("bar.vinyl.enabled", checked)
+                                }
+                            }
+                            Text {
+                                width: parent.width
+                                wrapMode: Text.WordWrap
+                                text: "A half record slides out under the music widget while a track plays: album art label, progress rim, controls. Click the label for the player, scroll to skip."
+                                color: Theme.muted
+                                font.pixelSize: Theme.fontSize - 2
+                            }
+                            RowLayout {
+                                visible: Settings.barVinyl
+                                width: parent.width
+                                spacing: 8
+                                Label {
+                                    font.pixelSize: Theme.fontSize
+                                    text: "Vinyl Size (0 = match widget)"
+                                    color: Theme.fg
+                                    Layout.fillWidth: true
+                                }
+                                AppSpinBox {
+                                    from: 0
+                                    to: 200
+                                    stepSize: 8
+                                    value: Settings.barVinylSize
+                                    Layout.preferredWidth: 160
+                                    onValueChanged: {
+                                        if (value !== Settings.barVinylSize)
+                                            Settings.updateSetting("bar.vinyl.size", value);
+                                    }
+                                }
+                            }
+                            RowLayout {
+                                width: parent.width
+                                spacing: 8
+                                Label {
+                                    font.pixelSize: Theme.fontSize
+                                    text: "Pill Spectrum"
+                                    color: Theme.fg
+                                    Layout.fillWidth: true
+                                }
+                                AppComboBox {
+                                    model: ["Off", "Bars", "Mirror", "Wave", "Glow"]
+                                    currentIndex: ["off", "bars", "mirror", "wave", "glow"].indexOf(Settings.barSpectrum)
+                                    onActivated: index => Settings.updateSetting("bar.spectrum.style", ["off", "bars", "mirror", "wave", "glow"][index])
+                                    Layout.preferredWidth: 160
+                                }
+                            }
+                            RowLayout {
+                                visible: Settings.barSpectrum !== "off"
+                                width: parent.width
+                                spacing: 8
+                                Label {
+                                    font.pixelSize: Theme.fontSize
+                                    text: "Spectrum Height %"
+                                    color: Theme.fg
+                                    Layout.fillWidth: true
+                                }
+                                AppSpinBox {
+                                    from: 15
+                                    to: 100
+                                    stepSize: 5
+                                    value: Settings.barSpectrumHeight
+                                    Layout.preferredWidth: 160
+                                    onValueChanged: {
+                                        if (value !== Settings.barSpectrumHeight)
+                                            Settings.updateSetting("bar.spectrum.height", value);
+                                    }
+                                }
+                            }
+                            RowLayout {
+                                visible: Settings.barSpectrum !== "off"
+                                width: parent.width
+                                spacing: 8
+                                Label {
+                                    font.pixelSize: Theme.fontSize
+                                    text: "Spectrum Strength %"
+                                    color: Theme.fg
+                                    Layout.fillWidth: true
+                                }
+                                AppSpinBox {
+                                    from: 10
+                                    to: 100
+                                    stepSize: 5
+                                    value: Settings.barSpectrumStrength
+                                    Layout.preferredWidth: 160
+                                    onValueChanged: {
+                                        if (value !== Settings.barSpectrumStrength)
+                                            Settings.updateSetting("bar.spectrum.strength", value);
+                                    }
+                                }
+                            }
+
+                            SectionHead {
+                                title: "Surface"
+                                hint: Settings.shellFrame ? "How the bar itself looks without the frame — turn the frame off below to use these." : "The bar's own plate while the frame is off: glass, solid, an accent outline or nothing at all, plus corners, shadow and a float gap off the screen edge."
+                            }
+                            RowLayout {
+                                visible: !Settings.shellFrame
+                                width: parent.width
+                                spacing: 8
+                                Label {
+                                    font.pixelSize: Theme.fontSize
+                                    text: "Surface Style"
+                                    color: Theme.fg
+                                    Layout.fillWidth: true
+                                }
+                                AppComboBox {
+                                    model: ["Glass", "Solid", "Outline", "Clear"]
+                                    currentIndex: ["glass", "solid", "outline", "clear"].indexOf(Settings.barSurfaceStyle)
+                                    onActivated: index => Settings.updateSetting("bar.surface.style", ["glass", "solid", "outline", "clear"][index])
+                                    Layout.preferredWidth: 160
+                                }
+                            }
+                            RowLayout {
+                                visible: !Settings.shellFrame
+                                width: parent.width
+                                spacing: 8
+                                Label {
+                                    font.pixelSize: Theme.fontSize
+                                    text: "Corners"
+                                    color: Theme.fg
+                                    Layout.fillWidth: true
+                                }
+                                AppComboBox {
+                                    model: ["Rounded", "Sharp", "Capsule"]
+                                    currentIndex: ["rounded", "sharp", "capsule"].indexOf(Settings.barSurfaceCorners)
+                                    onActivated: index => Settings.updateSetting("bar.surface.corners", ["rounded", "sharp", "capsule"][index])
+                                    Layout.preferredWidth: 160
+                                }
+                            }
+                            RowLayout {
+                                visible: !Settings.shellFrame
+                                width: parent.width
+                                spacing: 8
+                                Label {
+                                    font.pixelSize: Theme.fontSize
+                                    text: "Drop Shadow"
+                                    color: Theme.fg
+                                    Layout.fillWidth: true
+                                }
+                                AppCheckBox {
+                                    checked: Settings.barSurfaceShadow
+                                    onToggled: Settings.updateSetting("bar.surface.shadow", checked)
+                                }
+                            }
+                            RowLayout {
+                                visible: !Settings.shellFrame
+                                width: parent.width
+                                spacing: 8
+                                Label {
+                                    font.pixelSize: Theme.fontSize
+                                    text: "Accent Edge Line"
+                                    color: Theme.fg
+                                    Layout.fillWidth: true
+                                }
+                                AppCheckBox {
+                                    checked: Settings.barSurfaceAccent
+                                    onToggled: Settings.updateSetting("bar.surface.accent", checked)
+                                }
+                            }
+                            RowLayout {
+                                visible: !Settings.shellFrame && Settings.barStyle === "islands" && !Settings.barIslandsDetached
+                                width: parent.width
+                                spacing: 8
+                                Label {
+                                    font.pixelSize: Theme.fontSize
+                                    text: "Float Gap (px)"
+                                    color: Theme.fg
+                                    Layout.fillWidth: true
+                                }
+                                AppSpinBox {
+                                    from: 0
+                                    to: 24
+                                    stepSize: 2
+                                    value: Settings.barEdgeGap
+                                    Layout.preferredWidth: 160
+                                    onValueChanged: {
+                                        if (value !== Settings.barEdgeGap)
+                                            Settings.updateSetting("bar.surface.edgeGap", value);
+                                    }
                                 }
                             }
 
@@ -486,7 +712,7 @@ Item {
                                 AppComboBox {
                                     model: ["Floating", "Frame"]
                                     currentIndex: Settings.shellFrame ? 1 : 0
-                                    onActivated: Settings.shellFrame = (index === 1)
+                                    onActivated: index => Settings.shellFrame = (index === 1)
                                     Layout.preferredWidth: 160
                                 }
                             }
@@ -562,7 +788,7 @@ Item {
                                 AppComboBox {
                                     model: ["Sides", "Top & Bottom", "All"]
                                     currentIndex: ["sides", "horizontal", "all"].indexOf(Settings.frameMusicEdges)
-                                    onActivated: Settings.frameMusicEdges = ["sides", "horizontal", "all"][index]
+                                    onActivated: index => Settings.frameMusicEdges = ["sides", "horizontal", "all"][index]
                                     Layout.preferredWidth: 160
                                 }
                             }
@@ -601,7 +827,7 @@ Item {
                                 AppComboBox {
                                     model: ["Bar Surface", "Accent", "Dynamic (Album Art)", "Dynamic (Wallpaper)", "Custom"]
                                     currentIndex: ["surface", "accent", "dynamic", "wallpaper", "custom"].indexOf(Settings.frameColor)
-                                    onActivated: Settings.frameColor = ["surface", "accent", "dynamic", "wallpaper", "custom"][index]
+                                    onActivated: index => Settings.frameColor = ["surface", "accent", "dynamic", "wallpaper", "custom"][index]
                                     Layout.preferredWidth: 160
                                 }
                             }
@@ -684,7 +910,7 @@ Item {
                                 AppComboBox {
                                     model: ["Subtle", "Accent", "Dynamic (Album Art)", "Dynamic (Wallpaper)", "Custom"]
                                     currentIndex: ["subtle", "accent", "dynamic", "wallpaper", "custom"].indexOf(Settings.frameBorderColor)
-                                    onActivated: Settings.frameBorderColor = ["subtle", "accent", "dynamic", "wallpaper", "custom"][index]
+                                    onActivated: index => Settings.frameBorderColor = ["subtle", "accent", "dynamic", "wallpaper", "custom"][index]
                                     Layout.preferredWidth: 160
                                 }
                             }
@@ -732,7 +958,7 @@ Item {
                                 AppComboBox {
                                     model: ["Spring", "Smooth", "Instant"]
                                     currentIndex: ["spring", "smooth", "instant"].indexOf(Settings.frameMorph)
-                                    onActivated: Settings.updateSetting("frame.morph", ["spring", "smooth", "instant"][index])
+                                    onActivated: index => Settings.updateSetting("frame.morph", ["spring", "smooth", "instant"][index])
                                     Layout.preferredWidth: 160
                                 }
                             }
@@ -1334,7 +1560,7 @@ Item {
                                 AppComboBox {
                                     model: animSec.styleLabels
                                     currentIndex: Math.max(0, animSec.styleValues.indexOf(Settings.islandAnimStyle))
-                                    onActivated: Settings.islandAnimStyle = animSec.styleValues[index]
+                                    onActivated: index => Settings.islandAnimStyle = animSec.styleValues[index]
                                     Layout.preferredWidth: 160
                                 }
                             }
@@ -1783,7 +2009,7 @@ Item {
                                 AppComboBox {
                                     model: ["Hyprland Default", "Accent", "Dynamic (Wallpaper)", "Dynamic (Album Art)", "Custom"]
                                     currentIndex: ["default", "accent", "wallpaper", "dynamic", "custom"].indexOf(Settings.windowBorderColor)
-                                    onActivated: Settings.updateSetting("windowBorder.color", ["default", "accent", "wallpaper", "dynamic", "custom"][index])
+                                    onActivated: index => Settings.updateSetting("windowBorder.color", ["default", "accent", "wallpaper", "dynamic", "custom"][index])
                                     Layout.preferredWidth: 160
                                 }
                             }

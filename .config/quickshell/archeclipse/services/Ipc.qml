@@ -124,6 +124,17 @@ Item {
         //   editDone     — keep the current layout and leave edit mode.
         //   editDiag <q> — QA probe ("active" | "style" | "canCancel" | "reset"
         //                 | "drag:<id>" | "drop" | "preview" | "move:<px>").
+        // setting <dotted.key> <json value> — write one setting (QA/scripts),
+        // e.g. `setting bar.workspaces.pill '"numbers"'`.
+        function setting(key: string, value: string): string {
+            try {
+                Settings.updateSetting(key, JSON.parse(value));
+                return "set " + key;
+            } catch (e) {
+                return "EX: " + e;
+            }
+        }
+
         function edit(mode: string): string {
             if (BarEditState.active) {
                 BarEditState.end();
@@ -152,6 +163,7 @@ Item {
             try {
                 const S = BarEditState;
                 if (query === "active") return "" + S.active;
+                if (query.startsWith("page:")) { S.page = query.substring(5); return S.page; }
                 if (query === "style") return S.style;
                 if (query === "canCancel") return "" + S.canCancel;
                 if (query === "reset") { S.resetLayout(); return "reset"; }

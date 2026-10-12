@@ -30,8 +30,23 @@ Rectangle {
     // In frame mode the shell frame paints the fill + border for the section,
     // so the surface stays transparent; otherwise the classic fills (centre
     // keeps its accent tint).
-    color: ShellFrame.enabled || !root.hasContent ? "transparent"
-        : (section === "center" && Settings.barWidgetDeco === "none" ? Theme.surfaceActive : Theme.surface)
+    color: "transparent"
+    // No frame: the shared bar surface (Settings -> Bar -> Surface); the
+    // centre keeps a faint accent wash on top when widgets have no pills.
+    BarSurface {
+        anchors.fill: parent
+        visible: !ShellFrame.enabled && root.hasContent && Settings.barSurfaceStyle !== "clear"
+        topLeftRadius: root.radius
+        topRightRadius: root.radius
+        bottomLeftRadius: root.radius
+        bottomRightRadius: root.radius
+    }
+    Rectangle {
+        anchors.fill: parent
+        radius: root.radius
+        visible: !ShellFrame.enabled && root.hasContent && root.section === "center" && Settings.barWidgetDeco === "none"
+        color: Theme.rgba(Theme.accent, 0.10)
+    }
 
     EditStrip {
         id: strip

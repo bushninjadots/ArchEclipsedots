@@ -89,6 +89,26 @@ Singleton {
     // Bar widgets open their island / slider on hover (after the reveal
     // dwell) when true; false = click only.
     property bool barHoverReveal: false
+    // Workspace switcher look per bar style:
+    //   "strip" (full-width bars, islands bottom row) | "dots" | "numbers" | "icons"
+    property string barWorkspacesIslands: "strip"
+    property string barWorkspacesPill: "dots"
+    // Pill bar music spectrum (independent of the player's visualiser):
+    //   style "off" | "bars" | "mirror" | "wave" | "glow"; height = % of the
+    //   pill it may rise into; strength = opacity %.
+    property string barSpectrum: "mirror"
+    // Half-cut vinyl that slides out from under the bar below the music
+    // widget while a track plays (album art label, progress rim, controls).
+    property bool barVinyl: false
+    property int barVinylSize: 0                    // px; 0 = match the widget it hangs from
+    // No-frame bar surface (used when the shell frame is off): see BarSurface.
+    property string barSurfaceStyle: "glass"       // solid | glass | outline | clear
+    property string barSurfaceCorners: "rounded"   // rounded | sharp | capsule
+    property bool barSurfaceShadow: true
+    property bool barSurfaceAccent: false
+    property int barEdgeGap: 0                      // attached bar floats this far off the edge
+    property int barSpectrumHeight: 45
+    property int barSpectrumStrength: 55
     // Islands-only: break the bar into one floating pill per section.
     property bool barIslandsDetached: false
     // Per-section absolute top-left in logical px (-1 = use the default anchor).
@@ -511,6 +531,18 @@ Singleton {
             "bar.widgets.border": "barWidgetBorder",
             "bar.widgets.opacity": "barWidgetOpacity",
             "bar.hoverReveal": "barHoverReveal",
+            "bar.workspaces.islands": "barWorkspacesIslands",
+            "bar.workspaces.pill": "barWorkspacesPill",
+            "bar.spectrum.style": "barSpectrum",
+            "bar.vinyl.enabled": "barVinyl",
+            "bar.vinyl.size": "barVinylSize",
+            "bar.surface.style": "barSurfaceStyle",
+            "bar.surface.corners": "barSurfaceCorners",
+            "bar.surface.shadow": "barSurfaceShadow",
+            "bar.surface.accent": "barSurfaceAccent",
+            "bar.surface.edgeGap": "barEdgeGap",
+            "bar.spectrum.height": "barSpectrumHeight",
+            "bar.spectrum.strength": "barSpectrumStrength",
             "bar.islands.detached": "barIslandsDetached",
             "bar.islands.pos": "barIslandsPos",
             "mpris.visualizer": "mprisVisualizer",
@@ -628,6 +660,26 @@ Singleton {
                     },
                     hoverReveal: {
                         value: root.barHoverReveal
+                    },
+                    workspaces: {
+                        islands: { value: root.barWorkspacesIslands },
+                        pill: { value: root.barWorkspacesPill }
+                    },
+                    surface: {
+                        style: { value: root.barSurfaceStyle },
+                        corners: { value: root.barSurfaceCorners },
+                        shadow: { value: root.barSurfaceShadow },
+                        accent: { value: root.barSurfaceAccent },
+                        edgeGap: { value: root.barEdgeGap }
+                    },
+                    vinyl: {
+                        enabled: { value: root.barVinyl },
+                        size: { value: root.barVinylSize }
+                    },
+                    spectrum: {
+                        style: { value: root.barSpectrum },
+                        height: { value: root.barSpectrumHeight },
+                        strength: { value: root.barSpectrumStrength }
                     },
                     revealOutPressure: {
                         value: root.revealOutPressure
@@ -899,6 +951,23 @@ Singleton {
                 root.barWidgetBorder = _wn(s.bar?.widgets?.border?.value, 1, 3, 1);
                 root.barWidgetOpacity = _wn(s.bar?.widgets?.opacity?.value, 20, 100, 100);
                 root.barHoverReveal = s.bar?.hoverReveal?.value === true;
+                const _wsStyles = ["strip", "dots", "numbers", "icons"];
+                const _wsi = s.bar?.workspaces?.islands?.value, _wsp = s.bar?.workspaces?.pill?.value;
+                root.barWorkspacesIslands = _wsStyles.includes(_wsi) ? _wsi : "strip";
+                root.barWorkspacesPill = _wsStyles.includes(_wsp) ? _wsp : "dots";
+                const _ss = s.bar?.surface?.style?.value, _sc = s.bar?.surface?.corners?.value;
+                root.barSurfaceStyle = ["solid", "glass", "outline", "clear"].includes(_ss) ? _ss : "glass";
+                root.barSurfaceCorners = ["rounded", "sharp", "capsule"].includes(_sc) ? _sc : "rounded";
+                root.barSurfaceShadow = s.bar?.surface?.shadow?.value ?? true;
+                root.barSurfaceAccent = s.bar?.surface?.accent?.value === true;
+                root.barEdgeGap = _wn(s.bar?.surface?.edgeGap?.value, 0, 24, 0);
+                root.barVinyl = s.bar?.vinyl?.enabled?.value === true;
+                const _vz = _wn(s.bar?.vinyl?.size?.value, 0, 200, 0);
+                root.barVinylSize = _vz > 0 ? Math.max(96, _vz) : 0;
+                const _sp = s.bar?.spectrum?.style?.value;
+                root.barSpectrum = ["off", "bars", "mirror", "wave", "glow"].includes(_sp) ? _sp : "mirror";
+                root.barSpectrumHeight = _wn(s.bar?.spectrum?.height?.value, 15, 100, 45);
+                root.barSpectrumStrength = _wn(s.bar?.spectrum?.strength?.value, 10, 100, 55);
                 const _bid = s.bar?.islands?.detached;
                 root.barIslandsDetached = ((typeof _bid === "object" && _bid !== null ? _bid.value : _bid) ?? false);
                 root.barIslandsPos = root._adoptPos(s.bar?.islands?.pos, root.defaultBarIslandsPos);
