@@ -36,6 +36,9 @@ Item {
     property bool stretchSingle: false
     // Width the parent wants the row to fill (0 = hug content).
     property real fillWidth: 0
+    // How the section is anchored ("left" | "center" | "right"): which
+    // neighbours a ghost displaces, for stable drop-index hit tests.
+    property string align: "left"
     // Width of the empty-section drop slot in edit mode.
     property int emptyWidth: 72
 
@@ -70,7 +73,9 @@ Item {
     }
     readonly property real endWidth: {
         const ids = root.ids;
-        if (!root.equalEnds || ids.length < 2)
+        // Only a row with a true middle needs balancing; two widgets would
+        // just get a lopsided gap between them.
+        if (!root.equalEnds || ids.length < 3)
             return 0;
         return Math.max(root._nat(ids[0]), root._nat(ids[ids.length - 1]));
     }
@@ -242,6 +247,20 @@ Item {
 
             readonly property real targetWidth: root.cellWidth(cell.wid, cell.index, cell.natural)
             readonly property var look: BarEditState.frameFor(cell.wid)
+            // Where the widget sits inside a cell wider than itself: the
+            // slack widget hugs its start; balanced end cells push their
+            // widget toward the middle so every gap between pills stays the
+            // row spacing (the padding goes to the row's outer edges).
+            readonly property string place: cell.wid === root.slackId ? "left"
+                : root.endWidth > 0 && cell.index === 0 ? "right"
+                : root.endWidth > 0 && cell.index === root.ids.length - 1 ? "left" : "center"
+            function alignX(w, pad) {
+                if (cell.place === "left")
+                    return pad;
+                if (cell.place === "right")
+                    return cell.width - w - pad;
+                return (cell.width - w) / 2;
+            }
             implicitWidth: cell.targetWidth
             implicitHeight: inner.item ? Math.max(inner.item.implicitHeight || 0, inner.item.height || 0) : Theme.barContentHeight
             width: implicitWidth
@@ -285,9 +304,10 @@ Item {
             readonly property real pressScale: press.active ? 0.93 : 1
             Rectangle {
                 // Hover glow, only for widgets without their own pill.
-                anchors.centerIn: parent
-                width: Math.max(0, cell.width + 6)
-                height: Math.max(cell.height + 4, Theme.barContentHeight - 2)
+                x: cell.alignX(width, -6)
+                anchors.verticalCenter: parent.verticalCenter
+                width: Math.max(0, (inner.width || 0) + 12)
+                height: Math.max(cell.height + 4, Theme.barContentHeight + 2)
                 radius: Math.min(Theme.radius, height / 2)
                 visible: cell.natural > 0 && cell.look.deco === "none" && !cell.parentSized
                     && !BarWidgets.selfHover(cell.wid)
@@ -317,10 +337,10 @@ Item {
             Rectangle {
                 visible: cell.look.deco !== "none" && !cell.parentSized && cell.natural > 0
                 anchors.verticalCenter: parent.verticalCenter
-                anchors.left: cell.wid === root.slackId ? parent.left : undefined
-                anchors.horizontalCenter: cell.wid === root.slackId ? undefined : parent.horizontalCenter
+                x: cell.alignX(width, 0)
                 width: (inner.width || 0) + root.decoPad * 2
-                height: Math.max(inner.height || 0, Theme.barContentHeight - 4)
+                // A little air above and below the content.
+                height: Math.max((inner.height || 0) + 4, Theme.barContentHeight + 4)
                 radius: cell.look.radius >= 0 ? cell.look.radius : height / 2
                 color: cell.look.deco === "filled"
                     ? (hover.hovered ? Theme.rgba(Theme.accent, 0.22) : Theme.surfaceActive)
@@ -350,12 +370,9 @@ Item {
                 Behavior on opacity {
                     Anim { type: Anim.FastEffects }
                 }
-                // Slack-absorbing cells keep their widget at the start of the
-                // cell (toward the bar's middle stays free); others centre.
+                // Placed by cell.place (see alignX).
                 anchors.verticalCenter: parent.verticalCenter
-                anchors.left: cell.wid === root.slackId ? parent.left : undefined
-                anchors.leftMargin: root.padOf(cell.wid)
-                anchors.horizontalCenter: cell.wid === root.slackId ? undefined : parent.horizontalCenter
+                x: cell.alignX(width, root.padOf(cell.wid))
                 width: cell.forceWidth ? cell.targetWidth : undefined
                 sourceComponent: BarWidgets.component(cell.wid, root.style, root.zone)
             }
@@ -403,7 +420,10 @@ Item {
             if (!d || d.width <= 0)
                 continue;
             const p = d.mapToItem(null, 0, 0);
-            res.push({ id: d.wid, zone: root.zone, x: p.x, y: p.y, w: d.width, h: d.height });
+            // tx = the slot's settled x (the rendered x may still be sliding),
+            // used for drop-index hit tests so they never chase an animation.
+            const o = root.mapToItem(null, 0, 0);
+            res.push({ id: d.wid, zone: root.zone, x: p.x, y: p.y, w: d.width, h: d.height, tx: o.x + root.xOf(i) });
         }
         return res;
     }
@@ -413,6 +433,6 @@ Item {
     function zoneRect(over) {
         const it = over || root;
         const p = it.mapToItem(null, 0, 0);
-        return { zone: root.zone, x: p.x, y: p.y, w: Math.max(it.width, 24), h: Math.max(it.height, Theme.barContentHeight), spacing: root.spacing };
+        return { zone: root.zone, x: p.x, y: p.y, w: Math.max(it.width, 24), h: Math.max(it.height, Theme.barContentHeight), spacing: root.spacing, align: root.align };
     }
 }

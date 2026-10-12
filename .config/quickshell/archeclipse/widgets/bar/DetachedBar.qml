@@ -4,7 +4,7 @@ import qs.services
 
 // Detached-islands surface (bar layout system, Task 8).
 //
-// One floating pill per section (left/center/right/bottom), each placed by an
+// One floating pill per section (left/inner left/center/inner right/right/bottom), each placed by an
 // absolute top-left from Settings.barIslandsPos or, when that is unset (-1),
 // by the section's default anchor: left/center/right hug the bar edge and
 // bottom hugs the opposite edge. Bar.qml hosts this inside its full-output
@@ -18,6 +18,8 @@ Item {
     readonly property Item pillCenter: centerPill
     readonly property Item pillRight: rightPill
     readonly property Item pillBottom: bottomPill
+    readonly property Item pillLeftMid: leftMidPill
+    readonly property Item pillRightMid: rightMidPill
 
     readonly property int edgeMargin: 8
     readonly property int barMargin: 6
@@ -36,6 +38,17 @@ Item {
             return { x: root.edgeMargin, y: yBar };
         if (section === "right")
             return { x: root.width - w - root.edgeMargin, y: yBar };
+        // Inner sections float midway between their side and the centre.
+        if (section === "leftMid") {
+            const a = leftPill.visible ? leftPill.x + leftPill.width : root.edgeMargin;
+            const b = centerPill.visible ? centerPill.x : root.width / 2;
+            return { x: Math.round((a + b - w) / 2), y: yBar };
+        }
+        if (section === "rightMid") {
+            const a = centerPill.visible ? centerPill.x + centerPill.width : root.width / 2;
+            const b = rightPill.visible ? rightPill.x : root.width - root.edgeMargin;
+            return { x: Math.round((a + b - w) / 2), y: yBar };
+        }
         if (section === "bottom")
             return { x: Math.round((root.width - w) / 2), y: yFar };
         return { x: Math.round((root.width - w) / 2), y: yBar };
@@ -70,6 +83,18 @@ Item {
         y: BarEditState.dragSection === "right" ? BarEditState.dragSectionY : root.resolvePos("right", width, height).y
     }
     DetachedPill {
+        id: leftMidPill
+        section: "leftMid"
+        x: BarEditState.dragSection === "leftMid" ? BarEditState.dragSectionX : root.resolvePos("leftMid", width, height).x
+        y: BarEditState.dragSection === "leftMid" ? BarEditState.dragSectionY : root.resolvePos("leftMid", width, height).y
+    }
+    DetachedPill {
+        id: rightMidPill
+        section: "rightMid"
+        x: BarEditState.dragSection === "rightMid" ? BarEditState.dragSectionX : root.resolvePos("rightMid", width, height).x
+        y: BarEditState.dragSection === "rightMid" ? BarEditState.dragSectionY : root.resolvePos("rightMid", width, height).y
+    }
+    DetachedPill {
         id: bottomPill
         section: "bottom"
         stretch: true
@@ -81,13 +106,13 @@ Item {
 
     // ---- edit-mode geometry (scene coords), mirrors DefaultBar's API ----
     function editCells() {
-        return [].concat(leftPill.cells(), centerPill.cells(), rightPill.cells(), bottomPill.cells());
+        return [].concat(leftPill.cells(), leftMidPill.cells(), centerPill.cells(), rightMidPill.cells(), rightPill.cells(), bottomPill.cells());
     }
     // Rendered widget item (the delegate Loader's `item`) for a placed id
     // across the four section pills, or null when not placed. Mirrors
     // editCells(); BarEditOverlay grabs it for the real-widget drag proxy.
     function cellItem(id) {
-        const sections = [leftPill, centerPill, rightPill, bottomPill];
+        const sections = [leftPill, leftMidPill, centerPill, rightMidPill, rightPill, bottomPill];
         for (let i = 0; i < sections.length; i++) {
             const item = sections[i].cellItem(id);
             if (item)
@@ -96,12 +121,12 @@ Item {
         return null;
     }
     function editZones() {
-        return [leftPill.zoneRect(), centerPill.zoneRect(), rightPill.zoneRect(), bottomPill.zoneRect()];
+        return [leftPill.zoneRect(), leftMidPill.zoneRect(), centerPill.zoneRect(), rightMidPill.zoneRect(), rightPill.zoneRect(), bottomPill.zoneRect()];
     }
     // Section bodies for the shell frame (non-empty sections only).
     function frameSections() {
         const out = [];
-        for (const p of [leftPill, centerPill, rightPill, bottomPill]) {
+        for (const p of [leftPill, leftMidPill, centerPill, rightMidPill, rightPill, bottomPill]) {
             if (!p.visible || !p.hasContent)
                 continue;
             out.push({ zone: p.section, x: p.x, y: p.y, w: p.width, h: p.height });

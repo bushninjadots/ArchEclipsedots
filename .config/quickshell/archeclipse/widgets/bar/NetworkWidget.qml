@@ -138,7 +138,7 @@ Item {
     HoverHandler {
         id: netHover
         onHoveredChanged: {
-            if (netHover.hovered) {
+            if (netHover.hovered && Settings.barHoverReveal) {
                 if (Settings.revealInPressure <= 0)
                     BarState.activate("network", 3000);
                 else

@@ -27,7 +27,9 @@ Singleton {
     // BarWidgets.allowed(). Defaults reproduce the pre-model arrangement.
     readonly property var defaultBarLayoutIslands: ({
         left: ["resources", "weather"],
+        leftMid: [],
         center: ["bandwidth", "control", "clock"],
+        rightMid: [],
         right: ["media", "battery", "brightness", "volume", "tray"],
         bottom: ["workspaces"]
     })
@@ -46,6 +48,14 @@ Singleton {
             y: -1
         }),
         right: ({
+            x: -1,
+            y: -1
+        }),
+        leftMid: ({
+            x: -1,
+            y: -1
+        }),
+        rightMid: ({
             x: -1,
             y: -1
         }),
@@ -76,6 +86,9 @@ Singleton {
     property string barWidgetDeco: "none"
     property int barWidgetBorder: 1
     property int barWidgetOpacity: 100
+    // Bar widgets open their island / slider on hover (after the reveal
+    // dwell) when true; false = click only.
+    property bool barHoverReveal: false
     // Islands-only: break the bar into one floating pill per section.
     property bool barIslandsDetached: false
     // Per-section absolute top-left in logical px (-1 = use the default anchor).
@@ -497,6 +510,7 @@ Singleton {
             "windowBorder.inactive": "windowBorderInactive",
             "bar.widgets.border": "barWidgetBorder",
             "bar.widgets.opacity": "barWidgetOpacity",
+            "bar.hoverReveal": "barHoverReveal",
             "bar.islands.detached": "barIslandsDetached",
             "bar.islands.pos": "barIslandsPos",
             "mpris.visualizer": "mprisVisualizer",
@@ -611,6 +625,9 @@ Singleton {
                     },
                     revealInPressure: {
                         value: root.revealInPressure
+                    },
+                    hoverReveal: {
+                        value: root.barHoverReveal
                     },
                     revealOutPressure: {
                         value: root.revealOutPressure
@@ -881,6 +898,7 @@ Singleton {
                 const _wn = (v, lo, hi, d) => Number.isFinite(Number(v)) ? Math.max(lo, Math.min(hi, Math.round(Number(v)))) : d;
                 root.barWidgetBorder = _wn(s.bar?.widgets?.border?.value, 1, 3, 1);
                 root.barWidgetOpacity = _wn(s.bar?.widgets?.opacity?.value, 20, 100, 100);
+                root.barHoverReveal = s.bar?.hoverReveal?.value === true;
                 const _bid = s.bar?.islands?.detached;
                 root.barIslandsDetached = ((typeof _bid === "object" && _bid !== null ? _bid.value : _bid) ?? false);
                 root.barIslandsPos = root._adoptPos(s.bar?.islands?.pos, root.defaultBarIslandsPos);

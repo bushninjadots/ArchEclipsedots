@@ -323,30 +323,44 @@ Singleton {
         return Math.sqrt(dx * dx + dy * dy);
     }
 
-    // Insertion index in `zone` for pointer x. Midpoints are taken from the
-    // zone's cells with the ghost removed (cells right of it shift back by
-    // the ghost's width + gap), so the answer depends only on the pointer —
-    // not on where the ghost currently sits — and live reorder never
-    // oscillates.
+    // Insertion index in `zone` for pointer x, measured against the row as
+    // it would sit WITHOUT the ghost: a section's anchoring decides which
+    // neighbours the ghost displaced (left-hugging: those after it; right-
+    // hugging: those before it; centred: both by half), and that shift is
+    // undone. The answer then depends only on the pointer, so the landing
+    // gap opens under the cursor and live reorder never oscillates.
     function _indexIn(zone, px) {
-        const zc = root.cells.filter(c => c.zone === zone).sort((a, b) => a.x - b.x);
+        const zc = root.cells.filter(c => c.zone === zone);
         let ghost = null;
         for (const c of zc) {
             if (c.id === root.draggingId)
                 ghost = c;
         }
-        let gap = Theme.spacing;
+        let gap = Theme.spacing, align = "left";
         for (const z of root.dropZones) {
-            if (z.zone === zone && z.spacing !== undefined)
-                gap = z.spacing;
+            if (z.zone === zone) {
+                if (z.spacing !== undefined)
+                    gap = z.spacing;
+                if (z.align)
+                    align = z.align;
+            }
         }
+        const pos = c => (c.tx !== undefined ? c.tx : c.x);
+        const shift = ghost ? ghost.w + gap : 0;
         let idx = 0;
         for (const c of zc) {
             if (c === ghost)
                 continue;
-            let x = c.x;
-            if (ghost && c.x > ghost.x)
-                x -= ghost.w + gap;
+            let x = pos(c);
+            if (ghost) {
+                const after = pos(c) > pos(ghost);
+                if (align === "right")
+                    x += after ? 0 : shift;
+                else if (align === "center")
+                    x += after ? -shift / 2 : shift / 2;
+                else
+                    x -= after ? shift : 0;
+            }
             if (px > x + c.w / 2)
                 idx++;
         }
@@ -362,11 +376,10 @@ Singleton {
         if (root.trayRect && root._inRect(root.trayRect, px, py, 6)) {
             zone = "";
         } else {
-            // Zone under the pointer (with a grab margin); nearest wins.
-            let best = null, bestD = 1e9;
+            // Nearest section within a generous grab margin, so the gaps
+            // between sections still pick the closer one.
+            let best = null, bestD = 36;
             for (const z of root.dropZones) {
-                if (!root._inRect(z, px, py, 14))
-                    continue;
                 const d = root._distRect(z, px, py);
                 if (d < bestD) {
                     best = z;

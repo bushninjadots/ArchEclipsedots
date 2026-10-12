@@ -89,7 +89,7 @@ Rectangle {
     HoverHandler {
         id: hover
         onHoveredChanged: {
-            if (hover.hovered) {
+            if (hover.hovered && Settings.barHoverReveal) {
                 if (Settings.revealInPressure <= 0)
                     BarState.activate("weather", 3000);
                 else

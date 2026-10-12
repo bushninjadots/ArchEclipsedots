@@ -128,7 +128,7 @@ Item {
             // Latch genuine enter edges only — a fresh item materializing
             // under a stationary cursor (bar island switch) must not peek.
             if (stripHover.hovered) {
-                if (root._ready)
+                if (root._ready && Settings.barHoverReveal)
                     root.hoverPeek = true;
             } else {
                 root.hoverPeek = false;

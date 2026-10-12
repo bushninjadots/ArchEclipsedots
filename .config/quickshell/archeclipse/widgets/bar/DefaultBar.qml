@@ -19,7 +19,7 @@ Column {
     function cellItem(id) {
         if (Settings.barStyle === "pill")
             return pillLoader.item && pillLoader.item.cellItem ? pillLoader.item.cellItem(id) : null;
-        for (const s of [leftStrip, centerStrip, rightStrip, bottomStrip]) {
+        for (const s of [leftStrip, leftMidStrip, centerStrip, rightMidStrip, rightStrip, bottomStrip]) {
             const it = s.cellItem(id);
             if (it)
                 return it;
@@ -31,7 +31,9 @@ Column {
             return pillLoader.item && pillLoader.item.editCells ? pillLoader.item.editCells() : [];
         const out = [];
         leftStrip.cells(out);
+        leftMidStrip.cells(out);
         centerStrip.cells(out);
+        rightMidStrip.cells(out);
         rightStrip.cells(out);
         bottomStrip.cells(out);
         return out;
@@ -40,9 +42,11 @@ Column {
         if (Settings.barStyle === "pill")
             return pillLoader.item && pillLoader.item.editZones ? pillLoader.item.editZones() : [];
         return [
-            leftStrip.zoneRect(leftZone),
+            leftStrip.zoneRect(),
+            leftMidStrip.zoneRect(),
             centerStrip.zoneRect(centerPill),
-            rightStrip.zoneRect(rightZone),
+            rightMidStrip.zoneRect(),
+            rightStrip.zoneRect(),
             bottomStrip.zoneRect(bottomRow)
         ];
     }
@@ -59,7 +63,9 @@ Column {
             out.push({ zone: zone, x: p.x, y: p.y, w: it.width, h: it.height });
         };
         add(leftStrip, "left", leftStrip);
+        add(leftMidStrip, "leftMid", leftMidStrip);
         add(centerPill, "center", centerStrip);
+        add(rightMidStrip, "rightMid", rightMidStrip);
         add(rightStrip, "right", rightStrip);
         add(bottomStrip, "bottom", bottomStrip);
         return out;
@@ -68,9 +74,15 @@ Column {
     Item {
         id: topRow
         visible: Settings.barStyle !== "pill"
-        // Both side sections count as wide as the wider one, so the centred
-        // capsule keeps Theme.spacing clearance from either side.
-        readonly property real sideWidth: Math.max(leftStrip.naturalWidthHint, rightStrip.implicitWidth)
+        // Both sides count as wide as the wider one, so the centred capsule
+        // keeps Theme.spacing clearance from either side. A side holds its
+        // edge section plus, when used, its inner section (which floats
+        // midway between the edge section and the capsule).
+        readonly property real leftNeed: leftStrip.naturalWidthHint
+            + (leftMidStrip.implicitWidth > 0 ? leftMidStrip.implicitWidth + Theme.spacing * 2 : 0)
+        readonly property real rightNeed: rightStrip.implicitWidth
+            + (rightMidStrip.implicitWidth > 0 ? rightMidStrip.implicitWidth + Theme.spacing * 2 : 0)
+        readonly property real sideWidth: Math.max(leftNeed, rightNeed)
         implicitWidth: 2 * sideWidth + (centerPill.visible ? centerPill.width : 0) + Theme.spacing * 2
         width: implicitWidth
         height: Theme.barContentHeight
@@ -97,6 +109,7 @@ Column {
                 anchors.centerIn: parent
                 style: "islands"
                 zone: "center"
+                align: "center"
                 equalEnds: true
             }
         }
@@ -120,7 +133,20 @@ Column {
                 style: "islands"
                 zone: "left"
                 fillSlack: true
-                fillWidth: leftZone.width
+                // The weather slack only fills the side while no inner
+                // section shares it.
+                fillWidth: leftMidStrip.implicitWidth > 0 ? 0 : leftZone.width
+            }
+
+            // Inner left — centred in the gap between the left section and
+            // the capsule.
+            EditStrip {
+                id: leftMidStrip
+                x: Math.round(leftStrip.width + (leftZone.width - leftStrip.width - width) / 2)
+                anchors.verticalCenter: parent.verticalCenter
+                style: "islands"
+                zone: "leftMid"
+                align: "center"
             }
         }
 
@@ -138,6 +164,17 @@ Column {
                 anchors.verticalCenter: parent.verticalCenter
                 style: "islands"
                 zone: "right"
+                align: "right"
+            }
+
+            // Inner right — mirror of inner left.
+            EditStrip {
+                id: rightMidStrip
+                x: Math.round((rightZone.width - rightStrip.width - width) / 2)
+                anchors.verticalCenter: parent.verticalCenter
+                style: "islands"
+                zone: "rightMid"
+                align: "center"
             }
         }
     }
@@ -167,6 +204,7 @@ Column {
             anchors.horizontalCenter: parent.horizontalCenter
             style: "islands"
             zone: "bottom"
+            align: "center"
             stretchSingle: true
             fillWidth: bottomRow.width
         }

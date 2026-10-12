@@ -39,6 +39,14 @@ Rectangle {
         anchors.horizontalCenter: parent.horizontalCenter
         style: "islands"
         zone: root.section
+        // A pill at its default anchor grows from that anchor; a pill the
+        // user placed keeps its left edge.
+        align: {
+            const p = (Settings.barIslandsPos || {})[root.section];
+            if (p && p.x !== undefined && p.x >= 0)
+                return "left";
+            return root.section === "left" ? "left" : root.section === "right" ? "right" : "center";
+        }
         equalEnds: root.section === "center"
         stretchSingle: root.stretch
         fillWidth: root.stretch ? root.width - root.pad * 2 : 0

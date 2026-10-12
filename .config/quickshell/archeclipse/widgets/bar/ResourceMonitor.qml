@@ -71,7 +71,7 @@ Item {
     HoverHandler {
         id: rootHover
         onHoveredChanged: {
-            if (rootHover.hovered) {
+            if (rootHover.hovered && Settings.barHoverReveal) {
                 if (Settings.revealInPressure <= 0)
                     BarState.activate("system", 3000);
                 else

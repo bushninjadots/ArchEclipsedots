@@ -242,14 +242,18 @@ Singleton {
 
     // ---- sections ----
     // Ordered sections per style, with the labels/hints the editor shows.
-    //   islands: left / center / right share the bar edge row; bottom is the
+    //   islands: left / inner left / center / inner right / right share the
+    //            bar edge row (the inner ones float midway between a side and
+    //            the centre); bottom is the
     //            row beneath it (the opposite screen edge when detached).
     //   pill:    rest is the resting face; core + detail are the two rows the
     //            pill morphs into on hover.
     readonly property var sections: ({
         islands: [
             { id: "left", label: "Left", hint: "edge row, start" },
+            { id: "leftMid", label: "Inner left", hint: "between left and centre" },
             { id: "center", label: "Center", hint: "accent capsule" },
+            { id: "rightMid", label: "Inner right", hint: "between centre and right" },
             { id: "right", label: "Right", hint: "edge row, end" },
             { id: "bottom", label: "Bottom", hint: "full-width row" }
         ],

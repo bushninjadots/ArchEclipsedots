@@ -308,6 +308,10 @@ Item {
                                     sy = mouse.y;
                                 }
                                 onPositionChanged: mouse => {
+                                    // hoverEnabled also reports plain hover
+                                    // moves: only a held button may drag.
+                                    if (!pressed)
+                                        return;
                                     const p = mapToItem(root, mouse.x, mouse.y);
                                     if (!moved && (Math.abs(mouse.x - sx) > 5 || Math.abs(mouse.y - sy) > 5)) {
                                         moved = true;
@@ -316,8 +320,14 @@ Item {
                                     if (moved)
                                         BarEditState.updateDrag(p.x, p.y);
                                 }
+                                onCanceled: {
+                                    if (moved)
+                                        BarEditState.abortDrag();
+                                    moved = false;
+                                }
                                 onReleased: mouse => {
                                     if (moved) {
+                                        moved = false;
                                         const p = mapToItem(root, mouse.x, mouse.y);
                                         BarEditState.updateDrag(p.x, p.y);
                                         BarEditState.finishDrag();

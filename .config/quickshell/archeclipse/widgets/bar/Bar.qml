@@ -104,6 +104,12 @@ PanelWindow {
         Region {
             item: (stripRoot.detachedBar && stripRoot.detachedBar.pillBottom.visible) ? stripRoot.detachedBar.pillBottom : null
         }
+        Region {
+            item: (stripRoot.detachedBar && stripRoot.detachedBar.pillLeftMid.visible) ? stripRoot.detachedBar.pillLeftMid : null
+        }
+        Region {
+            item: (stripRoot.detachedBar && stripRoot.detachedBar.pillRightMid.visible) ? stripRoot.detachedBar.pillRightMid : null
+        }
         // Layout editor (Task 7): while editing, the whole surface is
         // interactive so dashed zones, the tray and drags all receive input.
         Region {

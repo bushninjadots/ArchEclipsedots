@@ -392,6 +392,27 @@ Item {
                                 spacing: 8
                                 Label {
                                     font.pixelSize: Theme.fontSize
+                                    text: "Reveal On Hover"
+                                    color: Theme.fg
+                                    Layout.fillWidth: true
+                                }
+                                AppCheckBox {
+                                    checked: Settings.barHoverReveal
+                                    onToggled: Settings.updateSetting("bar.hoverReveal", checked)
+                                }
+                            }
+                            Text {
+                                width: parent.width
+                                wrapMode: Text.WordWrap
+                                text: "Off: weather, network, system, volume, brightness and the clock date open on click."
+                                color: Theme.muted
+                                font.pixelSize: Theme.fontSize - 2
+                            }
+                            RowLayout {
+                                width: parent.width
+                                spacing: 8
+                                Label {
+                                    font.pixelSize: Theme.fontSize
                                     text: "Reveal-In Pressure"
                                     color: Theme.fg
                                     Layout.fillWidth: true

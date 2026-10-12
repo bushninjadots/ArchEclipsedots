@@ -83,11 +83,18 @@ Item {
         onHoveredChanged: {
             if (hovered) {
                 leaveTimer.stop();
-                root.open = true;
+                // Click mode (Settings.barHoverReveal off): the rest face
+                // opens on a click instead (TapHandler below).
+                if (Settings.barHoverReveal)
+                    root.open = true;
             } else {
                 leaveTimer.restart();
             }
         }
+    }
+    TapHandler {
+        enabled: !root.editing && !root.open && !Settings.barHoverReveal
+        onTapped: root.open = true
     }
     Timer {
         id: leaveTimer

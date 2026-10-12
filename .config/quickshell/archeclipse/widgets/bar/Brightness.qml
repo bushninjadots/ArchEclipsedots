@@ -97,6 +97,26 @@ Rectangle {
         }
     }
 
+    // Click the icon / percentage to show or hide the slider; wheel steps.
+    MouseArea {
+        anchors.left: content.left
+        anchors.verticalCenter: content.verticalCenter
+        width: content.width - (briSlider.visible ? briSlider.width + content.spacing : 0)
+        height: root.height
+        enabled: !root.pulse
+        cursorShape: Qt.PointingHandCursor
+        onClicked: {
+            root.sliderRevealed = !root.sliderRevealed;
+            if (root.sliderRevealed)
+                hideTimer.restart();
+        }
+        onWheel: wheel => {
+            const next = Math.max(0.01, Math.min(1, root.level + (wheel.angleDelta.y > 0 ? 0.05 : -0.05)));
+            root.level = next;
+            Brightness.setScreen(next);
+        }
+    }
+
     // Hover dwell (Settings.revealInPressure, 0 = instant) so brushing the
     // cursor across the bar doesn't reveal the slider by accident.
     Timer {
@@ -114,7 +134,11 @@ Rectangle {
         id: briHover
         onHoveredChanged: {
             if (briHover.hovered) {
-                if (Settings.revealInPressure <= 0) {
+                if (!Settings.barHoverReveal) {
+                    // Click-to-open: hovering only holds an open slider.
+                    root.keepOpen = true;
+                    hideTimer.stop();
+                } else if (Settings.revealInPressure <= 0) {
                     root.keepOpen = true;
                     root.sliderRevealed = true;
                     hideTimer.stop();

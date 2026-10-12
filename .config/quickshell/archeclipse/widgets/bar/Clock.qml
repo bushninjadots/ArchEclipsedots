@@ -3,8 +3,9 @@ import Quickshell
 import qs.theme
 import qs.services
 
-// Time always visible; hovering reveals the long date. Tight margins: 4px
-// padding each side, 6px between time and date.
+// Time always visible; the long date slides out on click (or on hover with
+// Settings.barHoverReveal). Tight margins: 4px padding each side, 6px
+// between time and date.
 Rectangle {
     id: root
 
@@ -18,6 +19,9 @@ Rectangle {
     // Opt-out for hosts that drive their own hover expansion (the pill bar
     // reveals a whole row on hover) — the date reveal would overlap it.
     property bool revealDate: true
+    // Click-toggled date (when hover reveal is off).
+    property bool dateOpen: false
+    readonly property bool showDate: root.revealDate && (Settings.barHoverReveal ? hover.hovered : root.dateOpen)
     color: hover.hovered ? hoverColor : "transparent"
 
     property string timeText: Settings.fmt(new Date(), Settings.dateFormat)
@@ -50,7 +54,7 @@ Rectangle {
         Item {
             id: dateClip
             anchors.verticalCenter: parent.verticalCenter
-            width: (root.revealDate && hover.hovered) ? dateText.implicitWidth : 0
+            width: root.showDate ? dateText.implicitWidth : 0
             height: dateText.implicitHeight
             clip: true
             visible: width > 0
@@ -78,7 +82,13 @@ Rectangle {
         anchors.fill: parent
         hoverEnabled: true
         cursorShape: Qt.PointingHandCursor
-        onClicked: {
+        acceptedButtons: Qt.LeftButton | Qt.RightButton
+        onClicked: mouse => {
+            // Click mode: left toggles the date, right cycles the format.
+            if (!Settings.barHoverReveal && root.revealDate && mouse.button === Qt.LeftButton) {
+                root.dateOpen = !root.dateOpen;
+                return;
+            }
             const idx = Settings.dateFormats.indexOf(Settings.dateFormat);
             const next = Settings.dateFormats[(idx + 1) % Settings.dateFormats.length];
             Settings.dateFormat = next;

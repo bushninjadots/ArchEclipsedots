@@ -151,7 +151,11 @@ Rectangle {
         id: hover
         onHoveredChanged: {
             if (hover.hovered) {
-                if (Settings.revealInPressure <= 0) {
+                if (!Settings.barHoverReveal) {
+                    // Click-to-open: hovering only holds an open slider.
+                    root.keepOpen = true;
+                    hideTimer.stop();
+                } else if (Settings.revealInPressure <= 0) {
                     root.keepOpen = true;
                     root.sliderRevealed = true;
                     hideTimer.stop();

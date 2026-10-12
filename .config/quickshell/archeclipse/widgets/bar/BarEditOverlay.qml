@@ -71,6 +71,8 @@ Item {
         BarEditState.trayRect = { x: p.x, y: p.y, w: sh.width, h: sh.height };
     }
     onVisibleChanged: {
+        // Never carry a stale press into a new session.
+        surface.pressCell = null;
         if (visible) {
             root.refresh();
             fadeIn.restart();
@@ -148,10 +150,17 @@ Item {
                 BarEditState.updateDrag(mouse.x, mouse.y);
             } else if (BarEditState.dragSection !== "") {
                 BarEditState.moveSection(mouse.x, mouse.y, root.width, root.height);
-            } else if (pressCell && (Math.abs(mouse.x - pressX) > 5 || Math.abs(mouse.y - pressY) > 5)) {
+            } else if (pressCell && pressed && (Math.abs(mouse.x - pressX) > 5 || Math.abs(mouse.y - pressY) > 5)) {
                 BarEditState.startDrag(pressCell.id, pressCell.zone, mouse.x, mouse.y);
                 pressCell = null;
             }
+        }
+        onCanceled: {
+            pressCell = null;
+            if (BarEditState.draggingId !== "")
+                BarEditState.abortDrag();
+            if (BarEditState.dragSection !== "")
+                BarEditState.commitSection();
         }
         onReleased: mouse => {
             if (BarEditState.draggingId !== "") {
