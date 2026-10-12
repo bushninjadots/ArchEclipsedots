@@ -100,6 +100,15 @@ Singleton {
     // Half-cut vinyl that slides out from under the bar below the music
     // widget while a track plays (album art label, progress rim, controls).
     property bool barVinyl: false
+    // Command center identity: avatar image path ("" = the account picture,
+    // /var/lib/AccountsService/icons/$USER or ~/.face) and the desktop's
+    // display name ("" = the hostname).
+    property string profilePicture: ""
+    property string desktopName: ""
+    // When the vinyl shows: "track" (whenever a track is loaded), "playing"
+    // (tucks away a few seconds after pausing), "peek" (slides out on play /
+    // track change, then tucks away; hovering keeps it out).
+    property string barVinylMode: "playing"
     property int barVinylSize: 0                    // px; 0 = match the widget it hangs from
     // No-frame bar surface (used when the shell frame is off): see BarSurface.
     property string barSurfaceStyle: "glass"       // solid | glass | outline | clear
@@ -535,7 +544,10 @@ Singleton {
             "bar.workspaces.pill": "barWorkspacesPill",
             "bar.spectrum.style": "barSpectrum",
             "bar.vinyl.enabled": "barVinyl",
+            "profile.picture": "profilePicture",
+            "profile.desktopName": "desktopName",
             "bar.vinyl.size": "barVinylSize",
+            "bar.vinyl.mode": "barVinylMode",
             "bar.surface.style": "barSurfaceStyle",
             "bar.surface.corners": "barSurfaceCorners",
             "bar.surface.shadow": "barSurfaceShadow",
@@ -674,7 +686,8 @@ Singleton {
                     },
                     vinyl: {
                         enabled: { value: root.barVinyl },
-                        size: { value: root.barVinylSize }
+                        size: { value: root.barVinylSize },
+                        mode: { value: root.barVinylMode }
                     },
                     spectrum: {
                         style: { value: root.barSpectrum },
@@ -718,6 +731,10 @@ Singleton {
                     visualizer: {
                         value: root.mprisVisualizer
                     }
+                },
+                profile: {
+                    picture: { value: root.profilePicture },
+                    desktopName: { value: root.desktopName }
                 },
                 visualizer: {
                     style: {
@@ -962,6 +979,10 @@ Singleton {
                 root.barSurfaceAccent = s.bar?.surface?.accent?.value === true;
                 root.barEdgeGap = _wn(s.bar?.surface?.edgeGap?.value, 0, 24, 0);
                 root.barVinyl = s.bar?.vinyl?.enabled?.value === true;
+                const _vm = s.bar?.vinyl?.mode?.value;
+                root.barVinylMode = ["track", "playing", "peek"].includes(_vm) ? _vm : "playing";
+                root.profilePicture = String(s.profile?.picture?.value ?? "");
+                root.desktopName = String(s.profile?.desktopName?.value ?? "");
                 const _vz = _wn(s.bar?.vinyl?.size?.value, 0, 200, 0);
                 root.barVinylSize = _vz > 0 ? Math.max(96, _vz) : 0;
                 const _sp = s.bar?.spectrum?.style?.value;

@@ -3,7 +3,7 @@ import qs.services
 import qs.widgets.bar.islands
 import qs.widgets.controlPanel
 
-// Control island: quick-settings body inline in the bar pill.
+// Control island (Arch button): the command center inline in the bar pill.
 // Same unfold pattern as SearchIsland — the pill grows (width via
 // the pill transition, height snapped on the window) while this body unfolds.
 //
@@ -66,10 +66,10 @@ Column {
         expand: root.expand
         contentHeight: controlBody.height
 
-        ControlPanelBody {
+        // The command center (profile, status, toggles, sliders, session).
+        CommandCenter {
             id: controlBody
             anchors.top: parent.top
-            monitorName: root.monitorName
         }
     }
 }

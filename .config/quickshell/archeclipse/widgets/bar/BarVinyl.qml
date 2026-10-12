@@ -5,11 +5,12 @@ import Quickshell.Services.Mpris
 import qs.theme
 import qs.services
 
-// Half-cut vinyl that slides out from under the bar while a track plays
-// (Settings -> Bar -> Music: "Vinyl"). The record's upper half stays tucked
-// under the bar; the lower half shows below the music widget:
-//   - pressed black body with fine grooves and an accent-tinted rim,
-//     the album art as its paper label, a fixed light sheen on top;
+// Half-cut record that slides out from under the bar while a track plays
+// (Settings -> Bar -> Music: "Vinyl"). The upper half stays tucked under the
+// bar; the lower half shows below the music widget:
+//   - a record's shape in the bar's own material (frame fill + rim, or the
+//     no-frame surface), so it follows the bar's dynamic colour; the album
+//     art is its label;
 //   - spins while playing, eases to a stop on pause;
 //   - an accent arc along the rim follows the track position;
 //   - a glass capsule of controls (previous / play-pause / next) sits on
@@ -33,7 +34,44 @@ Item {
     readonly property var player: BarWidgets.firstPlayable
     readonly property bool hasTrack: !!root.player && (root.player.trackTitle ?? "") !== ""
     readonly property bool playing: !!root.player && root.player.playbackState === MprisPlaybackState.Playing
-    readonly property bool wanted: Settings.barVinyl && root.allowed && root.hasTrack
+    // When to be out (Settings.barVinylMode):
+    //   track   — whenever a track is loaded
+    //   playing — while playing; tucks away 4 s after a pause (so a quick
+    //             pause/resume doesn't make it bob)
+    //   peek    — slides out on play / track change for 6 s, then tucks
+    //             away; hovering keeps it out
+    property bool _lingering: false
+    property bool _peeking: false
+    readonly property bool _modeWants: Settings.barVinylMode === "track" ? true
+        : Settings.barVinylMode === "peek" ? (root._peeking || hoverArea.hovered)
+        : (root.playing || root._lingering)
+    readonly property bool wanted: Settings.barVinyl && root.allowed && root.hasTrack && root._modeWants
+    onPlayingChanged: {
+        if (root.playing) {
+            lingerTimer.stop();
+            root._lingering = false;
+            root.peek();
+        } else {
+            root._lingering = true;
+            lingerTimer.restart();
+        }
+    }
+    readonly property string _trackKey: (root.player?.trackTitle ?? "") + "|" + (root.player?.trackArtist ?? "")
+    on_TrackKeyChanged: if (root.playing) root.peek()
+    function peek() {
+        root._peeking = true;
+        peekTimer.restart();
+    }
+    Timer {
+        id: lingerTimer
+        interval: 4000
+        onTriggered: root._lingering = false
+    }
+    Timer {
+        id: peekTimer
+        interval: 6000
+        onTriggered: root._peeking = false
+    }
     readonly property real d: {
         const want = Settings.barVinylSize > 0 ? Settings.barVinylSize : root.matchWidth;
         return Math.round(Math.max(96, Math.min(180, Number.isFinite(want) ? want : 136)));
@@ -42,11 +80,25 @@ Item {
     readonly property real reach: root.d / 2 + 6
 
     // Slide: 0 = tucked under the bar, 1 = out.
-    property real out: root.wanted ? 1 : 0
-    Behavior on out {
-        NumberAnimation { duration: 520; easing.type: Easing.OutBack; easing.overshoot: 1.1 }
+    // Out: a soft spring; in: a smooth tuck (no bounce on the way back).
+    property real out: 0
+    onWantedChanged: root._slide()
+    Component.onCompleted: root._slide()
+    function _slide() {
+        slide.stop();
+        slide.to = root.wanted ? 1 : 0;
+        slide.duration = root.wanted ? 560 : 420;
+        slide.easing.type = root.wanted ? Easing.OutBack : Easing.InOutCubic;
+        slide.easing.overshoot = 1.15;
+        slide.start();
+    }
+    NumberAnimation {
+        id: slide
+        target: root
+        property: "out"
     }
     visible: root.out > 0.01
+    opacity: Math.max(0, Math.min(1, root.out * 1.6))
 
     // The visible window below the bar edge.
     x: root.anchorX - root.d / 2 - 10
@@ -87,6 +139,17 @@ Item {
 
     readonly property bool hovered: hoverArea.hovered
 
+    // The bar's material (see plate below). Kept fairly opaque so the art
+    // and controls stay readable over windows.
+    readonly property color discFill: {
+        const c = ShellFrame.enabled ? ShellFrame.fill
+            : Qt.color(Settings.barSurfaceStyle === "glass" ? Theme.rgba(Theme.background, 0.45)
+                : Settings.barSurfaceStyle === "outline" ? Theme.rgba(Theme.background, 0.12) : Theme.surface);
+        return Qt.rgba(c.r, c.g, c.b, Math.max(0.82, c.a));
+    }
+    readonly property color discRim: ShellFrame.enabled && ShellFrame.borderWidth > 0 ? ShellFrame.borderA
+        : Settings.barSurfaceStyle === "outline" ? Theme.accent : Theme.rgba(Theme.foreground, 0.16)
+
     // ---- the record ----
     Item {
         id: disc
@@ -102,68 +165,54 @@ Item {
             blur: 20
             spread: -4
             offset.y: root.topBar ? 6 : -6
-            color: Qt.rgba(0, 0, 0, 0.55)
+            color: Qt.rgba(0, 0, 0, 0.35)
         }
 
-        Item {
-            id: turning
+        // The disc is the bar's own material — frame fill + rim in frame
+        // mode, the surface plate otherwise — so it follows the bar's colour
+        // (wallpaper / album / custom) instead of looking like real vinyl.
+        Rectangle {
+            id: plate
             anchors.fill: parent
-            rotation: root.angle
-
-            Canvas {
-                id: body
-                anchors.fill: parent
-                antialiasing: true
-                renderTarget: Canvas.Image
-                property color rim: Theme.accent
-                onRimChanged: requestPaint()
-                onWidthChanged: requestPaint()
-                onPaint: {
-                    const ctx = getContext("2d");
-                    ctx.reset();
-                    const c = width / 2, R = c - 1;
-                    // Body.
+            radius: width / 2
+            color: root.discFill
+            border.width: ShellFrame.enabled ? Math.max(1, ShellFrame.borderWidth) : (Settings.barSurfaceStyle === "outline" ? 1.5 : 1)
+            border.color: root.discRim
+        }
+        // A few soft grooves: just enough to read as a record.
+        Canvas {
+            id: grooves
+            anchors.fill: parent
+            antialiasing: true
+            property color tone: Theme.accent
+            onToneChanged: requestPaint()
+            onWidthChanged: requestPaint()
+            onPaint: {
+                const ctx = getContext("2d");
+                ctx.reset();
+                const c = width / 2;
+                for (const f of [0.5, 0.62, 0.74, 0.86]) {
+                    ctx.strokeStyle = Qt.rgba(grooves.tone.r, grooves.tone.g, grooves.tone.b, f === 0.74 ? 0.16 : 0.08);
+                    ctx.lineWidth = 1;
                     ctx.beginPath();
-                    ctx.arc(c, c, R, 0, Math.PI * 2);
-                    const g = ctx.createRadialGradient(c, c, 0, c, c, R);
-                    g.addColorStop(0, "#15161b");
-                    g.addColorStop(0.5, "#1a1b21");
-                    g.addColorStop(0.93, "#0f1014");
-                    g.addColorStop(1, "#202128");
-                    ctx.fillStyle = g;
-                    ctx.fill();
-                    // Grooves: fine rings, a little irregular.
-                    let seed = 7;
-                    const rnd = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
-                    for (let r = R * 0.43; r < R * 0.97; r += 1.15 + rnd() * 0.9) {
-                        ctx.strokeStyle = "rgba(190,195,210," + (0.035 + rnd() * 0.05) + ")";
-                        ctx.lineWidth = 0.5;
-                        ctx.beginPath();
-                        ctx.arc(c, c, r, 0, Math.PI * 2);
-                        ctx.stroke();
-                    }
-                    // Track gaps.
-                    for (const f of [0.52, 0.66, 0.8]) {
-                        ctx.strokeStyle = "rgba(0,0,0,0.55)";
-                        ctx.lineWidth = 1.6;
-                        ctx.beginPath();
-                        ctx.arc(c, c, R * f, 0, Math.PI * 2);
-                        ctx.stroke();
-                    }
-                    // Accent-tinted rim.
-                    ctx.strokeStyle = Qt.rgba(body.rim.r, body.rim.g, body.rim.b, 0.35);
-                    ctx.lineWidth = 1.2;
-                    ctx.beginPath();
-                    ctx.arc(c, c, R - 0.6, 0, Math.PI * 2);
+                    ctx.arc(c, c, c * f, 0, Math.PI * 2);
                     ctx.stroke();
                 }
             }
+        }
 
-            // Paper label = album art.
+        // The label (album art) is what turns.
+        Item {
+            id: turning
+            anchors.centerIn: parent
+            width: label.width
+            height: width
+            rotation: root.angle
+
             ClippingRectangle {
                 id: label
                 anchors.centerIn: parent
-                width: root.d * 0.38
+                width: root.d * 0.42
                 height: width
                 radius: width / 2
                 color: Theme.surfaceActive
@@ -187,51 +236,25 @@ Item {
                     font.pixelSize: label.width * 0.42
                 }
             }
-            // Label ring + spindle.
-            Rectangle {
-                anchors.centerIn: parent
-                width: label.width + 3
-                height: width
-                radius: width / 2
-                color: "transparent"
-                border.width: 1.5
-                border.color: Qt.rgba(0, 0, 0, 0.5)
-            }
-            Rectangle {
-                anchors.centerIn: parent
-                width: Math.max(5, root.d * 0.035)
-                height: width
-                radius: width / 2
-                color: "#0b0c0f"
-                border.width: 1
-                border.color: Qt.rgba(1, 1, 1, 0.18)
-            }
         }
-
-        // Fixed sheen (doesn't turn): the record spins under a lamp.
-        Canvas {
-            anchors.fill: parent
-            antialiasing: true
-            renderTarget: Canvas.Image
-            onWidthChanged: requestPaint()
-            onPaint: {
-                const ctx = getContext("2d");
-                ctx.reset();
-                const c = width / 2, R = c - 1;
-                ctx.beginPath();
-                ctx.arc(c, c, R, 0, Math.PI * 2);
-                ctx.arc(c, c, R * 0.2, 0, Math.PI * 2, true);
-                const g = ctx.createConicalGradient(c, c, 0.5);
-                g.addColorStop(0, "rgba(0,0,0,0)");
-                g.addColorStop(0.1, "rgba(220,228,240,0.10)");
-                g.addColorStop(0.16, "rgba(0,0,0,0)");
-                g.addColorStop(0.55, "rgba(0,0,0,0)");
-                g.addColorStop(0.62, "rgba(240,232,220,0.08)");
-                g.addColorStop(0.68, "rgba(0,0,0,0)");
-                g.addColorStop(1, "rgba(0,0,0,0)");
-                ctx.fillStyle = g;
-                ctx.fill();
-            }
+        // Label ring + spindle in the bar's colours.
+        Rectangle {
+            anchors.centerIn: parent
+            width: label.width + 4
+            height: width
+            radius: width / 2
+            color: "transparent"
+            border.width: 2
+            border.color: Theme.rgba(Theme.accent, 0.55)
+        }
+        Rectangle {
+            anchors.centerIn: parent
+            width: Math.max(6, root.d * 0.05)
+            height: width
+            radius: width / 2
+            color: root.discFill
+            border.width: 1
+            border.color: root.discRim
         }
 
         // Progress arc along the rim (visible half only matters).

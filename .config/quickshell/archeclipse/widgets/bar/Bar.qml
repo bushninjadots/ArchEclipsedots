@@ -716,8 +716,9 @@ PanelWindow {
                 var rightStart = rightPush > 0 ? parent.width - 8 - rightPush : parent.width;
                 return leftPush + Math.max(0, (rightStart - leftPush - pill.width) / 2);
             }
-            // Offset from the centred slot toward the owning widget (eased,
-            // so the island glides out of the widget rather than jumping).
+            // Offset from the centred slot toward the owning widget. An
+            // island opens right at its widget (no glide across the screen);
+            // only the return to the bar's resting place eases.
             property real anchorShift: {
                 if (!root.mainTransient || root.islandAnchorX < 0)
                     return 0;
@@ -725,12 +726,24 @@ PanelWindow {
                 const lo = leftPush + 8, hi = parent.width - pill.width - 8 - (rightPush > 0 ? rightPush + 8 : 0);
                 return Math.max(lo, Math.min(hi, want)) - pillX;
             }
-            Behavior on anchorShift {
-                Anim {
-                    type: Anim.DefaultSpatial
+            property real shownShift: 0
+            onAnchorShiftChanged: {
+                if (root.mainTransient) {
+                    shiftBack.stop();
+                    pill.shownShift = pill.anchorShift;
+                } else {
+                    shiftBack.to = pill.anchorShift;
+                    shiftBack.restart();
                 }
             }
-            x: pillX + anchorShift
+            NumberAnimation {
+                id: shiftBack
+                target: pill
+                property: "shownShift"
+                duration: 320
+                easing.type: Easing.OutCubic
+            }
+            x: pillX + shownShift
             // Detached islands: a transient island drops down under the
             // section pills (a popover from its widget) instead of covering
             // them; otherwise it sits on the bar edge as before.

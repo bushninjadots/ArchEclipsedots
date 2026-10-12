@@ -525,6 +525,23 @@ Item {
                                 spacing: 8
                                 Label {
                                     font.pixelSize: Theme.fontSize
+                                    text: "Vinyl Shows"
+                                    color: Theme.fg
+                                    Layout.fillWidth: true
+                                }
+                                AppComboBox {
+                                    model: ["While playing", "Whenever a track is loaded", "Peek on play / track change"]
+                                    currentIndex: ["playing", "track", "peek"].indexOf(Settings.barVinylMode)
+                                    onActivated: index => Settings.updateSetting("bar.vinyl.mode", ["playing", "track", "peek"][index])
+                                    Layout.preferredWidth: 160
+                                }
+                            }
+                            RowLayout {
+                                visible: Settings.barVinyl
+                                width: parent.width
+                                spacing: 8
+                                Label {
+                                    font.pixelSize: Theme.fontSize
                                     text: "Vinyl Size (0 = match widget)"
                                     color: Theme.fg
                                     Layout.fillWidth: true

@@ -635,9 +635,19 @@ Item {
                     spacing: 4
                     Caption { text: "MUSIC VINYL" }
                     Choice {
-                        options: root.onOff
-                        value: Settings.barVinyl
-                        onPicked: v => Settings.updateSetting("bar.vinyl.enabled", v)
+                        options: [{ value: "off", label: "Off" },
+                                  { value: "playing", label: "Playing", tip: "Out while playing, tucks away after a pause" },
+                                  { value: "track", label: "Always", tip: "Out whenever a track is loaded" },
+                                  { value: "peek", label: "Peek", tip: "Slides out on play / new track, then tucks away" }]
+                        value: Settings.barVinyl ? Settings.barVinylMode : "off"
+                        onPicked: v => {
+                            if (v === "off") {
+                                Settings.updateSetting("bar.vinyl.enabled", false);
+                            } else {
+                                Settings.updateSetting("bar.vinyl.mode", v);
+                                Settings.updateSetting("bar.vinyl.enabled", true);
+                            }
+                        }
                     }
                 }
                 Column {
