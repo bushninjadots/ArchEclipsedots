@@ -126,6 +126,58 @@ Item {
         Quickshell.execDetached(["bash", "-c", cmd]);
     }
 
+    // ---- arrangeable layout (iNiR's control center you arrange) ----
+    // Pencil (top right) enters edit mode: drag tiles to reorder, ⇔ makes a
+    // tile wide, × removes it, the library below adds hidden ones; each
+    // section can be hidden or moved. Saved to Settings.ccTiles/ccSections.
+    property bool editing: false
+    readonly property var defaultTiles: ["wifi", "bluetooth", "focus", "caffeine", "mic", "game", "theme", "keyboard"]
+    readonly property var allTiles: ["wifi", "bluetooth", "focus", "caffeine", "mic", "game", "theme", "keyboard", "nightlight", "record", "picker", "screenshot"]
+    readonly property var tileNames: ({ wifi: "Wi-Fi", bluetooth: "Bluetooth", focus: "Focus", caffeine: "Caffeine", mic: "Mic",
+        game: "Game mode", theme: "Theme", keyboard: "Keyboard", nightlight: "Night light", record: "Record", picker: "Colour picker", screenshot: "Screenshot" })
+    readonly property var defaultSections: ["status", "toggles", "sliders", "screentime", "power", "actions"]
+    readonly property var sectionNames: ({ status: "Status", toggles: "Toggles", sliders: "Sliders", screentime: "Screen time", power: "Power mode", actions: "Session" })
+    ListModel { id: tileModel }
+    ListModel { id: sectionModel }
+    function loadLayout() {
+        tileModel.clear();
+        const t = Settings.ccTiles.length > 0 ? Settings.ccTiles : root.defaultTiles.map(id => ({ id, w: 1 }));
+        for (const x of t)
+            if (root.allTiles.indexOf(x.id) !== -1)
+                tileModel.append({ tid: x.id, w: x.w === 2 ? 2 : 1 });
+        sectionModel.clear();
+        const have = {};
+        for (const x of Settings.ccSections)
+            if (root.defaultSections.indexOf(x.id) !== -1 && !have[x.id]) {
+                have[x.id] = true;
+                sectionModel.append({ sid: x.id, on: x.on !== false });
+            }
+        for (const id of root.defaultSections)
+            if (!have[id])
+                sectionModel.append({ sid: id, on: true });
+    }
+    function saveLayout() {
+        const t = [], sc = [];
+        for (let i = 0; i < tileModel.count; i++)
+            t.push({ id: tileModel.get(i).tid, w: tileModel.get(i).w });
+        for (let i = 0; i < sectionModel.count; i++)
+            sc.push({ id: sectionModel.get(i).sid, on: sectionModel.get(i).on });
+        Settings.updateSetting("commandCenter.tiles", t);
+        Settings.updateSetting("commandCenter.sections", sc);
+    }
+    function resetLayout() {
+        Settings.updateSetting("commandCenter.tiles", []);
+        Settings.updateSetting("commandCenter.sections", []);
+        root.loadLayout();
+    }
+    function hasTile(id) {
+        for (let i = 0; i < tileModel.count; i++)
+            if (tileModel.get(i).tid === id)
+                return true;
+        return false;
+    }
+    Component.onCompleted: root.loadLayout()
+
     Column {
         id: col
         x: 16
@@ -134,11 +186,123 @@ Item {
         spacing: 12
 
         Header {}
-        StatusStrip {}
-        Toggles {}
-        Sliders {}
-        PowerModes {}
-        Actions {}
+        Repeater {
+            model: sectionModel
+            delegate: Column {
+                id: sec
+                required property string sid
+                required property bool on
+                required property int index
+                width: col.width
+                spacing: 6
+                visible: sec.on || root.editing
+                opacity: sec.on ? 1 : 0.4
+                // Edit bar: name · hide/show · move up/down.
+                Row {
+                    visible: root.editing
+                    width: parent.width
+                    height: 20
+                    spacing: 6
+                    Text {
+                        anchors.verticalCenter: parent.verticalCenter
+                        text: (root.sectionNames[sec.sid] || sec.sid).toUpperCase()
+                        color: Theme.muted
+                        font.family: Theme.fontFamily
+                        font.pixelSize: Theme.fontSizeCaption
+                        font.letterSpacing: 1
+                    }
+                    Item { width: parent.width - 220; height: 1 }
+                    EditChip {
+                        glyph: sec.on ? "\u{F0208}" : "\u{F0209}"
+                        onClicked: { sectionModel.setProperty(sec.index, "on", !sec.on); root.saveLayout(); }
+                    }
+                    EditChip {
+                        glyph: "\u{F005D}"
+                        enabled: sec.index > 0
+                        onClicked: { sectionModel.move(sec.index, sec.index - 1, 1); root.saveLayout(); }
+                    }
+                    EditChip {
+                        glyph: "\u{F0045}"
+                        enabled: sec.index < sectionModel.count - 1
+                        onClicked: { sectionModel.move(sec.index, sec.index + 1, 1); root.saveLayout(); }
+                    }
+                }
+                Loader {
+                    width: col.width
+                    sourceComponent: sec.sid === "status" ? cStatus : sec.sid === "toggles" ? cToggles
+                        : sec.sid === "sliders" ? cSliders : sec.sid === "power" ? cPower : sec.sid === "screentime" ? cScreenTime : cActions
+                }
+            }
+        }
+        // Edit footer.
+        Row {
+            visible: root.editing
+            spacing: 8
+            anchors.right: parent.right
+            EditChip {
+                wide: true
+                glyph: "\u{F0450}  Reset"
+                onClicked: root.resetLayout()
+            }
+            EditChip {
+                wide: true
+                accent: true
+                glyph: "\u{F012C}  Done"
+                onClicked: { root.saveLayout(); root.editing = false; }
+            }
+        }
+    }
+    Component { id: cStatus; StatusStrip {} }
+    Component { id: cToggles; Toggles {} }
+    Component { id: cSliders; Sliders {} }
+    Component { id: cPower; PowerModes {} }
+    Component { id: cActions; Actions {} }
+    Component { id: cScreenTime; ScreenTimeCard {} }
+
+    // Pencil: enter / leave edit mode.
+    EditChip {
+        // Bottom-right corner of the header card (clear of the clock).
+        x: root.width - width - 24
+        y: 16 + 92 - height - 8
+        z: 5
+        accent: root.editing
+        glyph: root.editing ? "\u{F012C}" : "\u{F03EB}"
+        onClicked: {
+            if (root.editing)
+                root.saveLayout();
+            root.editing = !root.editing;
+        }
+    }
+
+    // Small round button used by the edit UI.
+    component EditChip: Rectangle {
+        id: ec
+        property string glyph: ""
+        property bool accent: false
+        property bool wide: false
+        signal clicked
+        width: ec.wide ? ecText.implicitWidth + 20 : 22
+        height: 22
+        radius: 11
+        opacity: ec.enabled ? 1 : 0.35
+        color: ec.accent ? Theme.accent : (ecm.containsMouse ? Theme.rgba(Theme.foreground, 0.16) : Theme.rgba(Theme.foreground, 0.08))
+        border.width: 1
+        border.color: ec.accent ? Theme.accent : Theme.border
+        Text {
+            id: ecText
+            anchors.centerIn: parent
+            text: ec.glyph
+            color: ec.accent ? Theme.background : Theme.fg
+            font.family: Theme.fontFamily
+            font.pixelSize: Theme.fontSizeSmall
+        }
+        MouseArea {
+            id: ecm
+            anchors.fill: parent
+            hoverEnabled: true
+            cursorShape: Qt.PointingHandCursor
+            onClicked: ec.clicked()
+        }
     }
 
     // ================================================================ header
@@ -384,12 +548,127 @@ Item {
     }
 
     // ================================================================ toggles
-    component Toggles: Grid {
-        id: grid
+    component Toggles: Column {
+        id: tg
         width: col.width
-        columns: 4
-        spacing: 8
-        readonly property real tileW: (width - spacing * 3) / 4
+        spacing: 10
+        readonly property real tileW: (width - 24) / 4
+        Flow {
+            id: flow
+            width: parent.width
+            spacing: 8
+            move: Transition {
+                NumberAnimation { properties: "x,y"; duration: 220; easing.type: Easing.OutCubic }
+            }
+            Repeater {
+                model: tileModel
+                delegate: Item {
+                    id: slot
+                    required property string tid
+                    required property int w
+                    required property int index
+                    readonly property bool available: tileLoader.item ? tileLoader.item.available : false
+                    visible: slot.available || root.editing
+                    width: slot.w === 2 ? tg.tileW * 2 + 8 : tg.tileW
+                    height: 56
+                    z: dragArea.pressed ? 10 : 0
+                    Behavior on width {
+                        NumberAnimation { duration: 200; easing.type: Easing.OutCubic }
+                    }
+                    Loader {
+                        id: tileLoader
+                        anchors.fill: parent
+                        opacity: slot.available ? 1 : 0.4
+                        sourceComponent: root.tileComponent(slot.tid)
+                        // Edit mode: a gentle wiggle, like a home screen.
+                        rotation: 0
+                        SequentialAnimation on rotation {
+                            running: root.editing && !dragArea.pressed
+                            loops: Animation.Infinite
+                            NumberAnimation { to: 0.8; duration: 140 + (slot.index % 3) * 20 }
+                            NumberAnimation { to: -0.8; duration: 280 }
+                            NumberAnimation { to: 0; duration: 140 }
+                        }
+                        scale: dragArea.pressed ? 1.05 : 1
+                        Behavior on scale {
+                            NumberAnimation { duration: 140 }
+                        }
+                    }
+                    // Edit: drag to reorder (live, over another tile).
+                    MouseArea {
+                        id: dragArea
+                        anchors.fill: parent
+                        visible: root.editing
+                        cursorShape: pressed ? Qt.ClosedHandCursor : Qt.OpenHandCursor
+                        onPositionChanged: m => {
+                            if (!pressed)
+                                return;
+                            const p = slot.mapToItem(flow, m.x, m.y);
+                            const c = flow.childAt(p.x, p.y);
+                            if (c && c !== slot && c.index !== undefined && c.tid !== undefined)
+                                tileModel.move(slot.index, c.index, 1);
+                        }
+                        onReleased: root.saveLayout()
+                    }
+                    // Edit badges: remove · wide/narrow.
+                    Row {
+                        visible: root.editing
+                        anchors.right: parent.right
+                        anchors.top: parent.top
+                        anchors.margins: -6
+                        spacing: 4
+                        EditChip {
+                            glyph: slot.w === 2 ? "\u{F0615}" : "\u{F0616}"
+                            onClicked: { tileModel.setProperty(slot.index, "w", slot.w === 2 ? 1 : 2); root.saveLayout(); }
+                        }
+                        EditChip {
+                            glyph: "\u{F0156}"
+                            onClicked: { tileModel.remove(slot.index, 1); root.saveLayout(); }
+                        }
+                    }
+                }
+            }
+        }
+        // Edit: the library of tiles not on the grid.
+        Flow {
+            visible: root.editing
+            width: parent.width
+            spacing: 6
+            Repeater {
+                model: {
+                    tileModel.count;
+                    return root.allTiles.filter(id => !root.hasTile(id));
+                }
+                delegate: EditChip {
+                    required property string modelData
+                    wide: true
+                    glyph: "+  " + (root.tileNames[modelData] || modelData)
+                    onClicked: { tileModel.append({ tid: modelData, w: 1 }); root.saveLayout(); }
+                }
+            }
+        }
+    }
+
+    function tileComponent(id) {
+        return ({ wifi: tWifi, bluetooth: tBluetooth, focus: tFocus, caffeine: tCaffeine, mic: tMic, game: tGame,
+            theme: tTheme, keyboard: tKeyboard, nightlight: tNight, record: tRecord, picker: tPicker, screenshot: tShot })[id] || null;
+    }
+    // Night light: hyprsunset running or not (polled while open).
+    property bool nightOn: false
+    Process {
+        id: nightProbe
+        command: ["pgrep", "-x", "hyprsunset"]
+        onExited: code => root.nightOn = code === 0
+    }
+    Timer {
+        interval: 3000
+        running: true
+        repeat: true
+        triggeredOnStart: true
+        onTriggered: if (!nightProbe.running) nightProbe.running = true
+    }
+    Component {
+        id: tWifi
         Tile {
             icon: Networking.wifiEnabled ? "\u{F0928}" : "\u{F092E}"
             label: "Wi-Fi"
@@ -398,8 +677,11 @@ Item {
             onToggled: Networking.wifiEnabled = !Networking.wifiEnabled
             onMore: BarState.activate("network", 0)
         }
+    }
+    Component {
+        id: tBluetooth
         Tile {
-            visible: !!root.bt
+            available: !!root.bt
             icon: root.bt?.enabled ? "\u{F00AF}" : "\u{F00B2}"
             label: "Bluetooth"
             sub: !root.bt?.enabled ? "Off" : ((root.bt?.devices?.values ?? []).filter(d => d.connected).map(d => d.name)[0] ?? "On")
@@ -407,6 +689,9 @@ Item {
             onToggled: if (root.bt) root.bt.enabled = !root.bt.enabled
             onMore: BarState.activate("bluetooth", 0)
         }
+    }
+    Component {
+        id: tFocus
         Tile {
             icon: Settings.notifDnd ? "\u{F009B}" : "\u{F009A}"
             label: "Focus"
@@ -414,6 +699,9 @@ Item {
             on: Settings.notifDnd
             onToggled: Settings.updateSetting("notifications.dnd", !Settings.notifDnd)
         }
+    }
+    Component {
+        id: tCaffeine
         Tile {
             icon: "\u{F0176}"
             label: "Caffeine"
@@ -421,14 +709,20 @@ Item {
             on: Caffeine.awake
             onToggled: Caffeine.toggle()
         }
+    }
+    Component {
+        id: tMic
         Tile {
-            visible: !!root.source?.audio
+            available: !!root.source?.audio
             icon: root.source?.audio?.muted ? "\u{F036D}" : "\u{F036C}"
             label: "Mic"
             sub: root.source?.audio?.muted ? "Muted" : Math.round((root.source?.audio?.volume ?? 0) * 100) + "%"
             on: !(root.source?.audio?.muted ?? true)
             onToggled: if (root.source?.audio) root.source.audio.muted = !root.source.audio.muted
         }
+    }
+    Component {
+        id: tGame
         Tile {
             icon: "\u{F0297}"
             label: "Game mode"
@@ -436,6 +730,9 @@ Item {
             on: Settings.gameModeEnabled
             onToggled: Settings.applyGameMode(!Settings.gameModeEnabled)
         }
+    }
+    Component {
+        id: tTheme
         Tile {
             icon: GlobalTheme.currentTheme ? "\u{F05A8}" : "\u{F0594}"
             label: "Theme"
@@ -443,13 +740,75 @@ Item {
             on: !GlobalTheme.currentTheme
             onToggled: GlobalTheme.setTheme(!GlobalTheme.currentTheme)
         }
+    }
+    Component {
+        id: tKeyboard
         Tile {
-            visible: KeyboardLayout.layout !== ""
+            available: KeyboardLayout.layout !== ""
             icon: "\u{F030C}"
             label: "Keyboard"
             sub: KeyboardLayout.layoutName || KeyboardLayout.layout
             on: false
             onToggled: KeyboardLayout.nextLayout()
+        }
+    }
+    Component {
+        id: tNight
+        Tile {
+            icon: "\u{F0594}"
+            label: "Night light"
+            sub: root.nightOn ? "Warm · 4000K" : "Off"
+            on: root.nightOn
+            onToggled: {
+                Quickshell.execDetached(["bash", "-c", root.nightOn ? "pkill -x hyprsunset" : "setsid -f hyprsunset -t 4000 >/dev/null 2>&1"]);
+                root.nightOn = !root.nightOn;
+            }
+        }
+    }
+    Component {
+        id: tRecord
+        Tile {
+            icon: ScreenRecorder.isRecording ? "\u{F04DB}" : "\u{F044A}"
+            label: "Record"
+            sub: ScreenRecorder.isRecording ? "Recording · click to stop" : "Screen"
+            on: ScreenRecorder.isRecording
+            onToggled: {
+                if (!ScreenRecorder.isRecording)
+                    BarState.deactivate("control");
+                ScreenRecorder.toggleRecording("");
+            }
+            onMore: {
+                BarState.deactivate("control");
+                ScreenRecorder.toggleRecording("area");
+            }
+        }
+    }
+    Component {
+        id: tPicker
+        Tile {
+            icon: "\u{F0E40}"
+            label: "Colour picker"
+            sub: "Copies the hex"
+            onToggled: {
+                BarState.deactivate("control");
+                Quickshell.execDetached(["bash", "-c", "sleep 0.3; c=$(hyprpicker -a -f hex) && notify-send -a 'Colour picker' \"$c\" 'Copied to clipboard'"]);
+            }
+        }
+    }
+    Component {
+        id: tShot
+        Tile {
+            icon: "\u{F0104}"
+            label: "Screenshot"
+            sub: "Area · right-click: screen"
+            onToggled: {
+                BarState.deactivate("control");
+                Quickshell.execDetached([Quickshell.env("HOME") + "/.config/hypr/scripts/screenshot.sh", "--area"]);
+            }
+            onMore: {
+                BarState.deactivate("control");
+                Quickshell.execDetached(["bash", "-c", "sleep 0.4; ~/.config/hypr/scripts/screenshot.sh --now"]);
+            }
         }
     }
 
@@ -460,10 +819,10 @@ Item {
         property string label: ""
         property string sub: ""
         property bool on: false
+        property bool available: true
         signal toggled
         signal more
-        width: (col.width - 24) / 4
-        height: 56
+        implicitHeight: 56
         radius: 14
         color: tile.on ? Theme.rgba(Theme.accent, tm.containsMouse ? 0.3 : 0.2) : (tm.containsMouse ? Theme.rgba(Theme.foreground, 0.09) : Theme.rgba(Theme.foreground, 0.05))
         border.width: 1
@@ -674,6 +1033,152 @@ Item {
                     hoverEnabled: true
                     cursorShape: Qt.PointingHandCursor
                     onClicked: PowerProfiles.profile = modelData.v
+                }
+            }
+        }
+    }
+
+    // ================================================================ screen time
+    // Today's focused time per app (ScreenTime) and the last 7 days.
+    component ScreenTimeCard: Rectangle {
+        id: stc
+        width: col.width
+        height: stCol.implicitHeight + 24
+        radius: 14
+        color: Theme.rgba(Theme.foreground, 0.05)
+        border.width: 1
+        border.color: Theme.border
+        readonly property var apps: ScreenTime.top.slice(0, 4)
+        readonly property int maxSecs: stc.apps.length > 0 ? stc.apps[0].secs : 1
+        Column {
+            id: stCol
+            x: 14
+            y: 12
+            width: parent.width - 28
+            spacing: 8
+            Row {
+                width: parent.width
+                spacing: 8
+                Text {
+                    anchors.verticalCenter: parent.verticalCenter
+                    text: "\u{F0954}"
+                    color: Theme.accent
+                    font.family: Theme.fontFamily
+                    font.pixelSize: 16
+                }
+                Column {
+                    anchors.verticalCenter: parent.verticalCenter
+                    width: parent.width - 24 - weekBars.width - 16
+                    Text {
+                        text: ScreenTime.fmt(ScreenTime.total)
+                        color: Theme.fg
+                        font.family: Theme.fontFamily
+                        font.pixelSize: Theme.fontSize + 2
+                        font.bold: true
+                    }
+                    Text {
+                        text: "Screen time today"
+                        color: Theme.muted
+                        font.family: Theme.fontFamily
+                        font.pixelSize: Theme.fontSizeCaption
+                    }
+                }
+                // The week as seven bars, today highlighted.
+                Row {
+                    id: weekBars
+                    anchors.bottom: parent.bottom
+                    spacing: 4
+                    readonly property var days: {
+                        const w = ScreenTime.week.slice();
+                        if (w.length > 0)
+                            w[w.length - 1] = { day: w[w.length - 1].day, secs: Math.max(w[w.length - 1].secs, ScreenTime.total) };
+                        return w;
+                    }
+                    readonly property int peak: Math.max(1, ...weekBars.days.map(d => d.secs))
+                    Repeater {
+                        model: weekBars.days
+                        delegate: Column {
+                            required property var modelData
+                            required property int index
+                            spacing: 2
+                            Item {
+                                width: 8
+                                height: 30
+                                Rectangle {
+                                    anchors.bottom: parent.bottom
+                                    width: parent.width
+                                    height: Math.max(2, parent.height * modelData.secs / weekBars.peak)
+                                    radius: 3
+                                    color: index === weekBars.days.length - 1 ? Theme.accent : Theme.rgba(Theme.foreground, 0.22)
+                                    Behavior on height {
+                                        NumberAnimation { duration: 300; easing.type: Easing.OutCubic }
+                                    }
+                                }
+                            }
+                            Text {
+                                anchors.horizontalCenter: parent.horizontalCenter
+                                text: "SMTWTFS".charAt(new Date(modelData.day + "T12:00:00").getDay())
+                                color: Theme.muted
+                                font.family: Theme.fontFamily
+                                font.pixelSize: 8
+                            }
+                        }
+                    }
+                }
+            }
+            Text {
+                visible: stc.apps.length === 0
+                text: "Nothing counted yet today."
+                color: Theme.muted
+                font.family: Theme.fontFamily
+                font.pixelSize: Theme.fontSizeSmall
+            }
+            Repeater {
+                model: stc.apps
+                delegate: Row {
+                    required property var modelData
+                    width: stCol.width
+                    spacing: 8
+                    IconImage {
+                        anchors.verticalCenter: parent.verticalCenter
+                        width: 16
+                        height: 16
+                        source: Quickshell.iconPath(ScreenTime.icon(modelData.app), true)
+                    }
+                    Text {
+                        anchors.verticalCenter: parent.verticalCenter
+                        width: 96
+                        text: ScreenTime.label(modelData.app)
+                        color: Theme.fg
+                        elide: Text.ElideRight
+                        font.family: Theme.fontFamily
+                        font.pixelSize: Theme.fontSizeSmall
+                    }
+                    Rectangle {
+                        anchors.verticalCenter: parent.verticalCenter
+                        width: parent.width - 16 - 96 - 56 - 24
+                        height: 6
+                        radius: 3
+                        color: Theme.rgba(Theme.foreground, 0.08)
+                        Rectangle {
+                            width: parent.width * modelData.secs / stc.maxSecs
+                            height: parent.height
+                            radius: 3
+                            color: Theme.accent
+                            Behavior on width {
+                                NumberAnimation { duration: 300; easing.type: Easing.OutCubic }
+                            }
+                        }
+                    }
+                    Text {
+                        anchors.verticalCenter: parent.verticalCenter
+                        width: 56
+                        horizontalAlignment: Text.AlignRight
+                        text: ScreenTime.fmt(modelData.secs)
+                        color: Theme.muted
+                        font.family: Theme.fontFamily
+                        font.pixelSize: Theme.fontSizeSmall
+                    }
                 }
             }
         }

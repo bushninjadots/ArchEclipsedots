@@ -24,3 +24,4 @@ singleton ShellFrame 1.0 ShellFrame.qml
 singleton WindowBorder 1.0 WindowBorder.qml
 singleton Caffeine 1.0 Caffeine.qml
 singleton LiveActivity 1.0 LiveActivity.qml
+singleton ScreenTime 1.0 ScreenTime.qml

@@ -105,6 +105,10 @@ Singleton {
     // display name ("" = the hostname).
     property string profilePicture: ""
     property string desktopName: ""
+    // Command center layout (edited in place from its pencil button):
+    // tiles [{ id, w: 1|2 }] in order; sections [{ id, on }] in order.
+    property var ccTiles: []
+    property var ccSections: []
     // When the vinyl shows: "track" (whenever a track is loaded), "playing"
     // (tucks away a few seconds after pausing), "peek" (slides out on play /
     // track change, then tucks away; hovering keeps it out).
@@ -549,6 +553,8 @@ Singleton {
             "bar.vinyl.enabled": "barVinyl",
             "profile.picture": "profilePicture",
             "profile.desktopName": "desktopName",
+            "commandCenter.tiles": "ccTiles",
+            "commandCenter.sections": "ccSections",
             "bar.vinyl.size": "barVinylSize",
             "bar.vinyl.mode": "barVinylMode",
             "bar.surface.style": "barSurfaceStyle",
@@ -735,6 +741,10 @@ Singleton {
                     visualizer: {
                         value: root.mprisVisualizer
                     }
+                },
+                commandCenter: {
+                    tiles: { value: root.ccTiles },
+                    sections: { value: root.ccSections }
                 },
                 profile: {
                     picture: { value: root.profilePicture },
@@ -988,6 +998,10 @@ Singleton {
                 root.barVinylMode = ["track", "playing", "peek"].includes(_vm) ? _vm : "playing";
                 root.profilePicture = String(s.profile?.picture?.value ?? "");
                 root.desktopName = String(s.profile?.desktopName?.value ?? "");
+                const _cct = s.commandCenter?.tiles?.value;
+                root.ccTiles = Array.isArray(_cct) ? _cct.filter(t => t && typeof t.id === "string").map(t => ({ id: t.id, w: t.w === 2 ? 2 : 1 })) : [];
+                const _ccs = s.commandCenter?.sections?.value;
+                root.ccSections = Array.isArray(_ccs) ? _ccs.filter(t => t && typeof t.id === "string").map(t => ({ id: t.id, on: t.on !== false })) : [];
                 const _vz = _wn(s.bar?.vinyl?.size?.value, 0, 200, 0);
                 root.barVinylSize = _vz > 0 ? Math.max(96, _vz) : 0;
                 const _sp = s.bar?.spectrum?.style?.value;
