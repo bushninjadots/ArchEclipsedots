@@ -71,7 +71,35 @@ QtObject {
             return [];
         }
     }
+    // Launch counts (impasto: "ranked by what you actually launch"):
+    // name -> { n: launches, t: last launch ms }. Search ranking adds a
+    // bonus that grows with use and fades over a few weeks of disuse.
+    readonly property string usagePath: `${Quickshell.env("HOME")}/.cache/quickshell/launcher/app-usage.json`
+    property FileView _usageFile: FileView {
+        path: root.usagePath
+        watchChanges: false
+        printErrors: false
+    }
+    property var usage: {
+        try {
+            return JSON.parse(_usageFile.text() || "{}");
+        } catch (e) {
+            return {};
+        }
+    }
+    function usageBonus(name) {
+        const u = root.usage[name];
+        if (!u || !(u.n > 0))
+            return 0;
+        const days = Math.max(0, (Date.now() - (u.t || 0)) / 86400000);
+        const fade = Math.pow(0.5, days / 14);
+        return Math.min(150, 45 * Math.log2(1 + u.n)) * (0.35 + 0.65 * fade);
+    }
     function touchHistory(name) {
+        const u = Object.assign({}, root.usage);
+        u[name] = { n: ((u[name] && u[name].n) || 0) + 1, t: Date.now() };
+        root.usage = u;
+        _usageFile.setText(JSON.stringify(u));
         let h = history.filter(n => n !== name);
         h.unshift(name);
         h = h.slice(0, 10);
@@ -329,8 +357,8 @@ QtObject {
         }
         scored.sort((a, b) => {
             const ha = history.indexOf(a.e.name), hb = history.indexOf(b.e.name);
-            const ba = ha >= 0 ? Math.max(48 - ha * 8, 8) : 0;
-            const bb = hb >= 0 ? Math.max(48 - hb * 8, 8) : 0;
+            const ba = (ha >= 0 ? Math.max(48 - ha * 8, 8) : 0) + root.usageBonus(a.e.name);
+            const bb = (hb >= 0 ? Math.max(48 - hb * 8, 8) : 0) + root.usageBonus(b.e.name);
             return (b.s + bb) - (a.s + ba) || a.e.name.localeCompare(b.e.name);
         });
         return scored.slice(0, maxItems).map(({
@@ -345,6 +373,62 @@ QtObject {
                 touchHistory(entry.name);
             }, withArgs ? withArgs.join(" ") : "");
         });
+    }
+
+    // ---- "@" open windows ----
+    function windowResults(query) {
+        const q = String(query || "").toLowerCase().trim();
+        const rows = [];
+        for (const w of Hyprland.toplevels.values) {
+            const ipc = w.lastIpcObject || {};
+            const cls = w.wayland?.appId || ipc.class || "";
+            const title = w.title || ipc.title || cls;
+            const ws = w.workspace?.name ?? "";
+            const hay = (title + " " + cls).toLowerCase();
+            const sc = !q ? 1 : hay.startsWith(q) ? 3 : hay.includes(q) ? 2 : isSubseq(q, hay) ? 1 : 0;
+            if (sc <= 0)
+                continue;
+            const addr = String(w.address || ipc.address || "").replace(/^0x/, "");
+            rows.push({ sc, focused: w.activated, r: mkResult(title, cls ? `image://icon/${DesktopEntries.heuristicLookup(cls)?.icon || cls.toLowerCase()}` : "\u{F05AF}",
+                (cls || "window") + (ws !== "" ? " · workspace " + ws : ""), () => {
+                    if (addr !== "")
+                        Hyprland.dispatch(`hl.dsp.focus({window = "address:0x${addr}"})`);
+                }) });
+        }
+        rows.sort((a, b) => b.sc - a.sc || (a.focused ? 1 : 0) - (b.focused ? 1 : 0));
+        if (rows.length === 0)
+            return [mkResult(q ? "No window matches “" + query.trim() + "”" : "No open windows", "\u{F05AF}", "@ searches open windows by title or app", null)];
+        return [mkHeader("Windows")].concat(rows.slice(0, maxItems).map(x => x.r));
+    }
+
+    // ---- "!" timer ----
+    function timerResults(rest) {
+        const t = String(rest || "").trim();
+        const rows = [];
+        if (LiveActivity.timerLive) {
+            rows.push(mkResult("Cancel timer (" + LiveActivity.fmtLeft(LiveActivity.timerLeft) + " left)", "\u{F051B}",
+                LiveActivity.timerLabel || "running beside the clock", () => LiveActivity.cancelTimer()));
+        }
+        // Duration first, the rest is the label: "!25m focus", "!1h 30m", "!1:30 eggs".
+        const tok = t.split(/\s+/).filter(x => x !== "");
+        let ms = 0, label = "";
+        for (let n = tok.length; n >= 1; n--) {
+            const d = LiveActivity.parseDuration(tok.slice(0, n).join(" "));
+            if (d > 0) {
+                ms = d;
+                label = tok.slice(n).join(" ");
+                break;
+            }
+        }
+        if (ms > 0) {
+            rows.unshift(mkResult("Start " + LiveActivity.fmtLeft(ms) + " timer" + (label ? " · " + label : ""), "\u{F051B}",
+                "counts down beside the clock, then notifies", () => LiveActivity.startTimer(ms, label)));
+        } else {
+            for (const p of [["5m", "tea"], ["25m", "focus"], ["10m", "break"], ["1h", ""]])
+                rows.push(mkResult(p[0] + (p[1] ? " · " + p[1] : ""), "\u{F051B}", "!" + p[0] + (p[1] ? " " + p[1] : ""),
+                    (d => () => LiveActivity.startTimer(LiveActivity.parseDuration(d[0]), d[1]))(p)));
+        }
+        return rows;
     }
 
     // ---- custom commands ----
@@ -366,7 +450,7 @@ QtObject {
             r.keepOpen = true;
             return r;
         }
-        return [mkHeader("Commands"), nav(">quickapps", ">quickapps", "favorite apps - e.g. >quickapps term"), nav(">recent", ">recent", "recently launched apps - e.g. >recent fire"), nav(">commands", ">commands", "system commands - e.g. >commands shut"), nav("cb ...", "cb ", "clipboard history (text/html/image)"), nav("note ...", "note ", "add/list/edit/remove notes"), nav("apps ...", "apps", "list all installed applications"), nav("emoji ...", "emoji ", "search emojis"), nav("app --arg ...", "firefox --private", "open app with argument - e.g. firefox --private"), nav("hello > es", "hello > es", "translate into (en,fr,es,de,pt,ru,ar…)"), nav("example.com", "example.com", "open link (… .com or https://…)"), nav("2+2", "2+2", "arithmetics (../*/+-..)"), nav("100c to f", "100c to f", "unit conversion (temp/weight/length/volume/speed/digital)")];
+        return [mkHeader("Commands"), nav(">quickapps", ">quickapps", "favorite apps - e.g. >quickapps term"), nav(">recent", ">recent", "recently launched apps - e.g. >recent fire"), nav(">commands", ">commands", "system commands - e.g. >commands shut"), nav("@ ...", "@", "jump to an open window by title or app"), nav("! ...", "!", "timer beside the clock - e.g. !25m focus"), nav("cb ...", "cb ", "clipboard history (text/html/image)"), nav("note ...", "note ", "add/list/edit/remove notes"), nav("apps ...", "apps", "list all installed applications"), nav("emoji ...", "emoji ", "search emojis"), nav("app --arg ...", "firefox --private", "open app with argument - e.g. firefox --private"), nav("hello > es", "hello > es", "translate into (en,fr,es,de,pt,ru,ar…)"), nav("example.com", "example.com", "open link (… .com or https://…)"), nav("2+2", "2+2", "arithmetics (../*/+-..)"), nav("100c to f", "100c to f", "unit conversion (temp/weight/length/volume/speed/digital)")];
     }
     function filterRows(rows, needle) {
         const q = (needle || "").toLowerCase().trim();
@@ -770,6 +854,17 @@ QtObject {
         // ">" command palette (quickapps / recent / commands)
         if (t.charAt(0) === ">") {
             setResults(paletteResults(t));
+            return;
+        }
+
+        // "@title" — jump to an open window (impasto / iNiR)
+        if (t.charAt(0) === "@") {
+            setResults(windowResults(t.slice(1)));
+            return;
+        }
+        // "!5m tea" — countdown beside the clock (LiveActivity)
+        if (t.charAt(0) === "!") {
+            setResults(timerResults(t.slice(1)));
             return;
         }
 

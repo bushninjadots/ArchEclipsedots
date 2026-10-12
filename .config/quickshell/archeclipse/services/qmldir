@@ -23,3 +23,4 @@ singleton AuraBridge 1.0 AuraBridge.qml
 singleton ShellFrame 1.0 ShellFrame.qml
 singleton WindowBorder 1.0 WindowBorder.qml
 singleton Caffeine 1.0 Caffeine.qml
+singleton LiveActivity 1.0 LiveActivity.qml

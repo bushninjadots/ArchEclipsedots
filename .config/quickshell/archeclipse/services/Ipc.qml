@@ -276,6 +276,26 @@ Item {
         // Timer-pattern probe: replicates BarState's watcher-timer wiring to
         // verify Qt.createQmlObject Timer + onTriggered.connect fires.
         // Call "timerfire" (arms 300ms timer), then "timerread".
+        // timer <"25m focus" | "cancel"> — the clock-side countdown.
+        function timer(spec: string): string {
+            if (spec === "cancel") {
+                LiveActivity.cancelTimer();
+                return "cancelled";
+            }
+            const tok = String(spec || "").trim().split(/\s+/);
+            for (let n = tok.length; n >= 1; n--) {
+                const ms = LiveActivity.parseDuration(tok.slice(0, n).join(" "));
+                if (ms > 0) {
+                    LiveActivity.startTimer(ms, tok.slice(n).join(" "));
+                    return "started " + LiveActivity.fmtLeft(ms);
+                }
+            }
+            return "bad duration";
+        }
+        function live(): string {
+            return JSON.stringify({ mic: LiveActivity.mic, camera: LiveActivity.camera, screen: LiveActivity.screen, timer: LiveActivity.timerLive ? LiveActivity.fmtLeft(LiveActivity.timerLeft) : "" });
+        }
+
         function timerDiag(query: string): string {
             try {
                 if (query === "timerfire") {
