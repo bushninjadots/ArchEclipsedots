@@ -38,6 +38,10 @@ Item {
     property real pillW: 0
     property real pillH: 0
     property bool topBar: true
+    // Shell frame on: the toasts arrive inside the island — the bar grows a
+    // frame body round the stack (Bar.qml, key "notif") instead of the
+    // cards floating on their own surfaces.
+    readonly property bool inIsland: ShellFrame.enabled
 
     width: 400
     height: popList.contentHeight
@@ -180,8 +184,11 @@ Item {
                     }
                 }
                 radius: Theme.radius
-                color: critical ? Qt.rgba(0.66, 0.27, 0.27, 0.95) : Theme.surface
-                border.color: isHovered ? Qt.alpha(Theme.accent, 0.5) : Qt.alpha(Theme.fg, 0.1)
+                // Frame mode: the stack is part of the island (Bar.qml paints
+                // one frame body round it), so cards are only a faint well.
+                color: root.inIsland ? (critical ? Qt.rgba(0.66, 0.27, 0.27, 0.55) : Qt.alpha(Theme.fg, isHovered ? 0.07 : 0.04))
+                    : critical ? Qt.rgba(0.66, 0.27, 0.27, 0.95) : Theme.surface
+                border.color: isHovered ? Qt.alpha(Theme.accent, 0.5) : Qt.alpha(Theme.fg, root.inIsland ? 0.05 : 0.1)
                 border.width: 1
                 Behavior on border.color {
                     ColorAnimation {

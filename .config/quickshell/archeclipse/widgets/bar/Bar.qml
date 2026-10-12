@@ -483,6 +483,10 @@ PanelWindow {
                     add(root._ownBody(c), "own:" + c.id);
             }
         }
+        // Notifications arrive in the island: the toast stack hangs from the
+        // band as one solid body, growing and shrinking with the cards.
+        if (notifPill.inIsland && notifPill.hasContent && notifPill.height > 1)
+            add(Object.assign(root._edgeBody({ x: notifPill.x, y: notifPill.y, w: notifPill.width, h: notifPill.height }, 8, 8, Theme.radius + 8), { solid: 1 }), "notif");
         add(Object.assign({}, b.left, { solid: 1 }), "side-left");
         add(Object.assign({}, b.right, { solid: 1 }), "side-right");
         return out;
