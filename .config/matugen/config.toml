@@ -26,3 +26,46 @@ input_path = "~/.config/matugen/templates/desktop-widgets-colors.json"
 output_path = "~/.cache/desktop-widgets/colors.json"
 # The wallpaper's lightness map: the widgets pick light/dark text from it.
 post_hook = "~/.config/desktop-widgets/bin/wallpaper-tone"
+
+# ---- apps: everything else follows the wallpaper too ----
+# Each writes its own file; apply-apps.sh (the last hook) wires the apps to
+# those files once and pokes the running ones. Backups of what these replaced:
+# ~/.config/matugen/bak-*/.
+
+# GTK 3 / GTK 4 (libadwaita): the user stylesheet, read at app start.
+[templates.gtk3]
+input_path = "~/.config/matugen/templates/gtk3.css"
+output_path = "~/.config/gtk-3.0/gtk.css"
+
+[templates.gtk4]
+input_path = "~/.config/matugen/templates/gtk4.css"
+output_path = "~/.config/gtk-4.0/gtk.css"
+
+# Vesktop (Discord): a Vencord theme, ticked once by apply-apps.sh.
+[templates.vesktop]
+input_path = "~/.config/matugen/templates/discord.css"
+output_path = "~/.config/vesktop/themes/archeclipse.theme.css"
+
+# fish syntax colours (conf.d is sourced on its own).
+[templates.fish]
+input_path = "~/.config/matugen/templates/colors.fish"
+output_path = "~/.config/fish/conf.d/archeclipse-colors.fish"
+
+[templates.btop]
+input_path = "~/.config/matugen/templates/btop.theme"
+output_path = "~/.config/btop/themes/archeclipse.theme"
+
+[templates.cava]
+input_path = "~/.config/matugen/templates/cava-theme"
+output_path = "~/.config/cava/themes/archeclipse"
+
+# Spotify (spicetify theme "ArchEclipse").
+[templates.spicetify]
+input_path = "~/.config/matugen/templates/spicetify-color.ini"
+output_path = "~/.config/spicetify/Themes/ArchEclipse/color.ini"
+
+# Zen browser chrome; the hook copies it into the active profile.
+[templates.zen]
+input_path = "~/.config/matugen/templates/zen-colors.css"
+output_path = "~/.cache/archeclipse/zen-colors.css"
+post_hook = "~/.config/matugen/apply-apps.sh"
