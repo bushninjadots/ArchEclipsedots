@@ -1,6 +1,7 @@
 import QtQuick
 import Quickshell
 import Quickshell.Io
+import Quickshell.Hyprland
 import Quickshell.Services.Mpris
 import Quickshell.Services.Pipewire
 import qs.services
@@ -291,6 +292,17 @@ Item {
                 }
             }
             return "bad duration";
+        }
+        // workspaceStrip — the switcher's live preview strip (toggle).
+        function workspaceStrip(): string {
+            if (BarState.state === "overview") {
+                BarState.deactivate("overview");
+                return "closed";
+            }
+            BarState.overviewStripCount = Math.min(10, Math.max(5, ...Hyprland.workspaces.values.map(w => w.id).filter(i => i > 0 && i <= 10)));
+            BarState.overviewStrip = true;
+            BarState.activate("overview", 0);
+            return "strip " + BarState.overviewStripCount;
         }
         function live(): string {
             return JSON.stringify({ mic: LiveActivity.mic, camera: LiveActivity.camera, screen: LiveActivity.screen, timer: LiveActivity.timerLive ? LiveActivity.fmtLeft(LiveActivity.timerLeft) : "" });

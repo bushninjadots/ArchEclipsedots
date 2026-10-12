@@ -220,6 +220,39 @@ Item {
         }
     }
 
+    // Preview strip (after iNiR's workspace edge strip): live thumbnails of
+    // these workspaces in an island at the switcher — right-click, or hover
+    // a moment with Settings.barHoverReveal. Click a card to go there, drag
+    // a window onto another card to move it.
+    function openStrip() {
+        BarState.overviewStripCount = root.count;
+        BarState.overviewStrip = true;
+        BarState.activate("overview", 0);
+    }
+    TapHandler {
+        acceptedButtons: Qt.RightButton
+        onTapped: {
+            if (BarState.state === "overview")
+                BarState.deactivate("overview");
+            else
+                root.openStrip();
+        }
+    }
+    HoverHandler {
+        id: stripHover
+        onHoveredChanged: {
+            if (stripHover.hovered && Settings.barHoverReveal)
+                stripDwell.restart();
+            else
+                stripDwell.stop();
+        }
+    }
+    Timer {
+        id: stripDwell
+        interval: 650
+        onTriggered: if (stripHover.hovered && BarState.state !== "overview") root.openStrip()
+    }
+
     // Wheel walks workspaces.
     WheelHandler {
         acceptedDevices: PointerDevice.Mouse | PointerDevice.TouchPad

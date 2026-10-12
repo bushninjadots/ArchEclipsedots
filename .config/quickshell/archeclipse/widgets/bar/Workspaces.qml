@@ -376,4 +376,36 @@ Item {
             delegate: wsSlot
         }
     }
+
+    // Preview strip (see WorkspaceSwitcher): right-click, or hover a moment
+    // with Settings.barHoverReveal — live thumbnails of the workspaces.
+    function openStrip() {
+        // 1..5, or up to the highest workspace in use.
+        BarState.overviewStripCount = Math.min(10, Math.max(5, root.focusedId, ...Hyprland.workspaces.values.map(w => w.id).filter(i => i > 0 && i <= 10)));
+        BarState.overviewStrip = true;
+        BarState.activate("overview", 0);
+    }
+    TapHandler {
+        acceptedButtons: Qt.RightButton
+        onTapped: {
+            if (BarState.state === "overview")
+                BarState.deactivate("overview");
+            else
+                root.openStrip();
+        }
+    }
+    HoverHandler {
+        id: previewHover
+        onHoveredChanged: {
+            if (previewHover.hovered && Settings.barHoverReveal)
+                previewDwell.restart();
+            else
+                previewDwell.stop();
+        }
+    }
+    Timer {
+        id: previewDwell
+        interval: 650
+        onTriggered: if (previewHover.hovered && BarState.state !== "overview") root.openStrip()
+    }
 }

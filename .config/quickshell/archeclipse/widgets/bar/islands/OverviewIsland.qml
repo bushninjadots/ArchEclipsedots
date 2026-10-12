@@ -11,7 +11,11 @@ import qs.widgets.overview
 Item {
     id: root
     property int islandMargins: 8
-    property int islandWidth: 920
+    // Strip mode (BarState.overviewStrip): one row of the switcher's
+    // workspaces, ~170px a card.
+    readonly property bool strip: BarState.overviewStrip
+    readonly property int stripCount: Math.max(2, BarState.overviewStripCount)
+    property int islandWidth: root.strip ? Math.min(1500, root.stripCount * 172) : 920
 
     // Island owner passes the bar's monitor; body falls back to focused.
     property string monitorName: ""
@@ -42,6 +46,8 @@ Item {
             anchors.top: parent.top
             width: parent.width
             monitorName: root.monitorName
+            wsCount: root.strip ? root.stripCount : 10
+            colsWanted: root.strip ? root.stripCount : 5
         }
     }
 

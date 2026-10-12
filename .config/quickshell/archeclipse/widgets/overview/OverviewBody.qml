@@ -46,8 +46,12 @@ Item {
     readonly property real monH: (body.mon?.height ?? 0) > 0 ? body.mon.height : 1080
 
     // ---- grid: all 10 workspaces, 5 columns × dynamic rows ----
-    readonly property int cols: 5
-    readonly property int rows: Math.ceil(10 / body.cols)
+    // The full overview shows all 10 in 5 columns; the bar's preview strip
+    // (WorkspaceSwitcher right-click) shows just the switcher's in one row.
+    property int wsCount: 10
+    property int colsWanted: 5
+    readonly property int cols: Math.max(1, Math.min(body.colsWanted, body.wsCount))
+    readonly property int rows: Math.ceil(body.wsCount / body.cols)
     readonly property int focusedId: Hyprland.focusedWorkspace?.id ?? 1
 
     // ---- card metrics (island is 920 wide; see OverviewIsland) ----
@@ -207,7 +211,7 @@ Item {
             rowSpacing: body.gap
 
             Repeater {
-                model: 10
+                model: body.wsCount
                 delegate: Rectangle {
                     id: wsCard
                     required property int modelData

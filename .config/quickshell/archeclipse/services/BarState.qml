@@ -89,6 +89,12 @@ Singleton {
     function _isMain(name) {
         return name !== "default" && name !== "left" && name !== "right" && name !== "recording";
     }
+    // Overview as the workspace switcher's preview strip (set by the
+    // switcher just before activating "overview"; cleared on close).
+    property bool overviewStrip: false
+    property int overviewStripCount: 5
+    onActiveStatesChanged: if (root.overviewStrip && !("overview" in (root.activeStates || {}))) root.overviewStrip = false
+
     // The pointer is over a music widget in the bar (MediaCell / PillMusic):
     // the vinyl's Peek mode slides out for it.
     property bool mediaHovered: false

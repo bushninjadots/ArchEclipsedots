@@ -173,7 +173,7 @@ PanelWindow {
         root._mediaCell = media ? { x: media.x + media.w / 2, w: media.w, top: media.y, bottom: media.y + media.h } : null;
     }
     readonly property real islandAnchorX: {
-        const id = root.islandOwner[BarState.state];
+        const id = BarState.state === "overview" && BarState.overviewStrip ? "workspaces" : root.islandOwner[BarState.state];
         const x = id ? root._widgetCentres[id] : undefined;
         return x !== undefined ? x : -1;
     }
