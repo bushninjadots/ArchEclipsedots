@@ -15,6 +15,15 @@ import qs.widgets.shared
 // Hidden entirely when no real player is present (BarWidgets.firstPlayable).
 Rectangle {
     id: root
+    // Tells the bar vinyl (Peek mode) the music widget is hovered.
+    HoverHandler {
+        id: vinylPeekHover
+        onHoveredChanged: BarState.mediaHovered = vinylPeekHover.hovered
+    }
+    Component.onDestruction: {
+        if (vinylPeekHover.hovered)
+            BarState.mediaHovered = false;
+    }
 
     readonly property var player: BarWidgets.firstPlayable
 

@@ -14,7 +14,10 @@ import qs.services
 //   - spins while playing, eases to a stop on pause;
 //   - an accent arc along the rim follows the track position;
 //   - a glass capsule of controls (previous / play-pause / next) sits on
-//     the rim; hovering shows the title and artist.
+//     the rim; hovering shows the title and artist;
+//   - a track change swaps the record like a real one: it tucks back under
+//     the bar still wearing the old cover, the new cover goes on out of
+//     sight, and it slides out again.
 // Click the label to open the player island, wheel to skip.
 //
 // The host positions it: (anchorX, anchorY) = the point on the bar's inner
@@ -38,12 +41,28 @@ Item {
     //   track   — whenever a track is loaded
     //   playing — while playing; tucks away 4 s after a pause (so a quick
     //             pause/resume doesn't make it bob)
-    //   peek    — slides out on play / track change for 6 s, then tucks
-    //             away; hovering keeps it out
+    //   peek    — slides out on play / track change for 6 s, and while the
+    //             music widget or the record is hovered (with a short grace
+    //             to cross between them), then tucks away
     property bool _lingering: false
     property bool _peeking: false
+    property bool _hoverPeek: false
+    readonly property bool _hoverWants: hoverArea.hovered || BarState.mediaHovered
+    on_HoverWantsChanged: {
+        if (root._hoverWants) {
+            hoverGrace.stop();
+            root._hoverPeek = true;
+        } else {
+            hoverGrace.restart();
+        }
+    }
+    Timer {
+        id: hoverGrace
+        interval: 700
+        onTriggered: root._hoverPeek = false
+    }
     readonly property bool _modeWants: Settings.barVinylMode === "track" ? true
-        : Settings.barVinylMode === "peek" ? (root._peeking || hoverArea.hovered)
+        : Settings.barVinylMode === "peek" ? (root._peeking || root._hoverPeek)
         : (root.playing || root._lingering)
     readonly property bool wanted: Settings.barVinyl && root.allowed && root.hasTrack && root._modeWants
     onPlayingChanged: {
@@ -57,7 +76,75 @@ Item {
         }
     }
     readonly property string _trackKey: (root.player?.trackTitle ?? "") + "|" + (root.player?.trackArtist ?? "")
-    on_TrackKeyChanged: if (root.playing) root.peek()
+    on_TrackKeyChanged: {
+        if (root.playing)
+            root.peek();
+        // Title and artist often land in separate updates: settle first.
+        swapDebounce.restart();
+    }
+
+    // ---- what the record wears ----
+    // Held separately from the live track so a swap can tuck away with the
+    // old cover and come back with the new one.
+    readonly property string _liveArt: root.player?.trackArtUrl ?? ""
+    readonly property string _liveInfo: (root.player?.trackTitle ?? "") + ((root.player?.trackArtist ?? "") !== "" ? "  ·  " + root.player.trackArtist : "")
+    property string shownArt: root._liveArt
+    property string shownInfo: root._liveInfo
+    property string _shownKey: root._trackKey
+    Component.onCompleted: {
+        // Detach from the live values: from here on swaps assign them.
+        root.shownArt = root._liveArt;
+        root.shownInfo = root._liveInfo;
+        root._shownKey = root._trackKey;
+        root._slide();
+    }
+    function _wear() {
+        root.shownArt = root._liveArt;
+        root.shownInfo = root._liveInfo;
+        root._shownKey = root._trackKey;
+    }
+    // Same track, art arriving late (players often send it after the title):
+    // just put it on.
+    on_LiveArtChanged: if (!root.swapping && root._shownKey === root._trackKey) root.shownArt = root._liveArt
+    on_LiveInfoChanged: if (!root.swapping && root._shownKey === root._trackKey) root.shownInfo = root._liveInfo
+    Timer {
+        id: swapDebounce
+        interval: 160
+        onTriggered: {
+            if (root._shownKey === root._trackKey)
+                return;
+            // Only a record that is out (and staying out) swaps; otherwise
+            // it simply wears the new track next time it shows.
+            if (root.out > 0.5 && root.wanted && Settings.animationsEnabled)
+                root._swap();
+            else if (!root.swapping)
+                root._wear();
+        }
+    }
+    property bool swapping: false
+    function _swap() {
+        if (root.swapping)
+            return;     // the running swap picks up the latest track
+        slide.stop();
+        root.swapping = true;
+        swapAnim.restart();
+    }
+    // Tuck (with a quick spin-up, like a record pulled off), change covers
+    // out of sight, then slide out with the new one.
+    SequentialAnimation {
+        id: swapAnim
+        ScriptAction { script: root.speed = root.cruise * 2.4 }
+        NumberAnimation { target: root; property: "out"; to: 0; duration: 340; easing.type: Easing.InCubic }
+        ScriptAction { script: root._wear() }
+        PauseAnimation { duration: 180 }
+        ScriptAction {
+            script: {
+                root.swapping = false;
+                // Still wanted (e.g. not paused meanwhile)? Come back out.
+                root._slide();
+            }
+        }
+    }
     function peek() {
         root._peeking = true;
         peekTimer.restart();
@@ -83,8 +170,12 @@ Item {
     // Out: a soft spring; in: a smooth tuck (no bounce on the way back).
     property real out: 0
     onWantedChanged: root._slide()
-    Component.onCompleted: root._slide()
     function _slide() {
+        if (root.swapping)
+            return;     // the swap slides back out (or not) when done
+        // A change that came in while tucked goes on before showing.
+        if (root.wanted && root.out < 0.05 && root._shownKey !== root._trackKey)
+            root._wear();
         slide.stop();
         slide.to = root.wanted ? 1 : 0;
         slide.duration = root.wanted ? 560 : 420;
@@ -218,7 +309,7 @@ Item {
                 color: Theme.surfaceActive
                 Image {
                     anchors.fill: parent
-                    source: root.player?.trackArtUrl ?? ""
+                    source: root.shownArt
                     fillMode: Image.PreserveAspectCrop
                     asynchronous: true
                     smooth: true
@@ -229,7 +320,7 @@ Item {
                 }
                 Text {
                     anchors.centerIn: parent
-                    visible: (root.player?.trackArtUrl ?? "") === ""
+                    visible: root.shownArt === ""
                     text: "\u{F075A}"
                     color: Theme.accent
                     font.family: Theme.fontFamily
@@ -389,7 +480,7 @@ Item {
             anchors.centerIn: parent
             width: Math.min(implicitWidth, parent.width - 16)
             elide: Text.ElideRight
-            text: (root.player?.trackTitle ?? "") + ((root.player?.trackArtist ?? "") !== "" ? "  ·  " + root.player.trackArtist : "")
+            text: root.shownInfo
             color: Theme.fg
             font.family: Theme.fontFamily
             font.pixelSize: Theme.fontSizeCaption

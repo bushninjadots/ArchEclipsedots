@@ -89,6 +89,10 @@ Singleton {
     function _isMain(name) {
         return name !== "default" && name !== "left" && name !== "right" && name !== "recording";
     }
+    // The pointer is over a music widget in the bar (MediaCell / PillMusic):
+    // the vinyl's Peek mode slides out for it.
+    property bool mediaHovered: false
+
     // A click-opened surface outside BarState (the pill bar's expanded face)
     // reports itself here so the outside-click grab covers it too.
     property bool pillOpen: false

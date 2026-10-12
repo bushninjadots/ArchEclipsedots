@@ -13,6 +13,15 @@ import qs.widgets.bar
 //   wheel  → previous / next
 Rectangle {
     id: root
+    // Tells the bar vinyl (Peek mode) the music widget is hovered.
+    HoverHandler {
+        id: vinylPeekHover
+        onHoveredChanged: BarState.mediaHovered = vinylPeekHover.hovered
+    }
+    Component.onDestruction: {
+        if (vinylPeekHover.hovered)
+            BarState.mediaHovered = false;
+    }
 
     property var player: null
     readonly property bool active: player !== null
