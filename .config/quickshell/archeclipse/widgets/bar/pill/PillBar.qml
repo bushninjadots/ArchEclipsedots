@@ -87,9 +87,19 @@ Item {
                 // opens on a click instead (TapHandler below).
                 if (Settings.barHoverReveal)
                     root.open = true;
-            } else {
+            } else if (Settings.barHoverReveal) {
                 leaveTimer.restart();
             }
+        }
+    }
+    // Click mode: opened by a click, so it folds on a click outside the bar
+    // (Bar.qml focus grab -> BarState.dismissed) rather than on leave.
+    onOpenChanged: BarState.pillOpen = root.open && !Settings.barHoverReveal
+    Component.onDestruction: BarState.pillOpen = false
+    Connections {
+        target: BarState
+        function onDismissed() {
+            root.open = false;
         }
     }
 
@@ -104,7 +114,7 @@ Item {
     Connections {
         target: BarState
         function onPopupCountChanged() {
-            if (BarState.popupCount <= 0 && !pillHover.hovered)
+            if (BarState.popupCount <= 0 && !pillHover.hovered && Settings.barHoverReveal)
                 leaveTimer.restart();
         }
     }

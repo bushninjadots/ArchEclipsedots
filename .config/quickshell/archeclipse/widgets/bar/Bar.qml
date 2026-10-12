@@ -428,6 +428,9 @@ PanelWindow {
         return b;
     }
 
+    // The main pill fills at panel opacity while it is an open panel: a
+    // transient island, or the pill style's expanded face.
+    readonly property real panelSolid: root.mainTransient || (root.pillStyle && BarState.pillOpen) ? 1 : 0
     function _computeFrameBodiesList() {
         const out = [];
         const b = root.frameBodies;
@@ -453,7 +456,7 @@ PanelWindow {
         if (root.pillStyle || (!root.detached && (root.mainTransient || sections.length === 0))) {
             // Pill style, a transient island, or nothing placed: the whole
             // main pill is the body (the original frame).
-            add(Object.assign({}, b.pill), "pill");
+            add(Object.assign({}, b.pill, { solid: root.panelSolid }), "pill");
         } else if (root.detached) {
             // Detached: each section pill is its own floating body; shaped
             // widgets inside add their own outline.
@@ -463,7 +466,7 @@ PanelWindow {
                     add(root._ownBody(c), "own:" + c.id);
             }
             if (root.mainTransient)
-                add(Object.assign({}, b.pill), "pill");
+                add(Object.assign({}, b.pill, { solid: 1 }), "pill");
         } else {
             // Attached islands: section runs grow out of the band.
             for (const sec of sections) {
@@ -480,8 +483,8 @@ PanelWindow {
                     add(root._ownBody(c), "own:" + c.id);
             }
         }
-        add(Object.assign({}, b.left), "side-left");
-        add(Object.assign({}, b.right), "side-right");
+        add(Object.assign({}, b.left, { solid: 1 }), "side-left");
+        add(Object.assign({}, b.right, { solid: 1 }), "side-right");
         return out;
     }
 
@@ -505,6 +508,18 @@ PanelWindow {
     readonly property var frameBodiesList: {
         root.frameGeometryTick;
         return root._computeFrameBodiesList();
+    }
+
+    // Click-to-open: anything opened by a click (islands, side panels, the
+    // expanded pill) stays until a click lands outside the bar. A Hyprland
+    // focus grab reports that click; it also hands the bar keyboard focus,
+    // so Esc closes the island. Only the focused monitor's bar grabs.
+    HyprlandFocusGrab {
+        id: outsideGrab
+        windows: [root]
+        active: !Settings.barHoverReveal && BarState.clickHoldOpen && !BarEditState.active
+            && root.monitorName === (Hyprland.focusedMonitor?.name ?? root.monitorName)
+        onCleared: BarState.dismissSticky()
     }
 
     // Instantiates the (lazy) window-border colour follower.

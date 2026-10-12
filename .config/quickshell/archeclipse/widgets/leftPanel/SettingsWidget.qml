@@ -905,6 +905,33 @@ Item {
                                 visible: Settings.shellFrame
                                 Label {
                                     font.pixelSize: Theme.fontSize
+                                    text: "Panel Opacity %"
+                                    color: Theme.fg
+                                    Layout.fillWidth: true
+                                    ToolTip.visible: panelOpHover.hovered
+                                    ToolTip.text: "Open islands and side panels fill at least this opaque, so windows behind them don't show through."
+                                    HoverHandler {
+                                        id: panelOpHover
+                                    }
+                                }
+                                AppSpinBox {
+                                    from: 10
+                                    to: 100
+                                    value: Settings.framePanelOpacity
+                                    Layout.preferredWidth: 160
+                                    onValueChanged: {
+                                        if (value === Settings.framePanelOpacity)
+                                            return;
+                                        Settings.framePanelOpacity = value;
+                                    }
+                                }
+                            }
+                            RowLayout {
+                                width: parent.width
+                                spacing: 8
+                                visible: Settings.shellFrame
+                                Label {
+                                    font.pixelSize: Theme.fontSize
                                     text: "Frame Border"
                                     color: Theme.fg
                                     Layout.fillWidth: true
@@ -938,6 +965,7 @@ Item {
                                 value: Settings.frameBorderCustom
                                 onPicked: hex => Settings.frameBorderCustom = hex
                             }
+                            }
                             RowLayout {
                                 width: parent.width
                                 spacing: 8
@@ -960,6 +988,23 @@ Item {
                                     }
                                 }
                             }
+                            // Hyprland window borders, beside the frame border so the
+                            // two can be matched (same control as Hyprland tab).
+                            RowLayout {
+                                width: parent.width
+                                spacing: 8
+                                Label {
+                                    font.pixelSize: Theme.fontSize
+                                    text: "Window Borders"
+                                    color: Theme.fg
+                                    Layout.fillWidth: true
+                                }
+                                AppComboBox {
+                                    model: ["Hyprland Default", "Match Frame Border", "Accent", "Dynamic (Wallpaper)", "Dynamic (Album Art)", "Custom"]
+                                    currentIndex: ["default", "frame", "accent", "wallpaper", "dynamic", "custom"].indexOf(Settings.windowBorderColor)
+                                    onActivated: index => Settings.updateSetting("windowBorder.color", ["default", "frame", "accent", "wallpaper", "dynamic", "custom"][index])
+                                    Layout.preferredWidth: 160
+                                }
                             // Motion: how bodies follow the bar as sections move,
                             // and how readily neighbouring sections melt together.
                             RowLayout {
@@ -2024,9 +2069,9 @@ Item {
                                     Layout.fillWidth: true
                                 }
                                 AppComboBox {
-                                    model: ["Hyprland Default", "Accent", "Dynamic (Wallpaper)", "Dynamic (Album Art)", "Custom"]
-                                    currentIndex: ["default", "accent", "wallpaper", "dynamic", "custom"].indexOf(Settings.windowBorderColor)
-                                    onActivated: index => Settings.updateSetting("windowBorder.color", ["default", "accent", "wallpaper", "dynamic", "custom"][index])
+                                    model: ["Hyprland Default", "Match Frame Border", "Accent", "Dynamic (Wallpaper)", "Dynamic (Album Art)", "Custom"]
+                                    currentIndex: ["default", "frame", "accent", "wallpaper", "dynamic", "custom"].indexOf(Settings.windowBorderColor)
+                                    onActivated: index => Settings.updateSetting("windowBorder.color", ["default", "frame", "accent", "wallpaper", "dynamic", "custom"][index])
                                     Layout.preferredWidth: 160
                                 }
                             }

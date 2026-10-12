@@ -156,6 +156,10 @@ Item {
     function requestAutoHide() {
         if (Settings.leftPanelLock)
             return;
+        // Click-opened with click-to-open on: stays until a click outside,
+        // Esc or the toggle (Bar.qml focus grab), not a pointer-leave timer.
+        if (!Settings.barHoverReveal && BarState.isSticky("left"))
+            return;
         if (islandHover.hovered)
             return;
         if (root.activeWidget && root.activeWidget.popupHovered)
@@ -173,7 +177,7 @@ Item {
         id: leaveTimer
         interval: Settings.revealOutPressure
         onTriggered: {
-            if (!Settings.leftPanelLock && !islandHover.hovered && !(root.activeWidget && root.activeWidget.popupHovered))
+            if (!Settings.leftPanelLock && !(!Settings.barHoverReveal && BarState.isSticky("left")) && !islandHover.hovered && !(root.activeWidget && root.activeWidget.popupHovered))
                 BarState.deactivate("left");
         }
     }

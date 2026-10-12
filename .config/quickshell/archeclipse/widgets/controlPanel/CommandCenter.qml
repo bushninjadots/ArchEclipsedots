@@ -79,17 +79,14 @@ Item {
         onTriggered: root.now = new Date()
     }
 
-    // Image picker for the avatar.
-    Process {
-        id: picker
-        command: ["zenity", "--file-selection", "--title=Choose a profile picture", "--file-filter=Images | *.png *.jpg *.jpeg *.webp *.gif"]
-        stdout: StdioCollector {
-            onStreamFinished: {
-                const p = text.trim();
-                if (p !== "")
-                    Settings.updateSetting("profile.picture", p);
-            }
-        }
+    // Image picker for the avatar. Detached and answered over IPC: the
+    // dialog takes the click, which closes this island (outside-click
+    // dismiss) and would kill a child process with it.
+    function pickAvatar() {
+        Quickshell.execDetached(["bash", "-c",
+            'p=$(zenity --file-selection --title="Choose a profile picture" --file-filter="Images | *.png *.jpg *.jpeg *.webp *.gif") '
+            + '&& [ -n "$p" ] && qs -p "$1" ipc call bar setting profile.picture "$(jq -Rn --arg p "$p" \'$p\')"',
+            "avatar", (Quickshell.env("XDG_CONFIG_HOME") || (Quickshell.env("HOME") + "/.config")) + "/quickshell/archeclipse"]);
     }
 
     // ---- audio / power state ----
@@ -226,7 +223,7 @@ Item {
                     if (m.button === Qt.RightButton)
                         Settings.updateSetting("profile.picture", "");
                     else
-                        picker.running = true;
+                        root.pickAvatar();
                 }
             }
             AppTooltip {

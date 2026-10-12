@@ -58,7 +58,13 @@ layout(std140, binding = 0) uniform buf {
     // touches the band, it never grows a neck toward it.
     vec4 bodyFuse0; vec4 bodyFuse1; vec4 bodyFuse2;
     vec4 bodyFuse3; vec4 bodyFuse4; vec4 bodyFuse5;
-    // x: fillet depth into the band, y: merge radius between bodies.
+    // Per-body solidity, packed like the fuses: 1 = an open panel (island,
+    // side panel) that fills at the panel opacity instead of the frame's, so
+    // windows underneath don't show through its content.
+    vec4 bodySolid0; vec4 bodySolid1; vec4 bodySolid2;
+    vec4 bodySolid3; vec4 bodySolid4; vec4 bodySolid5;
+    // x: fillet depth into the band, y: merge radius between bodies,
+    // z: the panel opacity.
     vec4 fuse;
     // x: music level, y: light opacity, z: light width px, w: treble shimmer.
     vec4 light;
@@ -126,6 +132,14 @@ float fuseAt(int i) {
     return c == 0 ? v.x : c == 1 ? v.y : c == 2 ? v.z : v.w;
 }
 
+float solidAt(int i) {
+    int b = i / 4;
+    int c = i - b * 4;
+    vec4 v = b == 0 ? u.bodySolid0 : b == 1 ? u.bodySolid1 : b == 2 ? u.bodySolid2
+           : b == 3 ? u.bodySolid3 : b == 4 ? u.bodySolid4 : u.bodySolid5;
+    return c == 0 ? v.x : c == 1 ? v.y : c == 2 ? v.z : v.w;
+}
+
 void main() {
     vec2 size = max(u.field.xy, vec2(1.0));
     vec2 p = qt_TexCoord0 * size;
@@ -167,11 +181,17 @@ void main() {
     float mass = FAR;
     float km = u.fuse.y + u.organic.x * 0.6;
     float united = frame;
+    float solid = 0.0;
     for (int i = 0; i < BODY_SLOTS; i++) {
         vec4 s = shapeAt(i);
         if (s.z <= 0.0 || s.w <= 0.0)
             continue;
         float b = body(p, s, radiiAt(i)) - swell;
+        // Solid panels reach a little past their edge so the fillet that
+        // joins them to the band thins out gradually rather than stepping.
+        float sd = solidAt(i);
+        if (sd > 0.001)
+            solid = max(solid, sd * (1.0 - smoothstep(-1.0, 14.0, b)));
         float kb = fuseAt(i);
         united = min(united, kb > 0.001 ? smoothUnion(frame, b, kb + u.organic.x * 1.4) : min(frame, b));
         mass = mass >= FAR ? b : smoothUnion(mass, b, km);
@@ -181,7 +201,7 @@ void main() {
     // painted here (Bar.qml's pill backgrounds go transparent in frame mode),
     // so there is no seam where two anti-aliased edges would meet.
     float coverage = 1.0 - smoothstep(-0.7, 0.7, united);
-    float a = coverage * u.tint.a * u.qt_Opacity;
+    float a = coverage * mix(u.tint.a, max(u.tint.a, u.fuse.z), solid) * u.qt_Opacity;
     vec3 colour = u.tint.rgb * a;
     float alpha = a;
 

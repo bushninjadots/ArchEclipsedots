@@ -5,9 +5,10 @@ import Quickshell
 import qs.theme
 
 // Hyprland window border colour that follows the shell's colour sources
-// (Settings -> Hyprland -> Window Border Color): the theme accent, the
+// (Settings -> Frame / Hyprland -> Window Border Color): the theme accent, the
 // wallpaper or the playing track's album art (both quantised by ShellFrame),
-// or a custom colour — optionally as a two-stop gradient. Thickness stays the
+// a custom colour, or "frame" — exactly the shell frame border's colours, so
+// windows and frame retint together — optionally as a two-stop gradient. Thickness stays the
 // hyprland general.border_size setting.
 //
 // Applied live with `hyprctl eval hl.config(...)` (debounced, only when the
@@ -21,6 +22,18 @@ Singleton {
     readonly property bool active: root.mode !== "default"
 
     function _pair() {
+        if (root.mode === "frame") {
+            // Same targets the frame border eases to (not the eased value,
+            // which would re-apply on every animation frame).
+            if (Settings.frameBorderColor === "subtle") {
+                // A muted foreground: the text colour 40% of the way out of
+                // the background (a solid foreground border is too loud).
+                const f = Qt.color(Theme.foreground), b = Qt.color(Theme.background);
+                const m = Qt.rgba(b.r + (f.r - b.r) * 0.4, b.g + (f.g - b.g) * 0.4, b.b + (f.b - b.b) * 0.4, 1);
+                return [m, m];
+            }
+            return [ShellFrame.borderTargetA, ShellFrame.borderTargetB];
+        }
         if (root.mode === "wallpaper")
             return [ShellFrame.wallpaperA, ShellFrame.wallpaperB];
         if (root.mode === "dynamic")

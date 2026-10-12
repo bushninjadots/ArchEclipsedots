@@ -27,10 +27,18 @@ HoverHandler {
     // with no button pressed — pressing to drag flips hovered to false and
     // would otherwise arm the leave timer mid-drag.
     property bool holdOpen: false
+    // Click-to-open (Settings.barHoverReveal off) and opened on purpose:
+    // no leave timer at all — it stays until toggled, Esc, a click outside
+    // the bar (Bar.qml focus grab) or another island opening.
+    readonly property bool clickPinned: !Settings.barHoverReveal && BarState.isSticky(root.stateName)
+    onClickPinnedChanged: {
+        if (root.clickPinned)
+            leaveTimer.stop();
+    }
     onHoldOpenChanged: {
         if (root.holdOpen) {
             leaveTimer.stop();
-        } else if (!root.hovered) {
+        } else if (!root.hovered && !root.clickPinned) {
             leaveTimer.restart();
         }
     }
@@ -42,7 +50,7 @@ HoverHandler {
             leaveTimer.interval = root.leaveDelay;
             if (root.stateName !== "")
                 BarState.activate(root.stateName, 0);
-        } else if (!root.holdOpen) {
+        } else if (!root.holdOpen && !root.clickPinned) {
             leaveTimer.restart();
         }
     }
@@ -54,24 +62,28 @@ HoverHandler {
         id: leaveTimer
         interval: root.leaveDelay
         onTriggered: {
+            if (root.clickPinned)
+                return;
             BarState.deactivate(root.stateName);
             for (let i = 0; i < root.extraStates.length; i++)
                 BarState.deactivate(root.extraStates[i]);
         }
     }
     function stop() { leaveTimer.stop(); }
-    function restart() { leaveTimer.restart(); }
+    function restart() {
+        if (!root.clickPinned)
+            leaveTimer.restart();
+    }
     // Arm at creation too (unless opted out): if the cursor never enters,
     // no hover transition fires and the island would stay open forever.
     // (A hover arrival within milliseconds stops it again.)
     // The first arm always grants a 1s open-grace (time to travel to a
     // keybind-opened island) regardless of leaveDelay — see above.
     Component.onCompleted: {
-        if (!root.armOnCreation)
+        if (!root.armOnCreation || root.clickPinned)
             return;
-        // Click-to-open (Settings.barHoverReveal off): the pointer sits on
-        // the widget that was clicked, so give the island time to be read
-        // before it folds away.
+        // A pulse / hover reveal the cursor never reaches still closes; the
+        // first arm grants a short read grace.
         leaveTimer.interval = Settings.barHoverReveal ? 1000 : 4000;
         leaveTimer.restart();
     }

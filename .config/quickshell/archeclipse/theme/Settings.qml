@@ -154,6 +154,9 @@ Singleton {
     property int frameTint: 35
     // The frame's (and its pills') own opacity, %, separate from uiOpacity.
     property int frameOpacity: 75
+    // Open panels (islands, side panels) fill at least this opaque, so a
+    // glassy low frame opacity doesn't let windows show through them.
+    property int framePanelOpacity: 92
     property bool frameBorder: false
     property string frameBorderColor: "dynamic"
     property string frameBorderCustom: "#ffffff"
@@ -569,6 +572,7 @@ Singleton {
             "frame.customColor": "frameCustomColor",
             "frame.tint": "frameTint",
             "frame.opacity": "frameOpacity",
+            "frame.panelOpacity": "framePanelOpacity",
             "frame.border": "frameBorder",
             "frame.borderColor": "frameBorderColor",
             "frame.borderCustom": "frameBorderCustom",
@@ -752,6 +756,7 @@ Singleton {
                     customColor: { value: root.frameCustomColor },
                     tint: { value: root.frameTint },
                     opacity: { value: root.frameOpacity },
+                    panelOpacity: { value: root.framePanelOpacity },
                     border: { value: root.frameBorder },
                     borderColor: { value: root.frameBorderColor },
                     borderCustom: { value: root.frameBorderCustom },
@@ -956,7 +961,7 @@ Singleton {
                 // known shapes and finite radii).
                 root.barLayoutFrame = root._adoptWidgetFrames(s.bar?.layout?.frame);
                 const _wbc = s.windowBorder?.color?.value;
-                root.windowBorderColor = ["default", "accent", "wallpaper", "dynamic", "custom"].includes(_wbc) ? _wbc : "default";
+                root.windowBorderColor = ["default", "frame", "accent", "wallpaper", "dynamic", "custom"].includes(_wbc) ? _wbc : "default";
                 const _wbx = s.windowBorder?.custom?.value;
                 root.windowBorderCustom = (typeof _wbx === "string" && /^#[0-9a-fA-F]{6,8}$/.test(_wbx)) ? _wbx : "#fd8b06";
                 root.windowBorderGradient = s.windowBorder?.gradient?.value ?? true;
@@ -1015,6 +1020,7 @@ Singleton {
                 root.frameCustomColor = _hex(s.frame?.customColor?.value, "#7c5cff");
                 root.frameTint = _clampN(s.frame?.tint?.value, 0, 100, 35);
                 root.frameOpacity = _clampN(s.frame?.opacity?.value, 10, 100, 75);
+                root.framePanelOpacity = _clampN(s.frame?.panelOpacity?.value, 10, 100, 92);
                 root.frameBorder = s.frame?.border?.value ?? false;
                 const _bc = s.frame?.borderColor?.value;
                 root.frameBorderColor = ["subtle", "accent", "dynamic", "wallpaper", "custom"].includes(_bc) ? _bc : "dynamic";
@@ -1265,6 +1271,7 @@ Singleton {
         function onFrameCustomColorChanged() { root.schedulePersist(); }
         function onFrameTintChanged() { root.schedulePersist(); }
         function onFrameOpacityChanged() { root.schedulePersist(); }
+        function onFramePanelOpacityChanged() { root.schedulePersist(); }
         function onFrameBorderChanged() { root.schedulePersist(); }
         function onFrameBorderColorChanged() { root.schedulePersist(); }
         function onFrameBorderCustomChanged() { root.schedulePersist(); }

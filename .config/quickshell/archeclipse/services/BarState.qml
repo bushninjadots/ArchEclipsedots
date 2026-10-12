@@ -74,6 +74,52 @@ Singleton {
     // Hold timers
     property var holdTimers: {}
 
+    // States opened on purpose (a click, keybind or IPC: activate() with no
+    // hold while the state was closed) as opposed to pulses (volume keys,
+    // a network change) and hover reveals. With click-to-open
+    // (Settings.barHoverReveal off) these stay open until clicked again,
+    // Esc, a click outside the bar, or another island opening — never on a
+    // pointer-leave timer. Replaced, never mutated, so bindings update.
+    property var sticky: ({})
+    function isSticky(name) {
+        return !!root.sticky[name] && (name in (root.activeStates || {}));
+    }
+    // Side pills and the recording pill live beside the main pill; every
+    // other non-default state shares the main pill, so only one at a time.
+    function _isMain(name) {
+        return name !== "default" && name !== "left" && name !== "right" && name !== "recording";
+    }
+    // A click-opened surface outside BarState (the pill bar's expanded face)
+    // reports itself here so the outside-click grab covers it too.
+    property bool pillOpen: false
+    // True while anything is open that only a click outside should close.
+    readonly property bool clickHoldOpen: {
+        if (root.pillOpen)
+            return true;
+        const active = root.activeStates || {};
+        for (const k of Object.keys(root.sticky)) {
+            if (!(k in active))
+                continue;
+            if ((k === "left" && Settings.leftPanelLock) || (k === "right" && Settings.rightPanelLock))
+                continue;
+            return true;
+        }
+        return false;
+    }
+    signal dismissed
+    // Close every sticky state (a click landed outside the bar). Locked side
+    // panels stay.
+    function dismissSticky() {
+        root.dismissed();
+        for (const k of Object.keys(root.sticky)) {
+            if (k === "left" && Settings.leftPanelLock)
+                continue;
+            if (k === "right" && Settings.rightPanelLock)
+                continue;
+            root.deactivate(k);
+        }
+    }
+
     // Debounce timer
     property var debounceTimer: null
 
@@ -531,6 +577,33 @@ Singleton {
             rival = "volume";
         if (rival !== "")
             root.deactivate(rival);
+        // Sticky bookkeeping (see `sticky`): a fresh hold-less open is
+        // sticky; re-activating an open state (hover pin) keeps its kind; a
+        // pulse into a sticky state must not arm a timer that closes it.
+        const wasOpen = name in (root.activeStates || {});
+        const pulse = holdMs !== undefined && holdMs > 0;
+        if (pulse && wasOpen && root.sticky[name])
+            return;
+        if (name !== "default" && (!wasOpen || pulse)) {
+            const st = Object.assign({}, root.sticky);
+            if (pulse) {
+                delete st[name];
+            } else {
+                st[name] = true;
+                // One main island at a time: opening one on purpose closes
+                // any other that was opened on purpose (otherwise it would
+                // resurface when this one closes).
+                if (root._isMain(name)) {
+                    for (const k of Object.keys(st)) {
+                        if (k !== name && root._isMain(k)) {
+                            delete st[k];
+                            root.deactivate(k);
+                        }
+                    }
+                }
+            }
+            root.sticky = st;
+        }
         const timers = root.holdTimers || {};
         // Cancel existing timer for this state
         if (timers[name]) {
@@ -586,6 +659,11 @@ Singleton {
             timers[name] = null;
         }
         root.holdTimers = timers;
+        if (root.sticky[name]) {
+            const st = Object.assign({}, root.sticky);
+            delete st[name];
+            root.sticky = st;
+        }
 
         var next = Object.assign({}, root.activeStates || {});
         delete next[name];

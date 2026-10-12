@@ -128,6 +128,19 @@ Item {
                     e.v[f] = 0;
                 }
             }
+            // Panel solidity (0 = frame opacity, 1 = panel opacity) eases so
+            // an island firms up as it opens and thins back as it closes.
+            {
+                const ts = e.dying ? 0 : (t.solid || 0);
+                const cs = b.solid || 0;
+                b.solid = instant ? ts : cs + (ts - cs) * Math.min(1, dt * 10);
+                if (Math.abs(ts - b.solid) > 0.01) {
+                    settled = false;
+                    done = false;
+                } else {
+                    b.solid = ts;
+                }
+            }
             if (e.dying && done) {
                 delete st[k];
                 continue;
@@ -163,6 +176,15 @@ Item {
         if (!b || b.on === false || b.w <= 0 || b.h <= 0)
             return 0;
         return b.fuse !== undefined ? b.fuse : ShellFrame.fuse;
+    }
+    function _solidOf(i) {
+        const b = root.bodyItems[i];
+        if (!b || b.on === false || b.w <= 0 || b.h <= 0)
+            return 0;
+        return b.solid || 0;
+    }
+    function _solidSlot(n) {
+        return Qt.vector4d(root._solidOf(n * 4), root._solidOf(n * 4 + 1), root._solidOf(n * 4 + 2), root._solidOf(n * 4 + 3));
     }
     function _fuseSlot(n) {
         return Qt.vector4d(root._fuseOf(n * 4), root._fuseOf(n * 4 + 1), root._fuseOf(n * 4 + 2), root._fuseOf(n * 4 + 3));
@@ -289,7 +311,14 @@ Item {
         property vector4d bodyFuse3: root._fuseSlot(3)
         property vector4d bodyFuse4: root._fuseSlot(4)
         property vector4d bodyFuse5: root._fuseSlot(5)
-        property vector4d fuse: Qt.vector4d(ShellFrame.fuse, Settings.frameMerge, 0, 0)
+        property vector4d bodySolid0: root._solidSlot(0)
+        property vector4d bodySolid1: root._solidSlot(1)
+        property vector4d bodySolid2: root._solidSlot(2)
+        property vector4d bodySolid3: root._solidSlot(3)
+        property vector4d bodySolid4: root._solidSlot(4)
+        property vector4d bodySolid5: root._solidSlot(5)
+        // z: the opacity open panels (islands, side panels) fill at.
+        property vector4d fuse: Qt.vector4d(ShellFrame.fuse, Settings.frameMerge, ShellFrame.panelAlpha, 0)
         property vector4d light: Qt.vector4d(ShellFrame.level, 0.45 + 0.35 * ShellFrame.flash, 2 + 1.5 * ShellFrame.flash, ShellFrame.sparkle)
         property color ink: Theme.accent
         property vector4d quiet: root.quietRect

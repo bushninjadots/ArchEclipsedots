@@ -58,6 +58,7 @@ Singleton {
     readonly property bool wantsWallpaper: (root.enabled
         && (Settings.frameColor === "wallpaper" || (Settings.frameBorder && Settings.frameBorderColor === "wallpaper")))
         || Settings.windowBorderColor === "wallpaper"
+        || (Settings.windowBorderColor === "frame" && Settings.frameBorderColor === "wallpaper")
     property string wallpaperPath: ""
     Process {
         id: wallProc
@@ -127,6 +128,8 @@ Singleton {
         : root.source(Settings.frameBorderColor, Settings.frameBorderCustom)
     readonly property color borderTargetB: Settings.frameBorderColor === "dynamic" ? root.dynamicB
         : Settings.frameBorderColor === "wallpaper" ? root.wallpaperB : root.borderTargetA
+    // Open panels' fill opacity (never below the frame's own).
+    readonly property real panelAlpha: Math.max(Settings.frameOpacity, Settings.framePanelOpacity) / 100
     readonly property real borderWidth: root.enabled && Settings.frameBorder ? Settings.frameBorderWidth : 0
 
     // Eased so a new cover or a settings change fades rather than snaps.

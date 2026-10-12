@@ -99,6 +99,7 @@ Item {
         function barDiag(query: string): string {
             try {
                 if (query === "state") return BarState.state;
+                if (query === "active") return JSON.stringify({ active: Object.keys(BarState.activeStates || {}), sticky: Object.keys(BarState.sticky), hold: BarState.clickHoldOpen });
                 if (query.startsWith("pulse:")) {
                     const rest = query.substring(6).split(":");
                     BarState.activate(rest[0], Number(rest[1]) || 2000);
