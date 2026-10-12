@@ -69,7 +69,10 @@ HoverHandler {
     Component.onCompleted: {
         if (!root.armOnCreation)
             return;
-        leaveTimer.interval = 1000;
+        // Click-to-open (Settings.barHoverReveal off): the pointer sits on
+        // the widget that was clicked, so give the island time to be read
+        // before it folds away.
+        leaveTimer.interval = Settings.barHoverReveal ? 1000 : 4000;
         leaveTimer.restart();
     }
 }

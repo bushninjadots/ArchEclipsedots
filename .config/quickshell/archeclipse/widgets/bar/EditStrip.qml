@@ -254,6 +254,11 @@ Item {
             readonly property string place: cell.wid === root.slackId ? "left"
                 : root.endWidth > 0 && cell.index === 0 ? "right"
                 : root.endWidth > 0 && cell.index === root.ids.length - 1 ? "left" : "center"
+            // The loaded widget's real size. Not the Loader's: a widget that
+            // only sets width (no implicitWidth, e.g. Battery) leaves the
+            // Loader at 0 wide, which used to push it off its pill.
+            readonly property real ww: cell.forceWidth ? cell.targetWidth : (inner.item ? inner.item.width : 0)
+            readonly property real wh: inner.item ? inner.item.height : 0
             function alignX(w, pad) {
                 if (cell.place === "left")
                     return pad;
@@ -306,7 +311,7 @@ Item {
                 // Hover glow, only for widgets without their own pill.
                 x: cell.alignX(width, -6)
                 anchors.verticalCenter: parent.verticalCenter
-                width: Math.max(0, (inner.width || 0) + 12)
+                width: Math.max(0, cell.ww + 12)
                 height: Math.max(cell.height + 4, Theme.barContentHeight + 2)
                 radius: Math.min(Theme.radius, height / 2)
                 visible: cell.natural > 0 && cell.look.deco === "none" && !cell.parentSized
@@ -338,9 +343,9 @@ Item {
                 visible: cell.look.deco !== "none" && !cell.parentSized && cell.natural > 0
                 anchors.verticalCenter: parent.verticalCenter
                 x: cell.alignX(width, 0)
-                width: (inner.width || 0) + root.decoPad * 2
+                width: cell.ww + root.decoPad * 2
                 // A little air above and below the content.
-                height: Math.max((inner.height || 0) + 4, Theme.barContentHeight + 4)
+                height: Math.max(cell.wh + 4, Theme.barContentHeight + 4)
                 radius: cell.look.radius >= 0 ? cell.look.radius : height / 2
                 color: cell.look.deco === "filled"
                     ? (hover.hovered ? Theme.rgba(Theme.accent, 0.22) : Theme.surfaceActive)
@@ -372,7 +377,9 @@ Item {
                 }
                 // Placed by cell.place (see alignX).
                 anchors.verticalCenter: parent.verticalCenter
-                x: cell.alignX(width, root.padOf(cell.wid))
+                x: cell.alignX(cell.ww, root.padOf(cell.wid))
+                // Only the parent-sized strip gets a forced width; anything
+                // else would overwrite the widget's own width binding.
                 width: cell.forceWidth ? cell.targetWidth : undefined
                 sourceComponent: BarWidgets.component(cell.wid, root.style, root.zone)
             }

@@ -15,16 +15,20 @@ Rectangle {
     id: root
 
     property var player: null
+    // flat: a widget pill (Settings -> Bar -> Widgets) already frames it, so
+    // drop the chip's own plate and padding instead of nesting capsules.
+    property bool flat: false
     readonly property bool hasMedia: player !== null
     readonly property real pct: UPower.displayDevice?.percentage ?? 0
     readonly property bool charging: UPower.displayDevice?.state === UPowerDeviceState.Charging
 
-    implicitWidth: row.implicitWidth + 22
-    implicitHeight: Theme.barContentHeight + 8
+    implicitWidth: row.implicitWidth + (root.flat ? 8 : 22)
+    implicitHeight: Theme.barContentHeight + (root.flat ? 0 : 8)
     width: implicitWidth
     height: implicitHeight
     radius: height / 2
-    color: mouse.containsMouse ? Theme.surfaceHover : (root.hasMedia ? Theme.rgba(Theme.accent, 0.16) : "transparent")
+    color: root.flat ? (root.hasMedia ? Theme.rgba(Theme.accent, 0.10) : "transparent")
+        : mouse.containsMouse ? Theme.surfaceHover : (root.hasMedia ? Theme.rgba(Theme.accent, 0.16) : "transparent")
     Behavior on color {
         CAnim {}
     }

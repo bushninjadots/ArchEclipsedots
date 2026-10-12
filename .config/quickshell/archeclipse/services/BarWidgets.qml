@@ -505,6 +505,7 @@ Singleton {
         id: c_chip
         PillChip {
             player: root.firstPlayable
+            flat: BarEditState.frameFor("chip").deco !== "none"
         }
     }
 

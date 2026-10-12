@@ -92,10 +92,7 @@ Item {
             }
         }
     }
-    TapHandler {
-        enabled: !root.editing && !root.open && !Settings.barHoverReveal
-        onTapped: root.open = true
-    }
+
     Timer {
         id: leaveTimer
         interval: 250
@@ -194,6 +191,21 @@ Item {
                 height: eDetail.height
                 EditStrip { id: eDetail; anchors.centerIn: parent; style: "pill"; zone: "detail"; spacing: 14 }
             }
+        }
+    }
+
+    // Click-to-open (Settings.barHoverReveal off): while the pill rests, a
+    // catcher above the face takes the first click and expands it; once open
+    // the widgets get their clicks. (A handler on the pill itself would never
+    // see clicks the widgets' own mouse areas accept.)
+    MouseArea {
+        anchors.fill: parent
+        z: 100
+        visible: !root.editing && !root.open && !Settings.barHoverReveal
+        cursorShape: Qt.PointingHandCursor
+        onClicked: {
+            leaveTimer.stop();
+            root.open = true;
         }
     }
 }
