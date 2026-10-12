@@ -135,8 +135,8 @@ Item {
     readonly property var allTiles: ["wifi", "bluetooth", "focus", "caffeine", "mic", "game", "theme", "keyboard", "nightlight", "record", "picker", "screenshot"]
     readonly property var tileNames: ({ wifi: "Wi-Fi", bluetooth: "Bluetooth", focus: "Focus", caffeine: "Caffeine", mic: "Mic",
         game: "Game mode", theme: "Theme", keyboard: "Keyboard", nightlight: "Night light", record: "Record", picker: "Colour picker", screenshot: "Screenshot" })
-    readonly property var defaultSections: ["status", "toggles", "sliders", "screentime", "power", "actions"]
-    readonly property var sectionNames: ({ status: "Status", toggles: "Toggles", sliders: "Sliders", screentime: "Screen time", power: "Power mode", actions: "Session" })
+    readonly property var defaultSections: ["status", "toggles", "sliders", "screentime", "looks", "power", "actions"]
+    readonly property var sectionNames: ({ status: "Status", toggles: "Toggles", sliders: "Sliders", screentime: "Screen time", looks: "Looks", power: "Power mode", actions: "Session" })
     ListModel { id: tileModel }
     ListModel { id: sectionModel }
     function loadLayout() {
@@ -230,7 +230,7 @@ Item {
                 Loader {
                     width: col.width
                     sourceComponent: sec.sid === "status" ? cStatus : sec.sid === "toggles" ? cToggles
-                        : sec.sid === "sliders" ? cSliders : sec.sid === "power" ? cPower : sec.sid === "screentime" ? cScreenTime : cActions
+                        : sec.sid === "sliders" ? cSliders : sec.sid === "power" ? cPower : sec.sid === "screentime" ? cScreenTime : sec.sid === "looks" ? cLooks : cActions
                 }
             }
         }
@@ -258,6 +258,7 @@ Item {
     Component { id: cPower; PowerModes {} }
     Component { id: cActions; Actions {} }
     Component { id: cScreenTime; ScreenTimeCard {} }
+    Component { id: cLooks; LooksRow {} }
 
     // Pencil: enter / leave edit mode.
     EditChip {
@@ -1178,6 +1179,178 @@ Item {
                         color: Theme.muted
                         font.family: Theme.fontFamily
                         font.pixelSize: Theme.fontSizeSmall
+                    }
+                }
+            }
+        }
+    }
+
+    // ================================================================ looks
+    // Saved looks (impasto's profiles): click one to put the whole desk back
+    // (settings, widgets, wallpaper); right-click twice deletes; + saves the
+    // current one under a name (scripts/looks.sh).
+    readonly property string looksScript: Quickshell.env("HOME") + "/.config/quickshell/archeclipse/scripts/looks.sh"
+    property var looks: []
+    Process {
+        id: looksList
+        running: true
+        command: [root.looksScript, "list"]
+        stdout: StdioCollector {
+            onStreamFinished: {
+                const out = [];
+                for (const l of text.split("\n")) {
+                    try {
+                        if (l.trim() !== "")
+                            out.push(JSON.parse(l));
+                    } catch (e) {
+                    }
+                }
+                root.looks = out.sort((a, b) => b.saved - a.saved);
+            }
+        }
+    }
+    component LooksRow: Flickable {
+        id: lr
+        width: col.width
+        height: 74
+        contentWidth: lookRow.implicitWidth
+        clip: true
+        boundsBehavior: Flickable.StopAtBounds
+        property bool naming: false
+        property string deleting: ""
+        Row {
+            id: lookRow
+            spacing: 8
+            Repeater {
+                model: root.looks
+                delegate: Rectangle {
+                    id: lk
+                    required property var modelData
+                    readonly property bool armed: lr.deleting === modelData.name
+                    width: 104
+                    height: 74
+                    radius: 12
+                    color: Theme.rgba(Theme.foreground, 0.05)
+                    border.width: 1
+                    border.color: lk.armed ? "#e5604d" : (lkm.containsMouse ? Theme.accent : Theme.border)
+                    ClippingRectangle {
+                        x: 4
+                        y: 4
+                        width: parent.width - 8
+                        height: 46
+                        radius: 9
+                        color: Theme.surfaceActive
+                        Image {
+                            anchors.fill: parent
+                            source: lk.modelData.thumb ? "file://" + lk.modelData.thumb : ""
+                            fillMode: Image.PreserveAspectCrop
+                            asynchronous: true
+                            cache: false
+                            sourceSize.width: 200
+                        }
+                    }
+                    Text {
+                        x: 8
+                        y: 54
+                        width: parent.width - 16
+                        text: lk.armed ? "Right-click: delete" : lk.modelData.name
+                        elide: Text.ElideRight
+                        color: lk.armed ? "#e5604d" : Theme.fg
+                        font.family: Theme.fontFamily
+                        font.pixelSize: Theme.fontSizeCaption
+                    }
+                    MouseArea {
+                        id: lkm
+                        anchors.fill: parent
+                        hoverEnabled: true
+                        cursorShape: Qt.PointingHandCursor
+                        acceptedButtons: Qt.LeftButton | Qt.RightButton
+                        onExited: if (lk.armed) lr.deleting = ""
+                        onClicked: m => {
+                            if (m.button === Qt.RightButton) {
+                                if (lk.armed) {
+                                    Quickshell.execDetached([root.looksScript, "delete", lk.modelData.name]);
+                                    root.looks = root.looks.filter(x => x.name !== lk.modelData.name);
+                                    lr.deleting = "";
+                                } else {
+                                    lr.deleting = lk.modelData.name;
+                                }
+                                return;
+                            }
+                            BarState.deactivate("control");
+                            Quickshell.execDetached([root.looksScript, "apply", lk.modelData.name]);
+                        }
+                    }
+                }
+            }
+            // + : name and save the current look.
+            Rectangle {
+                width: lr.naming ? 170 : 74
+                height: 74
+                radius: 12
+                color: addm.containsMouse && !lr.naming ? Theme.rgba(Theme.accent, 0.14) : Theme.rgba(Theme.foreground, 0.04)
+                border.width: 1
+                border.color: lr.naming ? Theme.accent : Theme.border
+                Behavior on width {
+                    NumberAnimation { duration: 180; easing.type: Easing.OutCubic }
+                }
+                Column {
+                    anchors.centerIn: parent
+                    visible: !lr.naming
+                    spacing: 2
+                    Text {
+                        anchors.horizontalCenter: parent.horizontalCenter
+                        text: "\u{F0415}"
+                        color: Theme.accent
+                        font.family: Theme.fontFamily
+                        font.pixelSize: 18
+                    }
+                    Text {
+                        anchors.horizontalCenter: parent.horizontalCenter
+                        text: root.looks.length === 0 ? "Save look" : "Save"
+                        color: Theme.muted
+                        font.family: Theme.fontFamily
+                        font.pixelSize: Theme.fontSizeCaption
+                    }
+                }
+                MouseArea {
+                    id: addm
+                    anchors.fill: parent
+                    visible: !lr.naming
+                    hoverEnabled: true
+                    cursorShape: Qt.PointingHandCursor
+                    onClicked: {
+                        lr.naming = true;
+                        lookName.text = "";
+                        lookName.forceActiveFocus();
+                    }
+                }
+                TextInput {
+                    id: lookName
+                    visible: lr.naming
+                    anchors.left: parent.left
+                    anchors.right: parent.right
+                    anchors.margins: 10
+                    anchors.verticalCenter: parent.verticalCenter
+                    color: Theme.fg
+                    font.family: Theme.fontFamily
+                    font.pixelSize: Theme.fontSizeSmall
+                    maximumLength: 24
+                    Text {
+                        visible: lookName.text === ""
+                        text: "Name · Enter saves"
+                        color: Theme.muted
+                        font: lookName.font
+                    }
+                    Keys.onEscapePressed: lr.naming = false
+                    onAccepted: {
+                        const n = lookName.text.trim().replace(/\//g, "-").replace(/^\.+/, "");
+                        lr.naming = false;
+                        if (n === "")
+                            return;
+                        // Close the island first so the preview shows the desk.
+                        BarState.deactivate("control");
+                        Quickshell.execDetached(["bash", "-c", 'sleep 0.8; "$1" save "$2"', "looks", root.looksScript, n]);
                     }
                 }
             }
