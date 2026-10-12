@@ -48,9 +48,14 @@ Item {
     MouseArea {
         anchors.fill: parent
         cursorShape: Qt.PointingHandCursor
-        acceptedButtons: Qt.MiddleButton
+        acceptedButtons: Qt.LeftButton | Qt.MiddleButton
         onClicked: mouse => {
-            if (mouse.button === Qt.MiddleButton) {
+            if (mouse.button === Qt.LeftButton) {
+                if (BarState.state === "system")
+                    BarState.deactivate("system");
+                else
+                    BarState.activate("system", 0);
+            } else if (mouse.button === Qt.MiddleButton) {
                 // Jump to the monitor workspace.
                 Hyprland.dispatch("workspace 5");
             }

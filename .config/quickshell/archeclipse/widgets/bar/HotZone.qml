@@ -51,7 +51,9 @@ Rectangle {
         hoverEnabled: root.enabledHotZone
         onEntered: {
             // Per-side lock gate (was: either panel's lock blocked both sides)
-            if (root.panelLock || !root.enabledHotZone)
+            // Click-to-open (Settings.barHoverReveal off): touching the
+            // edge does nothing; a click on it opens the panel.
+            if (root.panelLock || !root.enabledHotZone || !Settings.barHoverReveal)
                 return;
             dwellTimer.restart();
         }

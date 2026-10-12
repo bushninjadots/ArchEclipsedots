@@ -1,14 +1,11 @@
 import QtQuick
-import QtQuick.Controls
-import Quickshell
-import Quickshell.Io
 import Quickshell.Services.UPower
 import qs.theme
+import qs.services
 
-// Port of sub-components/Battery.tsx + the embedded power-profiles popover.
-// Icon + % (hidden when no battery); clicking opens a popover listing the
-// available power profiles (from `powerprofilesctl list`) and sets the active
-// one (powerprofilesctl set). Tooltip shows "Battery: % \nProfile: X".
+// Battery for the bar: level glyph (10 steps, bolt while charging) + %,
+// warm/red when low. Click opens the battery island (time left, power draw,
+// health, power modes). Hidden on machines without a battery.
 Rectangle {
     id: root
     width: visible ? content.width + 8 : 0
@@ -16,145 +13,55 @@ Rectangle {
     radius: Theme.radius
     // flat: the bar's shared hover/pill styles it.
     property bool flat: false
-    color: !root.flat && (hover.hovered || batteryPop.visible) ? Theme.surfaceHover : "transparent"
+    color: !root.flat && (hover.hovered || BarState.state === "battery") ? Theme.surfaceHover : "transparent"
 
     readonly property real pct: UPower.displayDevice?.percentage ?? 1
     readonly property bool present: UPower.displayDevice?.isLaptopBattery ?? false
+    readonly property bool charging: UPower.displayDevice?.state === UPowerDeviceState.Charging
+    readonly property color tone: root.charging ? "#81c784" : root.pct < 0.15 ? "#ef5350" : root.pct < 0.3 ? "#ffb74d" : Theme.fg
     visible: present
-
-    // ---- power profiles (port of AstalPowerProfiles: profiles list + active) ----
-    property var profiles: []                 // ["performance", "balanced", ...]
-    property string activeProfile: ""
-    property bool profilesLoaded: false
-
-    function refreshProfiles() {
-        profilesProc.startedOnce = true;
-        activeProc.running = true;
-    }
-
-    function setProfile(profile) {
-        setProc.command = ["powerprofilesctl", "set", profile];
-        setProc.running = true;
-        batteryPop.close();
-    }
-
-    // parse "powerprofilesctl list" output: "* balanced:" (active) / "  performance:"
-    Process {
-        id: profilesProc
-        property bool startedOnce: false
-        command: ["bash", "-c", "powerprofilesctl list 2>/dev/null || true"]
-        running: false
-        stdout: StdioCollector {
-            onStreamFinished: {
-                const raw = profilesProc.stdout.text.split("\n");
-                const profs = [];
-                for (const line of raw) {
-                    const m = line.match(/^\*?\s*(.+):\s*$/);
-                    if (m)
-                        profs.push(m[1].trim());
-                }
-                root.profiles = profs;
-                root.profilesLoaded = true;
-            }
-        }
-        onExited: {
-            if (!profilesProc.startedOnce)
-                profilesProc.running = false;
-        }
-    }
-    Process {
-        id: activeProc
-        command: ["bash", "-c", "powerprofilesctl get 2>/dev/null || true"]
-        running: false
-        stdout: StdioCollector {
-            onStreamFinished: root.activeProfile = activeProc.stdout.text.trim()
-        }
-    }
-    Process {
-        id: setProc
-        command: []
-        stdout: StdioCollector {}
-        onExited: refreshProfiles()
-    }
 
     HoverHandler {
         id: hover
     }
 
-    // ---- popover with profiles ----
-    Popup {
-        id: batteryPop
-        x: 0
-        y: parent.height + 6
-        width: 160
-        padding: 6
-        closePolicy: Popup.CloseOnEscape | Popup.CloseOnPressOutside
-        background: Rectangle {
-            color: Theme.surface
-            radius: 8
-            border.color: Theme.border
-        }
-
-        Column {
-            spacing: 4
-            width: parent.width
-            Repeater {
-                model: root.profiles
-                delegate: Rectangle {
-                    width: parent.width
-                    height: 28
-                    radius: 4
-                    color: ma.containsMouse ? Theme.surfaceActive : "transparent"
-                    Text {
-                        anchors.left: parent.left
-                        anchors.leftMargin: 8
-                        anchors.verticalCenter: parent.verticalCenter
-                        text: modelData + (modelData === root.activeProfile ? "  •" : "")
-                        color: modelData === root.activeProfile ? Theme.accent : Theme.fg
-                        font.family: Theme.fontFamily
-                        font.pixelSize: Theme.fontSize
-                        font.bold: modelData === root.activeProfile
-                    }
-                    MouseArea {
-                        id: ma
-                        anchors.fill: parent
-                        hoverEnabled: true
-                        cursorShape: Qt.PointingHandCursor
-                        onClicked: root.setProfile(modelData)
-                    }
-                }
-            }
-        }
-    }
-
     MouseArea {
-        id: toggle
         anchors.fill: parent
-        hoverEnabled: true
         cursorShape: Qt.PointingHandCursor
         onClicked: {
-            if (!root.profilesLoaded)
-                root.refreshProfiles();
-            batteryPop.open();
+            if (BarState.state === "battery")
+                BarState.deactivate("battery");
+            else
+                BarState.activate("battery", 0);
         }
     }
 
     Row {
         id: content
         anchors.centerIn: parent
-        spacing: Theme.spacing
+        spacing: 5
         Text {
             anchors.verticalCenter: parent.verticalCenter
             text: {
-                const p = root.pct;
-                const charging = UPower.displayDevice?.state === UPowerDeviceState.Charging;
-                if (charging)
-                    return "\uf0e7";
-                return p > 0.9 ? "\uf240" : p > 0.7 ? "\uf241" : p > 0.5 ? "\uf242" : p > 0.25 ? "\uf243" : "\uf244";
+                if (root.charging)
+                    return "\u{F0084}";
+                const steps = ["\u{F008E}", "\u{F007A}", "\u{F007B}", "\u{F007C}", "\u{F007D}", "\u{F007E}", "\u{F007F}", "\u{F0080}", "\u{F0081}", "\u{F0082}", "\u{F0079}"];
+                return steps[Math.max(0, Math.min(10, Math.round(root.pct * 10)))];
             }
-            color: root.pct < 0.15 ? "#a94545" : Theme.fg
+            color: root.tone
             font.family: Theme.fontFamily
-            font.pixelSize: Theme.fontSize + 1
+            font.pixelSize: Theme.fontSize + 2
+            Behavior on color {
+                ColorAnimation { duration: 300 }
+            }
+            // Low battery: a slow pulse.
+            SequentialAnimation on opacity {
+                running: root.pct < 0.15 && !root.charging
+                loops: Animation.Infinite
+                alwaysRunToEnd: true
+                NumberAnimation { to: 0.4; duration: 800 }
+                NumberAnimation { to: 1; duration: 800 }
+            }
         }
         Text {
             anchors.verticalCenter: parent.verticalCenter

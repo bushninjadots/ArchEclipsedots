@@ -12,6 +12,26 @@ QtObject {
     id: root
 
     property var systemResources: null
+    // Rolling history (last 40 samples, one per loop tick) for sparklines:
+    // fractions 0..1 for cpu / ram / first gpu.
+    property var history: ({ cpu: [], ram: [], gpu: [] })
+    readonly property int historySize: 40
+    onSystemResourcesChanged: {
+        const s = root.systemResources;
+        if (!s)
+            return;
+        const clamp = v => Math.max(0, Math.min(1, v));
+        const push = (arr, v) => {
+            const n = arr.concat([v]);
+            return n.length > root.historySize ? n.slice(n.length - root.historySize) : n;
+        };
+        const g = (s.gpus || [])[0];
+        root.history = {
+            cpu: push(root.history.cpu, clamp((s.cpuLoad ?? 0) / 100)),
+            ram: push(root.history.ram, s.ramTotalGB ? clamp(s.ramUsedGB / s.ramTotalGB) : 0),
+            gpu: push(root.history.gpu, g && g.load !== null && g.load !== undefined ? clamp(g.load / 100) : 0)
+        };
+    }
     property var bandwidth: [0, 0, 0, 0]
 
     property string tmpDir: `/tmp/quickshell-${Quickshell.env("USER")}`

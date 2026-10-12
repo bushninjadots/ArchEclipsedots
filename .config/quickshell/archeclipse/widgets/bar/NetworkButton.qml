@@ -3,8 +3,8 @@ import Quickshell.Networking
 import qs.theme
 import qs.services
 
-// Compact network status for the bar: signal glyph (+ SSID when there is
-// room), dimmed and struck when offline. Click opens the network island.
+// Compact network status for the bar: signal-strength bars / ethernet plug
+// (+ SSID on right-click). Click opens the network island.
 BarIconButton {
     id: root
 
@@ -33,15 +33,22 @@ BarIconButton {
     readonly property int signal: root.network ? Math.round((root.network.signalStrength ?? 0) * 100) : 0
     readonly property string name: root.network?.name ?? (root.device?.name ?? "")
 
-    icon: !root.connected ? "\uF127"
-        : !root.isWifi ? "\uF0E8"
-        : "\uF1EB"
-    alert: !root.connected
+    readonly property bool wifiOff: !Networking.wifiEnabled
+    // Wi-Fi bars follow signal strength; wired shows the ethernet plug.
+    icon: !root.connected ? (root.wifiOff ? "\u{F092E}" : "\u{F092F}")
+        : !root.isWifi ? "\u{F0200}"
+        : root.signal > 75 ? "\u{F0928}" : root.signal > 50 ? "\u{F0925}" : root.signal > 25 ? "\u{F0922}" : "\u{F091F}"
+    lit: root.connected && !root.isWifi
+    alert: !root.connected && !root.wifiOff
+    opacity: root.wifiOff && !root.connected ? 0.55 : 1
     label: root.showName && root.connected ? root.name : ""
-    tooltip: !root.connected ? "Offline"
+    tooltip: !root.connected ? (root.wifiOff ? "Wi-Fi off" : "Offline")
         : root.isWifi ? root.name + " · " + root.signal + "%" : "Wired · " + root.name
-    // Weak wifi reads dimmer.
-    opacity: root.connected && root.isWifi ? 0.55 + 0.45 * Math.min(1, root.signal / 60) : 1
-    onClicked: BarState.activate("network", 3000)
+    onClicked: {
+        if (BarState.state === "network")
+            BarState.deactivate("network");
+        else
+            BarState.activate("network", 0);
+    }
     onRightClicked: root.showName = !root.showName
 }

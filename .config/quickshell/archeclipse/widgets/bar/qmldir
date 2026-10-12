@@ -33,3 +33,4 @@ PowerButton 1.0 PowerButton.qml
 NetworkButton 1.0 NetworkButton.qml
 ScreenshotButton 1.0 ScreenshotButton.qml
 ClipboardButton 1.0 ClipboardButton.qml
+BluetoothButton 1.0 BluetoothButton.qml

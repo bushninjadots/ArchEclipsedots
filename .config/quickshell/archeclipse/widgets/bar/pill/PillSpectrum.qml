@@ -17,9 +17,12 @@ Item {
 
     // Live only in the pill bar style, when a visualiser style is chosen, and
     // when a real track is playing.
+    // Not while an island is open: its card would sit on top of the bars.
     readonly property bool wanted: Settings.barStyle === "pill"
         && Settings.visualizerStyle !== "off"
         && root.playing
+        && !BarEditState.active
+        && (BarState.state === "default" || BarState.state === "recording")
 
     // ---- player selection (same ghost filtering as MprisWidget) ----
     // playerctld proxies freeze as "Playing" after their player quits and

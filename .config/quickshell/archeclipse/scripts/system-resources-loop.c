@@ -560,7 +560,7 @@ int main(int argc, char **argv) {
     }
 
     while (1) {
-        sleep(5);
+        sleep(2);
         if (!read_cpu_stat(&new_stat)) continue;
         collect_and_print(&old_stat, &new_stat);
         old_stat = new_stat;

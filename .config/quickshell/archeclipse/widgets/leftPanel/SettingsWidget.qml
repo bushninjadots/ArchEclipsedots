@@ -404,7 +404,7 @@ Item {
                             Text {
                                 width: parent.width
                                 wrapMode: Text.WordWrap
-                                text: "Off: weather, network, system, volume, brightness and the clock date open on click."
+                                text: "Off: bar islands, sliders, the clock date and the screen-edge panels open on click."
                                 color: Theme.muted
                                 font.pixelSize: Theme.fontSize - 2
                             }

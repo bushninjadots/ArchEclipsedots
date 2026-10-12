@@ -74,7 +74,12 @@ Rectangle {
         anchors.fill: parent
         hoverEnabled: true
         cursorShape: Qt.PointingHandCursor
-        onClicked: BarState.activate("weather", 3000)
+        onClicked: {
+            if (BarState.state === "weather")
+                BarState.deactivate("weather");
+            else
+                BarState.activate("weather", 0);
+        }
     }
 
     // Hover dwell (Settings.revealInPressure, 0 = instant) so brushing the

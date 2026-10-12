@@ -14,9 +14,24 @@ Row {
 
     readonly property int maxVisible: 3
 
+    // Applets the bar has its own widget for are hidden while that widget
+    // is placed (nm-applet <- network, blueman <- bluetooth), so the same
+    // status never shows twice.
+    readonly property bool _netPlaced: BarEditState.zoneOf("network", Settings.barStyle) !== ""
+    readonly property bool _btPlaced: BarEditState.zoneOf("bluetooth", Settings.barStyle) !== ""
+    readonly property var items: SystemTray.items.values.filter(it => {
+        const key = ((it.id || "") + " " + (it.title || "")).toLowerCase();
+        if (root._netPlaced && /nm-applet|nm_applet|networkmanager|network manager/.test(key))
+            return false;
+        if (root._btPlaced && /blueman|bluetooth/.test(key))
+            return false;
+        return true;
+    })
+    visible: root.items.length > 0
+
     // Visible items
     Repeater {
-        model: SystemTray.items.values.slice(0, root.maxVisible)
+        model: root.items.slice(0, root.maxVisible)
 
         Item {
             id: entry
@@ -59,7 +74,7 @@ Row {
     // Overflow button — shows when items > maxVisible
     Item {
         id: overflow
-        visible: SystemTray.items.values.length > root.maxVisible
+        visible: root.items.length > root.maxVisible
         width: 20
         height: Theme.barContentHeight
 
@@ -98,7 +113,7 @@ Row {
             Column {
                 spacing: 4
                 Repeater {
-                    model: SystemTray.items.values.slice(root.maxVisible)
+                    model: root.items.slice(root.maxVisible)
                     delegate: Item {
                         id: hiddenEntry
                         required property var modelData

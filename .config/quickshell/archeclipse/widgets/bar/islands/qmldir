@@ -15,3 +15,10 @@ IslandEscClose 1.0 IslandEscClose.qml
 IslandWindowActions 1.0 IslandWindowActions.qml
 IslandSideRail 1.0 IslandSideRail.qml
 MprisIsland 1.0 MprisIsland.qml
+IslandPanel 1.0 IslandPanel.qml
+IslandHeader 1.0 IslandHeader.qml
+IslandSwitch 1.0 IslandSwitch.qml
+IslandRow 1.0 IslandRow.qml
+NetworkIsland 1.0 NetworkIsland.qml
+BluetoothIsland 1.0 BluetoothIsland.qml
+BatteryIsland 1.0 BatteryIsland.qml

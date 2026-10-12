@@ -135,7 +135,8 @@ PanelWindow {
     // grows out of that spot (clamped on screen) instead of the bar centre.
     readonly property var islandOwner: ({
         weather: "weather", network: "network", control: "control", volume: "volume",
-        brightness: "brightness", player: "media", system: "resources"
+        brightness: "brightness", player: "media", system: "resources",
+        battery: "battery", bluetooth: "bluetooth"
     })
     property var _widgetCentres: ({})
     function _cacheWidgetCentres() {
@@ -828,6 +829,10 @@ PanelWindow {
                             return weatherPage;
                         case "network":
                             return networkPage;
+                        case "bluetooth":
+                            return bluetoothPage;
+                        case "battery":
+                            return batteryPage;
                         case "search":
                             return searchPage;
                         case "system":
@@ -863,7 +868,15 @@ PanelWindow {
                 }
                 Component {
                     id: networkPage
-                    NetworkWidget {}
+                    NetworkIsland {}
+                }
+                Component {
+                    id: bluetoothPage
+                    BluetoothIsland {}
+                }
+                Component {
+                    id: batteryPage
+                    BatteryIsland {}
                 }
                 Component {
                     id: searchPage

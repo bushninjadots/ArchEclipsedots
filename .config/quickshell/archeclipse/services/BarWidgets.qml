@@ -105,7 +105,13 @@ Singleton {
         {
             id: "network",
             label: "Network",
-            icon: "\uF1EB",
+            icon: "\u{F0928}",
+            zones: { islands: ["right"], pill: ["detail"] }
+        },
+        {
+            id: "bluetooth",
+            label: "Bluetooth",
+            icon: "\u{F00AF}",
             zones: { islands: ["right"], pill: ["detail"] }
         },
         {
@@ -304,7 +310,7 @@ Singleton {
 
     // Widgets that draw their own hover/press feedback (BarIconButton based
     // and the control button): the strip skips its shared hover glow.
-    readonly property var _selfHover: ["network", "window", "notifications", "mic", "caffeine", "recorder", "power", "screenshot", "clipboard"]
+    readonly property var _selfHover: ["network", "bluetooth", "window", "notifications", "mic", "caffeine", "recorder", "power", "screenshot", "clipboard"]
     function selfHover(id) {
         return root._selfHover.indexOf(id) !== -1;
     }
@@ -402,6 +408,8 @@ Singleton {
 
     // Extras look the same in both styles.
     function _extraComponent(id) {
+        if (id === "bluetooth")
+            return c_bluetooth;
         if (id === "window")
             return c_window;
         if (id === "notifications")
@@ -583,5 +591,9 @@ Singleton {
     Component {
         id: c_clipboard
         ClipboardButton {}
+    }
+    Component {
+        id: c_bluetooth
+        BluetoothButton {}
     }
 }
