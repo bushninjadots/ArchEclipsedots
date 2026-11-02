@@ -1,242 +1,59 @@
-<div align="center">
+# dotfiles
 
-<img src=".github/assets/overview.png" alt="ArchEclipse Overview" width="100%"/>
+My Arch (EndeavourOS) + Hyprland 0.57 desktop configuration. The shell on top of it — bar, panels,
+notch, Control Nexus, screen frame, BMO — is **mooi**, built on [pleamar](https://github.com/k4ditano/pleamar).
+It lives in its own (private) repository, together with an installer that restores this whole setup.
 
-<br/>
+This started as a fork of [AymanLyesri/ArchEclipse](https://github.com/AymanLyesri/ArchEclipse). ArchEclipse's
+shell, installer, documentation and screenshots have since been removed; what remains is my own
+configuration.
 
-# ArchEclipse
+## What is here
 
-**Hyprland desktop that just works — daily-driven, fully themed, one-command install.**
-
-Personal fork of [AymanLyesri/ArchEclipse](https://github.com/AymanLyesri/ArchEclipse).
-
-[![Discord](https://img.shields.io/badge/Discord-Join%20Server-5865F2?logo=discord&logoColor=white)](https://discord.gg/fMGt4vH6s5)
-[![Arch Linux](https://img.shields.io/badge/Arch_Linux-1793D1?style=flat-square&logo=arch-linux&logoColor=white)](https://archlinux.org/)
-[![Hyprland](https://img.shields.io/badge/Hyprland-blue?style=flat-square)](https://hyprland.org/)
-[![Quickshell](https://img.shields.io/badge/Quickshell-4A86CF?style=flat-square)](https://quickshell.org/)
-[![QtQuick](https://img.shields.io/badge/QtQuick_QML-41CD52?style=flat-square&logo=qt&logoColor=white)](https://doc.qt.io/qt-6/qtquick-index.html)
-[![Python](https://img.shields.io/badge/Python-3776AB?style=flat-square&logo=python&logoColor=white)](https://python.org/)
-[![Stars](https://img.shields.io/github/stars/bushninjadots/ArchEclipsedots?style=social)](https://github.com/bushninjadots/ArchEclipsedots/stargazers)
-[![Issues](https://img.shields.io/github/issues/bushninjadots/ArchEclipsedots?style=flat-square)](https://github.com/bushninjadots/ArchEclipsedots/issues)
-
-</div>
-
----
-
-## TL;DR
-
-- **What:** Arch + Hyprland + custom Quickshell UI. Bar, launcher, panels, theming — all integrated.
-- **Install:** 1 command (below). Update with `archeclipse`.
-- **Try first:** `SUPER + W` = wallpapers. Full keys: [bind.lua](https://github.com/bushninjadots/ArchEclipsedots/blob/master/.config/hypr/config/bind.lua).
-
----
-
-## Install
-
-**Need:** Arch / Arch-based + Hyprland + Python 3. Rest is auto-installed.
-
-```bash
-python3 <(curl -fsSL https://raw.githubusercontent.com/bushninjadots/ArchEclipsedots/refs/heads/master/.config/hypr/maintenance/install.py)
-```
-
-```bash
-archeclipse   # update anytime (zsh fn → runs maintenance/update.py)
-```
-
----
-
-## What you get
-
-| Need | How |
-| ---- | --- |
-| **Bar** | Modular widgets: workspaces, bandwidth, weather, player, tray, crypto |
-| **Launcher** | App search + clipboard + emoji + calc + URLs + custom cmds. No Rofi. |
-| **Right panel** | Player, notifications, calendar, crypto |
-| **Left panel** | Claude chatbot, keybinds, settings |
-| **Theming** | Wallpaper → full system colors via matugen. Light/dark toggle. Hot-reload. No manual edits. |
-
-**Stack:** QML/QtQuick (Quickshell) · Python 3 + Bash · C (perf utils) · Hyprland/Wayland
-
-| Workspace | Opens |
-| --------- | ----- |
-| W2 / W4 / W5 / W6 / W7 / W10 | Browser / Spotify / Btop / Discord / Steam / Games |
-| W1, W3, W8, W9 | General |
-
-> Apps auto-launch to their workspace at login.
-
----
-
-## Essentials
-
-- **Avatar:** `$HOME/.face.icon`
-- **Wallpapers:** `SUPER + W` → your chosen picker style: the [qs-wallpaperpicker](https://github.com/dhrruvsharma/qs-wallpaperpicker) card deck, or Slices / Wall / Hex / Mosaic / Hand / Sandy / Grid (Settings → Wallpaper Picker). Add yours to `$HOME/Pictures/wallpapers`
-- **Hyprland tweaks:** `$HOME/.config/hypr/config/custom`
-- **Laptop:** install `upower` for battery
-- **Keys:** [bind.lua](https://github.com/bushninjadots/ArchEclipsedots/blob/master/.config/hypr/config/bind.lua) or Left Panel in-app
-
----
-
-<details>
-<summary><b>How it works — architecture, theming, widgets (click to expand)</b></summary>
-
-<br/>
-
-**One idea:** UI + scripts + theming ship as one product. Not random dotfiles.
-
-### Architecture
-
-```mermaid
-graph TB
-    subgraph Install["Setup & maintenance"]
-        Installer["install.py / update.py<br/>Python installer"]
-        Pacman["components/packages.py<br/>embedded package list"]
-        Archeclipse["archeclipse() zsh fn<br/>update wrapper"]
-    end
-
-    subgraph Hypr["Hyprland — window manager (Lua)"]
-        HyprMain["hyprland.lua<br/>entry point"]
-        HyprConfig["config/*.lua<br/>bind, animations, monitor,<br/>windowrule, gesture, input"]
-        HyprScripts["scripts / scripts-c<br/>screenshot, screenrecord,<br/>brightness, clipboard"]
-        WallpaperDaemon["qs-wallpaperpicker<br/>wallpaper + picker,<br/>matugen colours"]
-        Evremap["evremap<br/>key remapping service"]
-    end
-
-    subgraph QS["Quickshell shell (QtQuick + QML)"]
-        Shell["shell.qml<br/>ShellRoot bootstrap"]
-
-        subgraph BarSys["Bar system"]
-            Bar["Bar.qml<br/>state machine:<br/>default/search/control/<br/>volume/brightness/recording"]
-            BarIslands["islands/<br/>SearchIsland, ControlIsland,<br/>PlayerIsland,<br/>WeatherIsland, RightIsland"]
-            BarSub["bar widgets<br/>Battery, Volume, Bandwidth,<br/>Brightness, Player, Recording"]
-        end
-
-        AppLauncher["LauncherPanel.qml<br/>quickshell launcher +<br/>clipboard + emoji + notes"]
-
-        subgraph Panels["Side panels"]
-            LeftPanel["leftPanel/<br/>About, Settings,<br/>ChatBot, KeyBinds"]
-            RightPanel["rightPanel/<br/>Calendar, Notifications,<br/>SystemResources, Crypto"]
-        end
-
-        subgraph Core["Core layers"]
-            Widgets["widgets/shared/<br/>reusable QML components"]
-            Services["services/<br/>BarState, Brightness,<br/>ScreenRecorder, Ipc,<br/>Weather"]
-            Utils["utils<br/>SettingsUtils, MonitorUtils,<br/>TimeUtils, WindowManager"]
-            Theme["theme/<br/>Theme.qml + GlobalTheme<br/>typed config & styling"]
-        end
-
-        subgraph NativeScripts["Native/companion scripts"]
-            CLoops["*.c loops<br/>system-resources, bandwidth,<br/>keystroke visualizer"]
-            PyScripts["*.py<br/>chatbot, crypto,<br/>auth-callback"]
-            ShScripts["*.sh<br/>translate, get-keybinds,<br/>image-color"]
-        end
-    end
-
-    subgraph Backend["External services"]
-        APIs[("Crypto / weather APIs,<br/>Claude via Claude Code")]
-    end
-
-    Installer --> Pacman
-    Installer --> HyprMain
-    Archeclipse --> Installer
-
-    HyprMain --> HyprConfig
-    HyprConfig --> HyprScripts
-    HyprConfig --> WallpaperDaemon
-    HyprConfig --> Evremap
-    HyprMain -- "spawns/execs" --> Shell
-
-    Shell --> BarSys
-    Shell --> AppLauncher
-    Shell --> Panels
-    Shell --> Core
-
-    Bar --> BarIslands
-    Bar --> BarSub
-    BarIslands -.->|opens| AppLauncher
-
-    Widgets --> Core
-    LeftPanel --> Widgets
-    RightPanel --> Widgets
-    BarSys --> Widgets
-
-    Core --> NativeScripts
-    Utils --> Services
-    NativeScripts -->|"HTTP calls"| APIs
-
-    Theme -.->|styles| Shell
-
-    classDef install fill:#EEEDFE,stroke:#534AB7,color:#26215C
-    classDef hypr fill:#E1F5EE,stroke:#0F6E56,color:#04342C
-    classDef qs fill:#FAECE7,stroke:#993C1D,color:#4A1B0C
-    classDef core fill:#E6F1FB,stroke:#185FA5,color:#042C53
-    classDef ext fill:#FAEEDA,stroke:#854F0B,color:#412402
-
-    class Installer,Pacman,Archeclipse install
-    class HyprMain,HyprConfig,HyprScripts,WallpaperDaemon,Evremap hypr
-    class Shell,Bar,BarIslands,BarSub,AppLauncher,LeftPanel,RightPanel qs
-    class Widgets,Services,Utils,Theme,CLoops,PyScripts,ShScripts core
-    class APIs ext
-```
-
-### Theming
-
-- Wallpaper → colors via [matugen](https://github.com/InioX/matugen) (Material You): shell, kitty and the picker follow the wallpaper.
-- Auto-applies to Quickshell, terminal, UI. Zero manual edits.
-- Static, animated and video wallpapers drawn by [qs-wallpaperpicker](https://github.com/dhrruvsharma/qs-wallpaperpicker), with local, favourites and Wallhaven sources. Light/dark toggle. Hot-reload.
-
-### Widgets (Quickshell / QML)
-
-- Reactive QML via `shell.qml` + singletons (`BarState`, `GlobalTheme`, `Weather`).
-- Bar slots swappable at runtime.
-- Note: migrated from Eww/AGS on 2026-09-12. Old `~/ArchEclipse-AGS` / `~/agsv1` folders are safe to delete.
-
-### Launcher details
-
-Fuzzy search · clipboard history · emoji · calc · URL forward · custom cmds.
-
-### Panels detail
-
-- **Right:** media, notifications, calendar, script runner, crypto.
-- **Left:** Claude chatbot (Opus/Sonnet/Haiku through your Claude Code login), live keybinds, Hyprland/Quickshell settings.
-- **Desktop widgets** from [Ryoku](https://github.com/Ryoku-dev/ryoku): clock faces, calendar, music, notes, system stats, weather and an all-in-one card on the wallpaper, with an editor (Settings → Desktop Widgets).
-
-### Deployer
-
-Python installer = deps + dotfiles + packages. One command in, `archeclipse` keeps you updated.
-
-</details>
-
----
-
-## Roadmap
-
-- [ ] Per-component docs _(in progress)_
-- [ ] Gaming perf tuning _(in progress)_
-- [ ] Ongoing polish
-
-Bugs / ideas → [open an issue](https://github.com/bushninjadots/ArchEclipsedots/issues).
-
----
-
-## Visuals
-
-### Launcher
-
-![Application Launcher](.github/assets/app-launcher.png)
-
-### Right Panel
-
-| Player · Calendar · Notifications | Calendar · Player · Resources |
+| Path | What it is |
 | --- | --- |
-| ![Right Panel Layout 1](.github/assets/right-panel-layout-1.png) | ![Right Panel Layout 2](.github/assets/right-panel-layout-2.png) |
+| `.config/hypr/` | Hyprland, in Lua: `hyprland.lua` loads `config/*.lua`, then `config/custom/*.lua`. `config/custom/mooi.lua` starts mooi at login and binds its keys; `scripts/` and `theme/scripts/` are the helpers the config calls (screenshots, volume, brightness, idle, lock, displays, theming). |
+| `.config/qs-wallpaperpicker/` | Skwd Wall, the wallpaper picker (Quickshell). It sets the wallpaper and runs matugen. |
+| `.config/wallpaper-styles/` | The picker's layouts (Slices, Hex, Hand, …) and its dispatcher. |
+| `.config/desktop-widgets/` | Desktop widgets (Quickshell, vendored from Ryoku): clock, weather, lyrics, notes. |
+| `.config/matugen/` | Colours from the wallpaper, written into kitty, GTK, Qt and the shell. |
+| `.config/kitty/`, `.zshrc`, `.config/starship.toml` | Terminal and shell. |
+| `.config/btop/`, `.config/cava/`, `.config/fastfetch/`, `.config/pipewire/` | Smaller tools. |
+| `.icons/` | The phinger cursors. |
 
-### Left Panel
+The repository's root is the home folder: `.gitignore` ignores everything there and lets only these
+paths back in.
 
-| Chatbot | Settings | Keybinds |
-| ------- | -------- | -------- |
-| ![Chatbot](.github/assets/left-panel-chatbot.png) | ![Settings](.github/assets/left-panel-settings.png) | ![Keybinds](.github/assets/left-panel-keybinds.png) |
+## Keys
 
-### Workspaces · Lock
+mooi's keys are chosen in its Settings (→ Keys) and bound by `config/custom/mooi.lua`. By default,
+`SUPER + ALT` and:
 
-![Workspace Overview](.github/assets/workspace-overview.png)
-![Lock Screen](.github/assets/lock-screen.png)
+| Key | Opens |
+| --- | --- |
+| `Space` | search |
+| `S` · `C` | settings · system |
+| `O` · `W` | overview · this window |
+| `P` · `M` | wallpaper · music player |
+| `D` · `E` · `T` | screenshot · edit the bar · light/dark |
+| `SHIFT + Space` | stop mooi |
+
+`SUPER + SHIFT + B` (re)starts the shell. Hyprland's own bindings are in
+[`config/bind.lua`](.config/hypr/config/bind.lua).
+
+## On another machine
+
+The whole desktop (packages, pleamar, this configuration, mooi and its settings) is restored by mooi's
+`setup/install.sh`, which keeps its own captured copy of these files. To take only this configuration,
+copy what you want from a clone:
+
+```sh
+git clone https://github.com/bushninjadots/ArchEclipsedots.git ~/dotfiles-src
+cp -r ~/dotfiles-src/.config/hypr ~/.config/      # and so on, for each folder above
+```
+
+The monitor is set for a 1920×1080 laptop panel (`eDP-1`) in `config/monitor.lua`.
+
+## Licence
+
+GPL-3.0, as the ArchEclipse code this began from (see `LICENSE`).
